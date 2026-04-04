@@ -6,11 +6,17 @@ import {
   StyleSheet,
   StatusBar,
   Animated,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const PaymentSuccessScreen = ({ navigation, route }) => {
-  const { transactionId, amount, grams, certificateUrl } = route.params;
+  const { transactionId, amount, grams, orderId, certificateUrl } = route.params || {};
+  
+  console.log('[PaymentSuccess] Route params:', route.params);
+  console.log('[PaymentSuccess] transactionId:', transactionId);
+  console.log('[PaymentSuccess] amount:', amount);
+  console.log('[PaymentSuccess] grams:', grams);
   
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -41,6 +47,8 @@ const PaymentSuccessScreen = ({ navigation, route }) => {
     hour: '2-digit',
     minute: '2-digit',
   });
+  
+  const liveGoldRate = amount && grams ? Math.round((amount / grams) * 100) / 100 : 0;
 
   return (
     <View style={styles.container}>
@@ -75,21 +83,36 @@ const PaymentSuccessScreen = ({ navigation, route }) => {
             <Text style={styles.summaryLabel}>Transaction ID</Text>
             <Text style={styles.summaryValue}>{transactionId || '—'}</Text>
           </View>
+          
+          <View style={styles.divider} />
+          
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Purchase Date & Time</Text>
+            <Text style={styles.summaryLabel}>Date & Time</Text>
             <View style={styles.summaryValueContainer}>
               <Text style={styles.summaryValue}>{formattedDate}</Text>
               <Text style={styles.summaryTime}>{formattedTime}</Text>
             </View>
           </View>
+
+             <View style={styles.divider} />
           
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Gold Weight Purchased</Text>
-            <Text style={styles.goldWeight}>{Number(grams).toFixed(4)} grams</Text>
+            <Text style={styles.goldWeight}>{grams ? Number(grams).toFixed(4) : '0'} grams</Text>
           </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Live Gold Rate</Text>
+            <Text style={styles.goldRate}>₹{liveGoldRate.toLocaleString('en-IN', { maximumFractionDigits: 2 })}/gram</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Amount Paid</Text>
-            <Text style={styles.amountPaid}>₹{Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</Text>
+            <Text style={styles.amountPaid}>₹{amount ? Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '0'}</Text>
           </View>
         </Animated.View>
 
@@ -106,9 +129,12 @@ const PaymentSuccessScreen = ({ navigation, route }) => {
       <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim }]}>
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={() => navigation.navigate('Dashboard')}
+          onPress={() => {
+            Alert.alert('Download Receipt', 'Receipt download feature coming soon');
+          }}
         >
-          <Text style={styles.secondaryButtonText}>View Portfolio</Text>
+          <Ionicons name="download-outline" size={18} color="#D4AF37" />
+          <Text style={styles.secondaryButtonText}>Download Receipt</Text>
         </TouchableOpacity>
         
         <TouchableOpacity
@@ -210,6 +236,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333',
   },
+  goldRate: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#D4AF37',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
+    marginVertical: 12,
+  },
   securityCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -234,27 +270,30 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#D4AF37',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
   secondaryButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#D4AF37',
   },
   primaryButton: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 12,
     backgroundColor: '#464B8B',
     alignItems: 'center',
   },
   primaryButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },

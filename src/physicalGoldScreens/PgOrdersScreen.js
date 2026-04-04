@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useSelector } from 'react-redux';
 import { selectAccessToken, selectUserId } from '../store/authSlice';
-import { getUserOrders, previewInvoice, downloadInvoice } from './physicalGoldApi';
+import { getUserOrders, getInvoicePreviewUrl, getInvoicePdfUrl } from './physicalGoldApi';
 import PgLayout from '../../components/physical/PgLayout';
 
 const C = {
@@ -48,12 +48,16 @@ const OrderCard = ({ order, onShowInvoiceMenu }) => {
   const orderDate = new Date(order.paymentExpiry || order.createdAt || order.orderDate).toLocaleDateString('en-IN');
   const itemCount = order.items?.length || order.totalItems || 1;
   const canShowInvoice = order.orderStatus === 'CONFIRMED' || order.orderStatus === 'DELIVERED';
+  
+  // Get last 6 digits of order number/ID
+  const orderNumber = order.orderNumber || order.orderId || '';
+  const displayOrderId = orderNumber.toString().slice(-6);
 
   return (
     <View style={styles.orderCard}>
       <View style={styles.orderHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.orderId}>Order #{order.orderNumber || order.orderId}</Text>
+          <Text style={styles.orderId}>Order #{displayOrderId}</Text>
           <Text style={styles.orderDate}>{orderDate}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
@@ -83,7 +87,7 @@ const OrderCard = ({ order, onShowInvoiceMenu }) => {
           style={styles.invoiceMenuBtn}
           onPress={() => onShowInvoiceMenu(order)}
         >
-          <Ionicons name="document-outline" size={14} color={C.gold} />
+          <Ionicons name="document-text-outline" size={16} color={C.gold} />
           <Text style={styles.invoiceMenuBtnText}>Invoice</Text>
           <Ionicons name="chevron-down" size={14} color={C.gold} />
         </TouchableOpacity>
@@ -152,18 +156,21 @@ const PgOrdersScreen = ({ navigation, route }) => {
       return;
     }
 
-    if (!reduxAccessToken) {
-      Alert.alert('Error', 'Access token not available');
-      return;
-    }
-
     try {
-      const url = previewInvoice(selectedOrder.orderNumber, reduxAccessToken);
-      console.log('[Preview Invoice] Opening URL:', url);
-      await Linking.openURL(url);
+      const url = getInvoicePreviewUrl(selectedOrder.orderNumber);
+      console.log('[Preview Invoice] URL:', url);
+      console.log('[Preview Invoice] orderNumber:', selectedOrder.orderNumber);
+      
+      // Open directly in browser (PDFs render better in browser than WebView)
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open URL');
+      }
       setInvoiceModal(false);
     } catch (error) {
-      console.error('[Preview Invoice Error]', error.message);
+      console.error('[Preview Invoice Error]', error);
       Alert.alert('Error', 'Failed to open invoice: ' + error.message);
     }
   };
@@ -174,18 +181,22 @@ const PgOrdersScreen = ({ navigation, route }) => {
       return;
     }
 
-    if (!reduxAccessToken) {
-      Alert.alert('Error', 'Access token not available');
-      return;
-    }
-
     try {
-      const url = downloadInvoice(selectedOrder.orderNumber, reduxAccessToken);
-      console.log('[Download Invoice] Opening URL:', url);
-      await Linking.openURL(url);
+      const url = getInvoicePdfUrl(selectedOrder.orderNumber);
+      console.log('[Download Invoice] URL:', url);
+      console.log('[Download Invoice] orderNumber:', selectedOrder.orderNumber);
+      
+      // For download, open in external browser
+      // The backend should handle authentication via cookies or allow public access for invoices
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open URL');
+      }
       setInvoiceModal(false);
     } catch (error) {
-      console.error('[Download Invoice Error]', error.message);
+      console.error('[Download Invoice Error]', error);
       Alert.alert('Error', 'Failed to download invoice: ' + error.message);
     }
   };
@@ -303,78 +314,253 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
 
-  filterScroll: { backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
-  filterContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
-  filterTab: {
+  /* FILTER */
+  filterScroll: {
+    backgroundColor: C.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+
+  filterContent: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 10,
+    gap: 8,
+  },
+
+  filterTab: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 16,
-    backgroundColor: '#F0EEE9',
+    backgroundColor: '#F3F1EC',
     borderWidth: 1,
     borderColor: C.border,
   },
-  filterTabActive: { backgroundColor: C.gold, borderColor: C.gold },
-  filterTabText: { fontSize: 11, fontWeight: '600', color: C.textSec },
-  filterTabTextActive: { color: '#fff' },
 
-  listContent: { padding: 12, paddingBottom: 20 },
+  filterTabActive: {
+    backgroundColor: C.gold,
+    borderColor: C.gold,
+  },
 
+  filterTabText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: C.textSec,
+  },
+
+  filterTabTextActive: {
+    color: '#fff',
+  },
+
+  /* LIST */
+  listContent: {
+    padding: 14,
+    paddingBottom: 24,
+  },
+
+  /* ORDER CARD */
   orderCard: {
     backgroundColor: C.surface,
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    padding: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: C.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
 
-  orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8 },
-  orderId: { fontSize: 13, fontWeight: '800', color: C.textPri, marginBottom: 2 },
-  orderDate: { fontSize: 10, color: C.textTer },
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
 
+  orderId: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: C.textPri,
+  },
+
+  orderDate: {
+    fontSize: 11,
+    color: C.textTer,
+    marginTop: 2,
+  },
+
+  /* STATUS BADGE */
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    minWidth: 80,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    minWidth: 90,
     justifyContent: 'center',
   },
-  statusText: { fontSize: 10, fontWeight: '700' },
 
-  orderBody: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#F0EEE9', gap: 8 },
-  itemInfo: { flex: 1 },
-  itemCount: { fontSize: 11, fontWeight: '700', color: C.textPri, marginBottom: 2 },
-  itemDesc: { fontSize: 10, color: C.textTer },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
 
-  amountInfo: { alignItems: 'flex-end' },
-  amountLabel: { fontSize: 9, color: C.textTer, marginBottom: 2 },
-  amount: { fontSize: 13, fontWeight: '800', color: C.gold },
+  /* BODY */
+  orderBody: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F1EC',
+  },
 
-  invoiceMenuBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 8, backgroundColor: C.goldDim, borderWidth: 1, borderColor: C.goldDimBorder },
-  invoiceMenuBtnText: { fontSize: 12, fontWeight: '700', color: C.gold },
+  itemInfo: {
+    flex: 1,
+  },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 16, paddingVertical: 20, paddingBottom: 30 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: C.textPri },
-  modalBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: C.goldDim, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: C.goldDimBorder },
-  modalBtnText: { fontSize: 15, fontWeight: '700', color: C.gold, flex: 1 },
-  modalBtnCancel: { backgroundColor: '#F0EEE9', borderColor: C.border },
-  modalBtnCancelText: { fontSize: 15, fontWeight: '700', color: C.textPri, flex: 1, textAlign: 'center' },
+  itemCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: C.textPri,
+  },
 
-  emptyContainer: { alignItems: 'center', paddingVertical: 40 },
-  emptyText: { fontSize: 16, color: C.textSec, marginTop: 12, marginBottom: 24 },
-  emptyFilterText: { fontSize: 14, color: C.textTer },
-  shopBtn: { backgroundColor: C.gold, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
-  shopBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  itemDesc: {
+    fontSize: 11,
+    color: C.textTer,
+    marginTop: 2,
+  },
+
+  amountInfo: {
+    alignItems: 'flex-end',
+  },
+
+  amountLabel: {
+    fontSize: 9,
+    color: C.textTer,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+  },
+
+  amount: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: C.gold,
+    marginTop: 2,
+  },
+
+  /* INVOICE BUTTON */
+  invoiceMenuBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: C.goldDim,
+    borderWidth: 1,
+    borderColor: C.goldDimBorder,
+    alignSelf: 'center',
+  },
+
+  invoiceMenuBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: C.gold,
+  },
+
+  /* MODAL */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+
+  modalContent: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 28,
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: C.textPri,
+  },
+
+  modalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: C.goldDim,
+    borderRadius: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: C.goldDimBorder,
+  },
+
+  modalBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.gold,
+  },
+
+  modalBtnCancel: {
+    backgroundColor: '#F3F1EC',
+    borderColor: C.border,
+  },
+
+  modalBtnCancelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.textPri,
+    textAlign: 'center',
+    flex: 1,
+  },
+
+  /* EMPTY */
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+
+  emptyText: {
+    fontSize: 14,
+    color: C.textSec,
+    marginTop: 12,
+    marginBottom: 20,
+  },
+
+  emptyFilterText: {
+    fontSize: 13,
+    color: C.textTer,
+  },
+
+  shopBtn: {
+    backgroundColor: C.gold,
+    borderRadius: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+  },
+
+  shopBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+  },
 });
 
 export default PgOrdersScreen;

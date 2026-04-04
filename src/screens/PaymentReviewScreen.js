@@ -33,18 +33,31 @@ const PaymentReviewScreen = ({ navigation, route }) => {
   }
   const userId = useSelector(selectUserId);
 
-  const totalPayable = Number(preview.finalAmount || preview.amount || 0);
+  const goldValue    = Number(preview.amount || 0);
   const grams        = Number(preview.grams || 0);
   const pergramPrice = Number(preview.pergramBuyingPrice || goldRate || 0);
-  const gst          = Number(preview.fees?.gst || Math.round(totalPayable * 0.03 * 100) / 100);
-  const goldValue    = Math.round((totalPayable - gst) * 100) / 100;
   const platformFee  = Number(preview.fees?.platformFee || 0);
+  
+  console.log('[PaymentReview] preview:', preview);
+  console.log('[PaymentReview] goldValue from backend:', goldValue);
+  
+  // If goldValue is 97% of user input (after 3% GST)
+  // Then: userInput = goldValue / 0.97
+  const userInputAmount = Math.round((goldValue / 0.97) * 100) / 100;
+  // GST = 3% of user input
+  const gst = Math.round((userInputAmount * 0.03) * 100) / 100;
+  // Total user pays = user input amount
+  const totalPayable = userInputAmount;
+  
+  console.log('[PaymentReview] userInputAmount:', userInputAmount);
+  console.log('[PaymentReview] gst:', gst);
+  console.log('[PaymentReview] totalPayable:', totalPayable);
 
   const [timeLeft,  setTimeLeft]  = useState(preview?.lockDuration || 300);
   const [method,    setMethod]    = useState('UPI');
   const [loading,   setLoading]   = useState(false);
+  const [result,    setResult]    = useState(null);
   const timerRef = useRef(null);
-  const [result, setResult] = useState(null);
 
   useEffect(() => {
     timerRef.current = setInterval(() => {
@@ -88,8 +101,8 @@ const PaymentReviewScreen = ({ navigation, route }) => {
         // Wallet — immediate success
         navigation.replace('PaymentSuccess', {
           transactionId: result.orderId,
-          amount:        totalPayable,
-          grams:         result.grams || grams,
+          amount: totalPayable,
+          grams: result.grams || grams,
         });
       } else {
         // UPI — start payment flow
@@ -106,24 +119,28 @@ const PaymentReviewScreen = ({ navigation, route }) => {
   };
 
   const callback = {
-    onVerify:async (orderID) => {
+    onVerify: async (orderID) => {
       console.log("onVerify called with orderID:", orderID);
-      // Payment verified by Cashfree — now go to processing to execute the transaction
-     const data = await checkWebhookStatus(orderID);
-     console.log("Webhook status response:", data);
-     if(data.status == 'SUCCESS'){
-        Alert.alert('Payment Successful', 'Your payment was successful and is being processed.');
-          navigation.navigate('PaymentSuccess', {
-          transactionId: data.transactionId,
-          amount:        totalPayable,
-          grams:          result.grams || grams,
-        });
-         return;
-       }else{
-        Alert.alert('Payment Failed', 'Payment could not be processed');
-         setLoading(false);
-       }
-    
+      try {
+        const data = await checkWebhookStatus(orderID);
+        console.log("Webhook status response:", data);
+        
+        if (data.status === 'SUCCESS') {
+          navigation.replace('PaymentSuccess', {
+            transactionId: data.transactionId || orderID,
+            amount: totalPayable,
+            grams: grams,
+            orderId: orderID,
+          });
+        } else {
+          Alert.alert('Payment Failed', 'Payment could not be processed');
+          setLoading(false);
+        }
+      } catch (error) {
+        console.log('Error in onVerify:', error);
+        Alert.alert('Payment Error', error.message || 'Could not verify payment');
+        setLoading(false);
+      }
     },
     onError: (error, orderID) => {
       console.log("onError:", error?.getMessage?.(), "OrderID:", orderID);
@@ -187,7 +204,7 @@ const PaymentReviewScreen = ({ navigation, route }) => {
           <Text style={s.cardTitle}>🪙 Purchase Details</Text>
           <Row label="Gold Weight"   value={`${grams.toFixed(6)} grams`} gold />
           <Row label="Rate per gram" value={`₹${pergramPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`} />
-          <Row label="Gold Value"    value={`₹${goldValue.toFixed(2)}`} />
+          <Row label="Gold Value"    value={`₹${goldValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`} />
           <Row label="GST (3%)"      value={`₹${gst.toFixed(2)}`} />
           {platformFee > 0 && <Row label="Platform Fee" value={`₹${platformFee.toFixed(2)}`} />}
           <View style={s.divider} />

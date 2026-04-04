@@ -479,16 +479,13 @@ export const cancelOrder = async (orderId) => {
 // ═════════════════════════════════════════════════════════════════════════
 
 /**
- * Create order
- * @param {Object} orderData - Order data { customerId, items, addressId, paymentMode, totalAmount }
+ * Create order from cart
+ * @param {Object} orderData - Order data { userId, addressId, notes, paymentMode }
  * @returns {Promise<Object>} Created order
  */
 export const createOrder = async (orderData) => {
-  if (!orderData?.customerId) {
-    throw new Error('Customer ID is required');
-  }
-  if (!orderData?.items || !Array.isArray(orderData.items) || orderData.items.length === 0) {
-    throw new Error('Order items are required');
+  if (!orderData?.userId) {
+    throw new Error('User ID is required');
   }
   if (!orderData?.addressId) {
     throw new Error('Address ID is required');
@@ -498,11 +495,17 @@ export const createOrder = async (orderData) => {
   }
 
   try {
+    console.log('[PhysicalGoldApi] createOrder URL:', `${BASE_URL}/order/createOrder`);
+    console.log('[PhysicalGoldApi] createOrder payload:', JSON.stringify(orderData, null, 2));
+    
     // ✅ CORRECT: POST /api/order/createOrder
+    // Backend automatically fetches cart items for the user
     const response = await apiPost(`${BASE_URL}/order/createOrder`, orderData);
+    console.log('[PhysicalGoldApi] createOrder raw response:', response);
     return extractData(response);
   } catch (error) {
     console.error('[PhysicalGoldApi] createOrder failed:', error.message);
+    console.error('[PhysicalGoldApi] createOrder error details:', error);
     throw error;
   }
 };
@@ -527,75 +530,90 @@ export const confirmOrder = async (orderId, paymentData = {}) => {
 };
 
 /**
- * Verify payment
- * @param {number|string} orderId - Order ID
- * @param {string} txnId - Transaction ID
+ * Verify payment via webhook
+ * For CASHFREE: Use txnId (cf_xxx)
+ * For WALLET: Use orderId directly
+ * @param {string} orderIdOrTxnId - Transaction ID (cf_xxx) for Cashfree OR orderId for Wallet
  * @returns {Promise<Object>} Payment verification result
  */
-export const verifyPayment = async (orderId, txnId) => {
-  validateId(orderId, 'Order ID');
-  if (!txnId) throw new Error('Transaction ID is required');
-
+export const paymentWebhook = async (orderIdOrTxnId) => {
+  if (!orderIdOrTxnId) throw new Error('Order ID or Transaction ID is required');
   try {
+    console.log('[PhysicalGoldApi] paymentWebhook order_id:', orderIdOrTxnId);
     // ✅ CORRECT: POST /api/digital-gold/payments/webhook?order_id={txnId}
     const response = await apiPost(
       `${BASE_URL}/digital-gold/payments/webhook`,
-      { orderId },
-      { params: { order_id: txnId } }
+      {},
+      { params: { order_id: orderIdOrTxnId } }
     );
+    console.log('[PhysicalGoldApi] paymentWebhook response:', response);
     return extractData(response);
   } catch (error) {
-    console.error('[PhysicalGoldApi] verifyPayment failed:', error.message);
+    console.error('[PhysicalGoldApi] paymentWebhook failed:', error);
     throw error;
   }
 };
 
 /**
  * Generate invoice
- * @param {number|string} orderId - Order ID
+ * @param {number|string} orderId - Order ID (internal DB ID)
  * @returns {Promise<Object>} Invoice data
  */
 export const generateInvoice = async (orderId) => {
   validateId(orderId, 'Order ID');
 
   try {
+    const url = `${BASE_URL}/invoices/generate-from-order/${orderId}`;
+    console.log('[PhysicalGoldApi] generateInvoice URL:', url);
+    console.log('[PhysicalGoldApi] generateInvoice orderId:', orderId);
+    
     // ✅ CORRECT: POST /api/invoices/generate-from-order/{orderId}
-    const response = await apiPost(`${BASE_URL}/invoices/generate-from-order/${orderId}`, {});
-    return extractData(response);
+    const response = await apiPost(url, {});
+    console.log('[PhysicalGoldApi] generateInvoice response:', JSON.stringify(response));
+    
+    const data = extractData(response);
+    console.log('[PhysicalGoldApi] generateInvoice extracted data:', JSON.stringify(data));
+    
+    // If backend returns empty response, treat as success
+    if (!data || (data.success && !data.invoiceNumber)) {
+      console.log('[PhysicalGoldApi] Invoice generated successfully (empty response)');
+      return { 
+        success: true, 
+        message: 'Invoice generated',
+        invoiceNumber: null 
+      };
+    }
+    
+    return data;
   } catch (error) {
     console.error('[PhysicalGoldApi] generateInvoice failed:', error.message);
+    console.error('[PhysicalGoldApi] generateInvoice error details:', JSON.stringify(error));
     throw error;
   }
 };
 
 /**
- * Preview invoice PDF - Returns URL with token as query param
- * For React Native: Use Linking.openURL(url)
- * Token passed as query param because Linking.openURL() can't send custom headers
- * @param {string} orderNumber - Order number
- * @param {string} accessToken - Access token for authentication
- * @returns {string} Invoice preview URL with token
+ * Preview invoice PDF - Returns URL string with auth token
+ * @param {string} orderNumber - Order number (e.g., ORD17752967296086617)
+ * @returns {string} Invoice preview URL
  */
-export const previewInvoice = (orderNumber, accessToken) => {
+export const getInvoicePreviewUrl = (orderNumber) => {
   if (!orderNumber) throw new Error('Order number is required');
-  if (!accessToken) throw new Error('Access token is required');
-  
-  return `${BASE_URL}/invoices/${orderNumber}/pdf/preview?token=${encodeURIComponent(accessToken)}`;
+  const url = `${BASE_URL}/invoices/${orderNumber}/pdf/preview`;
+  console.log('[PhysicalGoldApi] getInvoicePreviewUrl:', url);
+  return url;
 };
 
 /**
- * Download invoice PDF - Returns URL with token as query param
- * For React Native: Use Linking.openURL(url)
- * Token passed as query param because Linking.openURL() can't send custom headers
- * @param {string} orderNumber - Order number
- * @param {string} accessToken - Access token for authentication
- * @returns {string} Invoice download URL with token
+ * Download invoice PDF - Returns URL string with auth token
+ * @param {string} orderNumber - Order number (e.g., ORD17752967296086617)
+ * @returns {string} Invoice download URL
  */
-export const downloadInvoice = (orderNumber, accessToken) => {
+export const getInvoicePdfUrl = (orderNumber) => {
   if (!orderNumber) throw new Error('Order number is required');
-  if (!accessToken) throw new Error('Access token is required');
-  
-  return `${BASE_URL}/invoices/${orderNumber}/pdf?token=${encodeURIComponent(accessToken)}`;
+  const url = `${BASE_URL}/invoices/${orderNumber}/pdf`;
+  console.log('[PhysicalGoldApi] getInvoicePdfUrl:', url);
+  return url;
 };
 
 // ═════════════════════════════════════════════════════════════════════════

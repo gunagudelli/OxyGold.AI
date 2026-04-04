@@ -281,9 +281,26 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
     clearTimeout(timeoutId);
 
     let data;
+    const contentType = res.headers.get('content-type');
+    
     try {
-      data = await res.json();
-    } catch {
+      // Check if response has content
+      const text = await res.text();
+      
+      if (!text || text.trim() === '') {
+        // Empty response body - treat as success if status is 2xx
+        console.log('[API] Empty response body, status:', res.status);
+        data = { success: true, message: 'Request successful' };
+      } else if (contentType && contentType.includes('application/json')) {
+        // Parse JSON response
+        data = JSON.parse(text);
+      } else {
+        // Non-JSON response (HTML, plain text, etc.)
+        console.log('[API] Non-JSON response, content-type:', contentType);
+        data = { success: true, message: text, rawResponse: text };
+      }
+    } catch (parseError) {
+      console.error('[API] Response parse error:', parseError.message);
       throw new ApiError('Invalid server response', res.status, null);
     }
 

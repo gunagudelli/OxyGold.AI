@@ -37,6 +37,12 @@ import PgCartScreen            from '../physicalGoldScreens/PgCartScreen';
 import PgAddressScreen         from '../physicalGoldScreens/PgAddressScreen';
 import PgOrdersScreen          from '../physicalGoldScreens/PgOrdersScreen';
 import PgProfileScreen         from '../physicalGoldScreens/PgProfileScreen';
+import PgPaymentStatusScreen   from '../physicalGoldScreens/PgPaymentStatusScreen';
+import PgPaymentScreen         from '../physicalGoldScreens/PgPaymentScreen';
+import PgPaymentMethodScreen   from '../physicalGoldScreens/PgPaymentMethodScreen';
+import PgCheckoutScreen        from '../physicalGoldScreens/PgCheckoutScreen';
+import PgPaymentHandlerScreen  from '../physicalGoldScreens/PgPaymentHandlerScreen';
+import PgInvoiceViewerScreen   from '../physicalGoldScreens/PgInvoiceViewerScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -148,6 +154,31 @@ const AppNavigator = () => {
           <Stack.Screen 
             name="PgProfile" 
             component={PgProfileScreen}
+            initialParams={{ accessToken, userId }}
+          />
+          <Stack.Screen 
+            name="PgPaymentMethod" 
+            component={PgPaymentMethodScreen}
+            initialParams={{ accessToken, userId }}
+          />
+          <Stack.Screen 
+            name="PgCheckout" 
+            component={PgCheckoutScreen}
+            initialParams={{ accessToken, userId }}
+          />
+          <Stack.Screen 
+            name="PgPaymentHandler" 
+            component={PgPaymentHandlerScreen}
+            initialParams={{ accessToken, userId }}
+          />
+          <Stack.Screen 
+            name="PgPaymentStatus" 
+            component={PgPaymentStatusScreen}
+            initialParams={{ accessToken, userId }}
+          />
+          <Stack.Screen 
+            name="PgInvoiceViewer" 
+            component={PgInvoiceViewerScreen}
             initialParams={{ accessToken, userId }}
           />
         </Stack.Navigator>

@@ -35,7 +35,7 @@ const PgButton = ({
       activeOpacity={0.8}
       {...props}
     >
-      <Text style={buttonTextStyle}>{title}</Text>
+      <Text style={buttonTextStyle}>{String(title || '')}</Text>
     </TouchableOpacity>
   );
 };

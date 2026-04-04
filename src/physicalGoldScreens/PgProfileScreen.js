@@ -23,18 +23,7 @@ const C = {
 
 const API_BASE = 'http://65.0.147.157:9900';
 
-const ProfileField = ({ label, value, editable, onChangeText }) => (
-  <View style={styles.fieldContainer}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    <TextInput
-      style={[styles.fieldInput, !editable && styles.fieldInputDisabled]}
-      value={value}
-      onChangeText={onChangeText}
-      editable={editable}
-      placeholderTextColor={C.textTer}
-    />
-  </View>
-);
+
 
 const PgProfileScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
@@ -200,7 +189,7 @@ const PgProfileScreen = ({ navigation, route }) => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatar}>
-            <Ionicons name="person-circle" size={80} color={C.gold} />
+            <Ionicons name="person-circle" size={70} color="#fff" />
           </View>
           <View style={styles.headerInfo}>
             <Text style={styles.userName}>{profile?.firstName || 'User'}</Text>
@@ -367,70 +356,60 @@ const PgProfileScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
-  scroll: { padding: 16, paddingBottom: 100 },
+  scroll: { padding: 14, paddingBottom: 100 },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 24,
+    gap: 14,
+    backgroundColor: '#2a4e9e',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: C.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    borderColor: '#2a4e9e',
   },
   avatar: { 
-    width: 90, 
-    height: 90, 
-    borderRadius: 45, 
-    backgroundColor: '#F0EEE9', 
+    width: 70, 
+    height: 70, 
+    borderRadius: 35, 
+    backgroundColor: 'rgba(255,255,255,0.15)', 
     justifyContent: 'center', 
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: C.gold,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   headerInfo: { flex: 1, justifyContent: 'center' },
-  userName: { fontSize: 18, fontWeight: '900', color: C.textPri, marginBottom: 6 },
-  userEmail: { fontSize: 13, color: C.textSec, marginBottom: 4 },
-  userId: { fontSize: 12, color: C.textTer, fontWeight: '600' },
+  userName: { fontSize: 15, fontWeight: '700', color: '#fff', marginBottom: 4 },
+  userEmail: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 3 },
+  userId: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
 
   walletCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.gold,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 28,
-    gap: 16,
-    shadowColor: '#B8891A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 18,
+    gap: 14,
   },
   walletIcon: { 
-    width: 60, 
-    height: 60, 
-    borderRadius: 30, 
+    width: 50, 
+    height: 50, 
+    borderRadius: 25, 
     backgroundColor: 'rgba(255,255,255,0.25)', 
     justifyContent: 'center', 
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   walletInfo: { flex: 1 },
-  walletLabel: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 6, fontWeight: '600' },
-  walletAmount: { fontSize: 22, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
+  walletLabel: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 4, fontWeight: '600' },
+  walletAmount: { fontSize: 18, fontWeight: '700', color: '#fff', letterSpacing: -0.5 },
   walletBtn: { 
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.25)', 
     justifyContent: 'center',
     alignItems: 'center',
@@ -438,62 +417,62 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.3)',
   },
 
-  section: { marginBottom: 28 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { fontSize: 17, fontWeight: '900', color: C.textPri, letterSpacing: -0.3 },
-  editBtn: { fontSize: 13, fontWeight: '700', color: C.gold, paddingHorizontal: 8, paddingVertical: 4 },
+  section: { marginBottom: 22 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: C.textPri, letterSpacing: -0.3 },
+  editBtn: { fontSize: 12, fontWeight: '700', color: C.gold, paddingHorizontal: 8, paddingVertical: 4 },
 
-  fieldRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  fieldRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   fieldHalf: { flex: 1 },
-  fieldContainer: { marginBottom: 16 },
-  fieldLabel: { fontSize: 13, fontWeight: '700', color: C.textSec, marginBottom: 8 },
-  fieldInput: { backgroundColor: C.surface, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: C.textPri, minHeight: 48 },
+  fieldContainer: { marginBottom: 14 },
+  fieldLabel: { fontSize: 12, fontWeight: '700', color: C.textSec, marginBottom: 6 },
+  fieldInput: { 
+    backgroundColor: C.surface, 
+    borderRadius: 10, 
+    borderWidth: 1, 
+    borderColor: C.border, 
+    paddingHorizontal: 12, 
+    paddingVertical: 11, 
+    fontSize: 13, 
+    color: C.textPri, 
+    minHeight: 44 
+  },
   fieldInputDisabled: { backgroundColor: '#F0EEE9', color: C.textTer },
 
   saveBtn: { 
     backgroundColor: C.gold, 
-    borderRadius: 12, 
-    paddingVertical: 14, 
+    borderRadius: 10, 
+    paddingVertical: 13, 
     alignItems: 'center', 
-    marginTop: 16,
-    shadowColor: '#B8891A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
+    marginTop: 14,
   },
   saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
+  saveBtnText: { fontSize: 14, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
 
   linkItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 0,
-    paddingVertical: 12,
-    marginBottom: 8,
+    paddingVertical: 13,
+    marginBottom: 4,
   },
-  linkText: { flex: 1, fontSize: 14, fontWeight: '500', color: C.textPri },
+  linkText: { flex: 1, fontSize: 13, fontWeight: '600', color: C.textPri },
 
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
     backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    paddingVertical: 14,
-    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: 13,
+    borderWidth: 1,
     borderColor: '#FECACA',
-    marginTop: 28,
+    marginTop: 22,
     marginBottom: 20,
-    shadowColor: '#C0392B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  logoutBtnText: { fontSize: 15, fontWeight: '800', color: C.error, letterSpacing: 0.2 },
+  logoutBtnText: { fontSize: 14, fontWeight: '700', color: C.error, letterSpacing: 0.2 },
 });
 
 export default PgProfileScreen;
