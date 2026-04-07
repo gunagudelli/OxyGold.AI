@@ -1,51 +1,81 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  StatusBar,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import useStatusBar from "../../hooks/useStatusBar";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSelector } from "react-redux";
 import { useNavigationState, useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { selectUserId } from "../../src/store/authSlice";
+import { apiGet } from "../../src/services/apiClient";
+import { BASE_URL } from "../../src/constants/api";
 import { PG_COLORS } from "../../constants/physicalGoldColors";
 
-// ─── Fixed Top Header ─────────────────────────────────────────────────────────
+// ─── COLORS ─────────────────────────────────────────
+const HEADER_COLORS = {
+  primary: "#1C2340",
+  accent: "#E8C97A",
+  text: "#FFFFFF",
+  textSecondary: "rgba(255,255,255,0.70)",
+};
+
+// ─── HEADER ─────────────────────────────────────────
 const PgHeader = ({ title, showBack, onBack, hideLogo }) => {
   const insets = useSafeAreaInsets();
-  useStatusBar("dark-content", PG_COLORS.surface);
+
   return (
-    <View style={[h.header, { paddingTop: insets.top }]}>
-      <View style={h.inner}>
-        {showBack ? (
-          <TouchableOpacity style={h.backBtn} onPress={onBack}>
-            <Text style={h.backIcon}>←</Text>
-          </TouchableOpacity>
-        ) : hideLogo ? (
-          <View style={{ width: 38 }} />
-        ) : (
-          <View style={h.logoWrap}>
-            <Text style={h.logoOxy}>OXY</Text>
-            <Text style={h.logoGold}>GOLD.AI</Text>
-          </View>
-        )}
+    <View style={{ backgroundColor: HEADER_COLORS.primary }}>
+      {/* ✅ FIXED STATUS BAR */}
+      <StatusBar
+        backgroundColor={HEADER_COLORS.primary}
+        barStyle="light-content"
+        translucent={false}
+      />
 
-        {showBack && (
-          <Text style={h.title} numberOfLines={1}>
-            {String(title || "")}
-          </Text>
-        )}
+      <View style={[h.header, { paddingTop: insets.top }]}>
+        <View style={h.inner}>
+          
+          {/* LEFT */}
+          {showBack ? (
+            <TouchableOpacity style={h.backBtn} onPress={onBack}>
+              <Ionicons name="chevron-back" size={24} color="#fff" />
+            </TouchableOpacity>
+          ) : hideLogo ? (
+            <View style={{ width: 40 }} />
+          ) : (
+            <View style={h.logoWrap}>
+              <Text style={h.logoOxy}>OXY</Text>
+              <Text style={h.logoGold}>GOLD</Text>
+              <Text style={h.logoAi}>.AI</Text>
+            </View>
+          )}
 
-        {!showBack ? (
-          <View style={h.welcomeWrap}>
-            <Text style={h.welcomeText}>Welcome Back</Text>
-          </View>
-        ) : (
-          <View style={{ width: 38 }} />
-        )}
+          {/* CENTER */}
+          {showBack && (
+            <Text style={h.title} numberOfLines={1}>
+              {title}
+            </Text>
+          )}
+
+          {/* RIGHT */}
+          {!showBack ? (
+           <View style={h.welcomeWrap}>
+  <Text style={h.welcomeText}>Welcome Back 👋</Text>
+</View>
+          ) : (
+            <View style={{ width: 40 }} />
+          )}
+        </View>
       </View>
     </View>
   );
 };
 
-// ─── Fixed Bottom Tab Bar ─────────────────────────────────────────────────────
+// ─── BOTTOM BAR ─────────────────────────────────────
 const TABS = [
   { name: "PgHome", label: "Home", icon: "home" },
   { name: "PgCart", label: "Cart", icon: "cart" },
@@ -55,34 +85,42 @@ const TABS = [
 
 const PgBottomBar = ({ activeTab, onTabPress, cartCount = 0 }) => {
   const insets = useSafeAreaInsets();
+
   return (
     <View style={[b.bar, { paddingBottom: insets.bottom + 4 }]}>
       {TABS.map((tab) => {
         const active = activeTab === tab.name;
+
         return (
           <TouchableOpacity
             key={tab.name}
             style={b.tab}
             onPress={() => onTabPress(tab.name)}
-            activeOpacity={0.7}
           >
             <View style={b.tabContent}>
               <Ionicons
                 name={active ? tab.icon : `${tab.icon}-outline`}
                 size={22}
-                color={active ? PG_COLORS.gold : PG_COLORS.lightGray}
+                color={
+                  active
+                    ? HEADER_COLORS.accent
+                    : "rgba(255,255,255,0.5)"
+                }
               />
+
               {tab.name === "PgCart" && cartCount > 0 && (
                 <View style={b.badge}>
                   <Text style={b.badgeText}>
-                    {String(cartCount > 99 ? "99+" : cartCount)}
+                    {cartCount > 99 ? "99+" : cartCount}
                   </Text>
                 </View>
               )}
             </View>
+
             <Text style={[b.label, active && b.labelActive]}>
-              {String(tab.label)}
+              {tab.label}
             </Text>
+
             {active && <View style={b.dot} />}
           </TouchableOpacity>
         );
@@ -91,7 +129,7 @@ const PgBottomBar = ({ activeTab, onTabPress, cartCount = 0 }) => {
   );
 };
 
-// ─── Layout Wrapper ───────────────────────────────────────────────────────────
+// ─── LAYOUT ─────────────────────────────────────────
 const PgLayout = ({
   children,
   title,
@@ -106,199 +144,151 @@ const PgLayout = ({
         title={title}
         showBack={showBack}
         onBack={onBack}
-        h
-        ideLogo={hideLogo}
+        hideLogo={hideLogo}
       />
+
       <View style={l.content}>{children}</View>
+
       {!hideBottomBar && <PgBottomBarConnected />}
     </View>
   );
 };
 
-// Connected bottom bar that reads active route from navigation state
+// ─── CONNECTED BAR ──────────────────────────────────
 const PgBottomBarConnected = () => {
   const navigation = useNavigation();
   const state = useNavigationState((s) => s);
+  const userId = useSelector(selectUserId);
   const [cartCount, setCartCount] = React.useState(0);
 
   React.useEffect(() => {
     const unsubscribe = navigation.addListener("focus", async () => {
+      if (!userId) return;
       try {
-        const user = await AsyncStorage.getItem("user");
-        if (user) {
-          const userData = JSON.parse(user);
-          const userId = userData?.userId;
-          if (userId) {
-            const response = await fetch(
-              `http://65.0.147.157:9900/api/cart/customer-cart-info?customerId=${userId}`,
-              {
-                method: "GET",
-                headers: {
-                  Authorization: `Bearer ${userData?.accessToken || ""}`,
-                },
-              },
-            );
-            if (response.ok) {
-              const data = await response.json();
-              // Response is NOT wrapped in data object - items are at root level
-              const totalItems = data?.totalItemsInCart || 0;
-              console.log("[PgLayout Cart Badge] Total items:", totalItems);
-              setCartCount(totalItems);
-            }
-          }
-        }
-      } catch (err) {
-        console.log("[PgLayout] Cart fetch error:", err);
-      }
+        const data = await apiGet(
+          `${BASE_URL}/cart/customer-cart-info`,
+          { params: { customerId: userId } }
+        );
+        setCartCount(data?.totalItemsInCart || 0);
+      } catch {}
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, userId]);
 
-  // Find the active tab name from navigation state
   const getActiveTab = () => {
-    try {
-      // Walk down the state tree to find the active tab screen
-      let current = state;
-      while (current?.routes) {
-        const active = current.routes[current.index ?? 0];
-        if (active?.state) {
-          current = active.state;
-        } else {
-          return active?.name || "PgHome";
-        }
-      }
-    } catch {}
+    let current = state;
+    while (current?.routes) {
+      const route = current.routes[current.index ?? 0];
+      if (route?.state) current = route.state;
+      else return route?.name || "PgHome";
+    }
     return "PgHome";
-  };
-
-  const activeTab = getActiveTab();
-
-  const handleTabPress = (tabName) => {
-    navigation.navigate(tabName);
   };
 
   return (
     <PgBottomBar
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
+      activeTab={getActiveTab()}
+      onTabPress={(name) => navigation.navigate(name)}
       cartCount={cartCount}
     />
   );
 };
 
-export { PgHeader, PgBottomBar, PgLayout };
 export default PgLayout;
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── STYLES ─────────────────────────────────────────
 const h = StyleSheet.create({
   header: {
-    backgroundColor: PG_COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: PG_COLORS.border,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    backgroundColor: HEADER_COLORS.primary,
+    paddingBottom: 10,
   },
   inner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 10,
   },
   backBtn: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: 10,
-    backgroundColor: PG_COLORS.background,
+    backgroundColor: "rgba(255,255,255,0.1)",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: PG_COLORS.border,
   },
-  backIcon: { fontSize: 18, color: PG_COLORS.darkGray },
-  logoWrap: { flexDirection: "row", alignItems: "center", gap: 0 },
-  logoOxy: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#6312d5",
-    letterSpacing: -0.5,
-  },
-  logoGold: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: PG_COLORS.gold,
-    letterSpacing: -0.5,
-  },
-  welcomeWrap: { alignItems: "flex-end" },
-  welcomeText: { fontSize: 13, fontWeight: "700", color: PG_COLORS.darkGray },
-  logoText: { fontSize: 22 },
-  brand: { fontSize: 16, fontWeight: "900", color: PG_COLORS.darkGray },
-  brandSub: { fontSize: 10, color: PG_COLORS.lightGray },
+  rightSection: {
+  minWidth: 70,              // ✅ increase space
+  justifyContent: "center",
+  alignItems: "flex-end",
+},
+  logoWrap: { flexDirection: "row", alignItems: "center" },
+  logoOxy: { color: "#E8C97A", fontWeight: "900", fontSize: 16 },
+  logoGold: { color: "#fff", fontWeight: "900", fontSize: 16 },
+logoAi: {
+  color: "#E8C97A",
+  fontWeight: "900",
+  fontSize: 16,        // ✅ same as OXY GOLD
+  marginLeft: 2,
+},
+
+
   title: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: PG_COLORS.darkGray,
     flex: 1,
     textAlign: "center",
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16,
   },
+
+  welcomeWrap: { alignItems: "flex-end" },
+welcomeLabel: {
+  fontSize: 11,
+  color: "rgba(255,255,255,0.7)",
+},
+
+welcomeText: {
+  fontSize: 13,
+  fontWeight: "800",
+  color: "#fff",
+},
 });
 
 const b = StyleSheet.create({
   bar: {
     flexDirection: "row",
-    backgroundColor: PG_COLORS.surface,
-    borderTopWidth: 1,
-    borderTopColor: PG_COLORS.border,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    backgroundColor: HEADER_COLORS.primary,
   },
-  tab: {
-    flex: 1,
-    alignItems: "center",
-    paddingTop: 10,
-    paddingBottom: 2,
-    position: "relative",
-  },
-  tabContent: { position: "relative", alignItems: "center" },
+  tab: { flex: 1, alignItems: "center", paddingTop: 10 },
+  tabContent: { position: "relative" },
   badge: {
     position: "absolute",
     top: -6,
     right: -10,
-    backgroundColor: "#EF4444",
+    backgroundColor: "red",
     borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: "center",
-    alignItems: "center",
     paddingHorizontal: 5,
-    borderWidth: 2,
-    borderColor: PG_COLORS.surface,
   },
-  badgeText: { fontSize: 10, fontWeight: "800", color: "#FFFFFF" },
-  label: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: PG_COLORS.lightGray,
-    marginTop: 3,
-  },
-  labelActive: { color: PG_COLORS.gold, fontWeight: "800" },
+  badgeText: { color: "#fff", fontSize: 10 },
+
+  label: { fontSize: 10, color: "rgba(255,255,255,0.5)" },
+  labelActive: { color: "#E8C97A" },
+
   dot: {
-    position: "absolute",
-    top: 6,
     width: 4,
     height: 4,
+    backgroundColor: "#E8C97A",
     borderRadius: 2,
-    backgroundColor: PG_COLORS.gold,
+    marginTop: 2,
   },
 });
 
 const l = StyleSheet.create({
-  root: { flex: 1, backgroundColor: PG_COLORS.background },
-  content: { flex: 1 },
+  root: {
+    flex: 1,
+    backgroundColor: "#1C2340", // 🔥 FIX
+  },
+  content: {
+    flex: 1,
+    backgroundColor: PG_COLORS.background,
+  },
 });

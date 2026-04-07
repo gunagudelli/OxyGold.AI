@@ -1,4 +1,4 @@
-import { apiRequest, apiPost, apiGet, getUserId } from './apiClient';
+import { apiPost, apiGet, getUserId } from './apiClient';
 import {
   API_GOLD_PRICE, API_BUY, API_SELL, API_TRANSACTIONS,
   API_PORTFOLIO, API_PREVIEW_BUY, API_WEBHOOK_STATUS, API_WALLET, API_PROFILE,

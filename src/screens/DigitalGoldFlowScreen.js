@@ -1,5 +1,6 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { View,
+import React, { useRef, useEffect, useState } from "react";
+import {
+  View,
   Text,
   StyleSheet,
   ScrollView,
@@ -7,113 +8,114 @@ import { View,
   Dimensions,
   TouchableOpacity,
   Platform,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 const faqData = [
- 
   {
-    question: 'What is Digital Gold?',
+    question: "What is Digital Gold?",
     answer:
-      'Digital Gold allows you to buy gold online. Every gram you purchase is backed by physical gold stored securely with a trusted partner.'
+      "Digital Gold allows you to buy gold online. Every gram you purchase is backed by physical gold stored securely with a trusted partner.",
   },
   {
-    question: 'Who is the gold partner?',
+    question: "Who is the gold partner?",
     answer:
-      'The physical gold is stored with an authorized and trusted gold partner in insured vaults, as per their terms and conditions.'
+      "The physical gold is stored with an authorized and trusted gold partner in insured vaults, as per their terms and conditions.",
   },
   {
-    question: 'Is Digital Gold regulated by RBI or SEBI?',
+    question: "Is Digital Gold regulated by RBI or SEBI?",
     answer:
-      'No. Digital Gold is not regulated by RBI or SEBI. It is backed by physical gold stored with a partner, but it is not a regulated investment product.'
+      "No. Digital Gold is not regulated by RBI or SEBI. It is backed by physical gold stored with a partner, but it is not a regulated investment product.",
   },
   {
-    question: 'How can I buy Digital Gold?',
+    question: "How can I buy Digital Gold?",
     answer:
-      'You can buy Digital Gold instantly using Indian Rupees (₹) or by selecting the quantity in grams. Just confirm the live price and complete the payment.'
+      "You can buy Digital Gold instantly using Indian Rupees (₹) or by selecting the quantity in grams. Just confirm the live price and complete the payment.",
   },
   {
-    question: 'What is the minimum amount required to buy Digital Gold?',
+    question: "What is the minimum amount required to buy Digital Gold?",
     answer:
-      'You can start buying Digital Gold with a very small amount, making it accessible even for first-time investors.'
+      "You can start buying Digital Gold with a very small amount, making it accessible even for first-time investors.",
   },
   {
-    question: 'At what price is Digital Gold bought?',
+    question: "At what price is Digital Gold bought?",
     answer:
-      'Digital Gold is bought at the live market price at the time of purchase, which may include partner charges.'
+      "Digital Gold is bought at the live market price at the time of purchase, which may include partner charges.",
   },
   {
-    question: 'Where is my Digital Gold stored?',
+    question: "Where is my Digital Gold stored?",
     answer:
-      "Your gold is stored safely in insured vaults managed by the gold partner. You don't need to worry about storage or security."
+      "Your gold is stored safely in insured vaults managed by the gold partner. You don't need to worry about storage or security.",
   },
   {
-    question: 'Can I track my Digital Gold value?',
+    question: "Can I track my Digital Gold value?",
     answer:
-      'Yes. The value of your Digital Gold updates in real time based on current gold market prices.'
+      "Yes. The value of your Digital Gold updates in real time based on current gold market prices.",
   },
   {
-    question: 'Can I sell Digital Gold anytime?',
+    question: "Can I sell Digital Gold anytime?",
     answer:
-      'Yes. You can sell your Digital Gold anytime through the app, subject to partner availability and terms.'
+      "Yes. You can sell your Digital Gold anytime through the app, subject to partner availability and terms.",
   },
   {
-    question: 'At what price is Digital Gold sold?',
+    question: "At what price is Digital Gold sold?",
     answer:
-      'Digital Gold is sold at the live market price at the time of selling.'
+      "Digital Gold is sold at the live market price at the time of selling.",
   },
   {
-    question: 'How will I receive money after selling Digital Gold?',
+    question: "How will I receive money after selling Digital Gold?",
     answer:
-      'The sale amount is credited to your linked bank account or wallet as per the app\'s payout flow.'
+      "The sale amount is credited to your linked bank account or wallet as per the app's payout flow.",
   },
   {
-    question: 'Are there any charges for buying or selling?',
+    question: "Are there any charges for buying or selling?",
     answer:
-      'Partner charges such as spread, GST, or minting charges (for physical conversion) may apply. These are shown during the transaction.'
+      "Partner charges such as spread, GST, or minting charges (for physical conversion) may apply. These are shown during the transaction.",
   },
   {
-    question: 'Is my Digital Gold insured?',
+    question: "Is my Digital Gold insured?",
     answer:
-      'Yes. The physical gold stored with the partner is insured as per their storage policy.'
+      "Yes. The physical gold stored with the partner is insured as per their storage policy.",
   },
   {
-    question: 'Can I convert Digital Gold into physical gold?',
+    question: "Can I convert Digital Gold into physical gold?",
     answer:
-      'Depending on the partner\'s terms, you may be able to convert Digital Gold into physical gold coins or jewellery. Additional charges may apply.'
+      "Depending on the partner's terms, you may be able to convert Digital Gold into physical gold coins or jewellery. Additional charges may apply.",
   },
   {
-    question: 'What are the risks of Digital Gold?',
+    question: "What are the risks of Digital Gold?",
     answer:
-      'The value of Digital Gold depends on market prices and may fluctuate. Since it is not regulated by RBI or SEBI, users should understand the risks before investing.'
-  }
+      "The value of Digital Gold depends on market prices and may fluctuate. Since it is not regulated by RBI or SEBI, users should understand the risks before investing.",
+  },
 ];
-
 
 const steps = [
   {
-    title: 'Check Live Gold Price',
-    icon: 'livePrice',
+    title: "Check Live Gold Price",
+    icon: "livePrice",
   },
   {
-    title: 'Enter Amount in ₹ or in Grams',
-    icon: 'enterAmount',
+    title: "Enter Amount in ₹ or in Grams",
+    icon: "enterAmount",
   },
   {
-    title: 'Make Payment Securely',
-    icon: 'secureBuy',
+    title: "Make Payment Securely",
+    icon: "secureBuy",
   },
   {
-    title: 'Gold Stored in Insured Vaults',
-    icon: 'vault',
+    title: "Gold Stored in Insured Vaults",
+    icon: "vault",
   },
   {
-    title: 'Track Your Gold Balance',
-    icon: 'trackBalance',
+    title: "Track Your Gold Balance",
+    icon: "trackBalance",
   },
 ];
 
@@ -128,7 +130,7 @@ const DigitalGoldFlowScreen = ({ navigation }) => {
   const stepAnimations = useRef(
     steps.map(() => ({
       opacity: new Animated.Value(0),
-    }))
+    })),
   ).current;
 
   const toggleFaq = (index) => {
@@ -146,7 +148,7 @@ const DigitalGoldFlowScreen = ({ navigation }) => {
       setExpandedFaq(index);
       if (!answerAnimations[index]) {
         const newAnim = new Animated.Value(0);
-        setAnswerAnimations(prev => ({ ...prev, [index]: newAnim }));
+        setAnswerAnimations((prev) => ({ ...prev, [index]: newAnim }));
         setTimeout(() => {
           Animated.timing(newAnim, {
             toValue: 1,
@@ -176,7 +178,7 @@ const DigitalGoldFlowScreen = ({ navigation }) => {
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
-      })
+      }),
     ]).start();
   };
 
@@ -191,7 +193,7 @@ const DigitalGoldFlowScreen = ({ navigation }) => {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
-      })
+      }),
     ]).start(() => {
       setFaqVisible(false);
       setExpandedFaq(null);
@@ -264,21 +266,21 @@ const DigitalGoldFlowScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <LinearGradient
-        colors={['#F8F9FA', '#FFFFFF', '#F8F9FA']}
+        colors={["#F8F9FA", "#FFFFFF", "#F8F9FA"]}
         style={styles.backgroundGradient}
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => navigation.navigate('FAQ')}
+          <TouchableOpacity
+            onPress={() => navigation.navigate("FAQ")}
             style={styles.faqButton}
           >
             <Text style={styles.faqText}>FAQ</Text>
@@ -327,11 +329,11 @@ const DigitalGoldFlowScreen = ({ navigation }) => {
         <View style={styles.ctaContainer}>
           <TouchableOpacity
             style={styles.ctaButton}
-            onPress={() => navigation.navigate('Dashboard')}
+            onPress={() => navigation.navigate("Dashboard")}
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={['#464B8B', '#5A5A9A', '#464B8B']}
+              colors={["#464B8B", "#5A5A9A", "#464B8B"]}
               style={styles.buttonGradient}
             >
               <Text style={styles.buttonText}>Start Buying Gold</Text>
@@ -343,13 +345,13 @@ const DigitalGoldFlowScreen = ({ navigation }) => {
       {/* FAQ Overlay */}
 
       {faqVisible && (
-        <Animated.View 
+        <Animated.View
           style={[
             styles.faqOverlay,
             {
               opacity: faqOpacity,
-              transform: [{ translateY: faqSlideAnim }]
-            }
+              transform: [{ translateY: faqSlideAnim }],
+            },
           ]}
         >
           <View style={[styles.faqHeader, { paddingTop: insets.top + 12 }]}>
@@ -358,30 +360,37 @@ const DigitalGoldFlowScreen = ({ navigation }) => {
             </TouchableOpacity>
             <Text style={styles.faqTitle}>Digital Gold FAQ</Text>
           </View>
-          
-          <ScrollView style={styles.faqContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 20 }}>
+
+          <ScrollView
+            style={styles.faqContent}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingVertical: 20 }}
+          >
             <Text style={styles.faqIntroText}>Please understand</Text>
             {faqData.map((item, index) => (
               <View key={index} style={styles.faqItem}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => toggleFaq(index)}
                   style={styles.faqQuestion}
                 >
                   <Text style={styles.faqQuestionText}>{item.question}</Text>
-                  <Text style={styles.faqToggle}>{expandedFaq === index ? '−' : '+'}</Text>
+                  <Text style={styles.faqToggle}>
+                    {expandedFaq === index ? "−" : "+"}
+                  </Text>
                 </TouchableOpacity>
                 {expandedFaq === index && (
-                  <Animated.View 
+                  <Animated.View
                     style={[
                       styles.faqAnswer,
                       {
                         opacity: answerAnimations[index] || 0,
-                        maxHeight: answerAnimations[index] ? 
-                          answerAnimations[index].interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0, 200]
-                          }) : 0
-                      }
+                        maxHeight: answerAnimations[index]
+                          ? answerAnimations[index].interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, 200],
+                            })
+                          : 0,
+                      },
                     ]}
                   >
                     <Text style={styles.faqAnswerText}>{item.answer}</Text>
@@ -399,16 +408,16 @@ const DigitalGoldFlowScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: "#F8F9FA",
   },
   backgroundGradient: {
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 8 : 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: Platform.OS === "ios" ? 8 : 12,
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
@@ -417,44 +426,44 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#464B8B',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#464B8B",
+    justifyContent: "center",
+    alignItems: "center",
   },
   backText: {
     fontSize: 18,
-    color: '#464B8B',
-    fontWeight: '600',
+    color: "#464B8B",
+    fontWeight: "600",
   },
   faqButton: {
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 15,
-    backgroundColor: 'rgba(218, 165, 32, 0.1)',
+    backgroundColor: "rgba(218, 165, 32, 0.1)",
     borderWidth: 1,
-    borderColor: '#DAA520',
+    borderColor: "#DAA520",
   },
   faqText: {
     fontSize: 14,
-    color: '#DAA520',
-    fontWeight: '500',
+    color: "#DAA520",
+    fontWeight: "500",
   },
   hero: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingBottom: 20,
   },
   title: {
     fontSize: 26,
-    fontWeight: '700',
-    color: '#464B8B',
+    fontWeight: "700",
+    color: "#464B8B",
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
-    textAlign: 'center',
+    color: "#666666",
+    textAlign: "center",
     lineHeight: 22,
     marginBottom: 36,
   },
@@ -463,88 +472,88 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   stepCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 18,
     marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#464B8B',
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#464B8B",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
     borderWidth: 1,
-    borderColor: '#DAA520',
+    borderColor: "#DAA520",
   },
   stepNumber: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#464B8B',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#464B8B",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 14,
   },
   stepNumberText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   stepIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(218, 165, 32, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(218, 165, 32, 0.08)",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 14,
     borderWidth: 1,
-    borderColor: '#DAA520',
+    borderColor: "#DAA520",
   },
   stepContent: {
     flex: 1,
   },
   stepTitle: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: "600",
+    color: "#1F2937",
     marginBottom: 3,
   },
   stepDesc: {
     fontSize: 13,
-    color: '#6B7280',
+    color: "#6B7280",
     lineHeight: 18,
   },
   arrowDown: {
-    alignItems: 'center',
+    alignItems: "center",
     marginVertical: 6,
   },
   iconContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   mobileIcon: {
     width: 20,
     height: 24,
-    backgroundColor: '#DAA520',
+    backgroundColor: "#DAA520",
     borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 4,
   },
   goldBar: {
     width: 20,
     height: 6,
-    backgroundColor: '#DAA520',
+    backgroundColor: "#DAA520",
     borderRadius: 3,
     marginLeft: 4,
   },
   rupeeIcon: {
     fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   shield: {
     marginRight: 4,
@@ -555,39 +564,39 @@ const styles = StyleSheet.create({
   vault: {
     width: 24,
     height: 20,
-    backgroundColor: '#4B5563',
+    backgroundColor: "#4B5563",
     borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   vaultDoor: {
     width: 16,
     height: 12,
-    backgroundColor: '#DAA520',
+    backgroundColor: "#DAA520",
     borderRadius: 2,
   },
   mobileWallet: {
     width: 24,
     height: 28,
-    backgroundColor: '#8B4513',
+    backgroundColor: "#8B4513",
     borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   goldCoin: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#DAA520',
+    backgroundColor: "#DAA520",
   },
   chartContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     marginLeft: 4,
   },
   chartBar: {
     width: 3,
-    backgroundColor: '#DAA520',
+    backgroundColor: "#DAA520",
     marginHorizontal: 0.5,
     borderRadius: 1,
   },
@@ -595,12 +604,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 18,
     paddingBottom: 35,
-    alignItems: 'center',
+    alignItems: "center",
   },
   ctaButton: {
     borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#464B8B',
+    overflow: "hidden",
+    shadowColor: "#464B8B",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -609,29 +618,29 @@ const styles = StyleSheet.create({
   buttonGradient: {
     paddingVertical: 16,
     paddingHorizontal: 48,
-    alignItems: 'center',
+    alignItems: "center",
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   faqOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     zIndex: 1000,
   },
   faqHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: '#464B8B',
-    shadowColor: '#000',
+    backgroundColor: "#464B8B",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -641,49 +650,49 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 16,
   },
   faqBackText: {
     fontSize: 20,
-    color: '#FFFFFF',
-    fontWeight: '500',
+    color: "#FFFFFF",
+    fontWeight: "500",
   },
   faqTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
     flex: 1,
   },
   faqContent: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   faqItem: {
     marginHorizontal: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#DAA520',
+    borderBottomColor: "#DAA520",
   },
   faqQuestion: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 18,
     paddingHorizontal: 0,
   },
   faqQuestionText: {
     fontSize: 16,
-    fontWeight: 'normal',
-    color: '#1A1A1A',
+    fontWeight: "normal",
+    color: "#1A1A1A",
     flex: 1,
     lineHeight: 22,
   },
   faqToggle: {
     fontSize: 18,
-    color: '#DAA520',
-    fontWeight: '600',
+    color: "#DAA520",
+    fontWeight: "600",
   },
   faqAnswer: {
     paddingBottom: 18,
@@ -691,15 +700,15 @@ const styles = StyleSheet.create({
   },
   faqAnswerText: {
     fontSize: 15,
-    color: '#4A5568',
+    color: "#4A5568",
     lineHeight: 22,
   },
   faqIntroText: {
     fontSize: 16,
-    color: '#333333',
+    color: "#333333",
     marginHorizontal: 20,
     marginBottom: 20,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });
 

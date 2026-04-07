@@ -17,6 +17,7 @@ import {
   BackHandler,
   Animated,
   Easing,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
@@ -230,7 +231,7 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
   // ── Payment Success Handler ──────────────────────────────────────────────
   const handlePaymentSuccess = async () => {
     try {
-      // Generate invoice
+      // Try to generate invoice
       console.log("[Invoice] Generating for orderId:", orderId);
       console.log("[Invoice] orderNumber:", orderNumber);
 
@@ -254,23 +255,66 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
       console.error("[Invoice] Error message:", error.message);
       console.error("[Invoice] Error details:", JSON.stringify(error));
 
-      // Show success but log that invoice failed
-      Alert.alert(
-        "Payment Successful",
-        "Your payment was successful but invoice generation failed. You can download it later from Orders.",
-        [{ text: "OK" }],
-      );
-      setStatus("success");
+      // If invoice already exists (status 500), just get the URL
+      if (error.message?.includes('already exists') || error.message?.includes('500')) {
+        console.log('[Invoice] Invoice already exists, getting PDF URL...');
+        if (orderNumber) {
+          const pdfUrl = getInvoicePdfUrl(orderNumber);
+          console.log("[Invoice] PDF URL:", pdfUrl);
+          setInvoiceUrl(pdfUrl);
+        }
+        setStatus("success");
+      } else {
+        // Show success but log that invoice failed
+        Alert.alert(
+          "Payment Successful",
+          "Your payment was successful but invoice generation failed. You can download it later from Orders.",
+          [{ text: "OK" }],
+        );
+        setStatus("success");
+      }
     }
   };
 
-  const handleDownloadInvoice = async () => {
+  const handleViewInvoice = async () => {
     try {
-      if (invoiceUrl) {
-        const { Linking } = require("react-native");
-        await Linking.openURL(invoiceUrl);
+      console.log('========================================');
+      console.log('[View Invoice] Button Clicked');
+      console.log('[View Invoice] orderNumber:', orderNumber);
+      console.log('[View Invoice] invoiceUrl:', invoiceUrl);
+      console.log('========================================');
+      
+      if (!invoiceUrl) {
+        console.error('[View Invoice] ❌ Invoice URL not available');
+        Alert.alert('Error', 'Invoice URL not available');
+        return;
       }
+
+      Alert.alert(
+        'View Invoice',
+        'Invoice will open in your browser where you can view and download it.\n\nNote: You may need to login again in the browser.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Open Browser', 
+            onPress: async () => {
+              const supported = await Linking.canOpenURL(invoiceUrl);
+              if (supported) {
+                await Linking.openURL(invoiceUrl);
+              } else {
+                Alert.alert('Error', 'Cannot open URL');
+              }
+            }
+          }
+        ]
+      );
+      
+      console.log('[View Invoice] ✅ Alert shown');
     } catch (error) {
+      console.log('========================================');
+      console.error('[View Invoice] ❌ Error:', error);
+      console.error('[View Invoice] Error message:', error.message);
+      console.log('========================================');
       Alert.alert("Error", "Unable to open invoice");
     }
   };
@@ -375,10 +419,10 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
           {invoiceUrl && (
             <TouchableOpacity
               style={styles.invoiceButton}
-              onPress={handleDownloadInvoice}
+              onPress={handleViewInvoice}
             >
               <Ionicons name="document-text" size={18} color="#fff" />
-              <Text style={styles.invoiceButtonText}>Download Invoice</Text>
+              <Text style={styles.invoiceButtonText}>View Invoice</Text>
             </TouchableOpacity>
           )}
 

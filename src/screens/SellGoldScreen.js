@@ -1,270 +1,765 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Keyboard } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useGold } from '../context/GoldContext';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  Keyboard,
+  Platform,
+  StatusBar,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { useGold } from "../context/GoldContext";
 
+// ─── Design Tokens (mirrors DigitalGoldScreen) ────────────────────────────────
+const C = {
+  bg: "#F7F6F3",
+  card: "#FFFFFF",
+  gold: "#C8952A",
+  goldLight: "#F5ECD7",
+  goldMid: "#E8C97A",
+  navy: "#1C2340",
+  navyMid: "#3D4463",
+  navyLight: "#8891AF",
+  green: "#0E9F6E",
+  greenBg: "#ECFDF5",
+  red: "#E02424",
+  redBg: "#FEF2F2",
+  border: "#EAE8E2",
+  divider: "#F0EEE9",
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 const SellGoldScreen = ({ navigation }) => {
   const { state } = useGold();
-  const sellRate     = state.goldPrice?.sellPrice  || 16236;
-  const lastUpdated  = state.goldPrice?.lastUpdated || null;
+  const sellRate = state.goldPrice?.sellPrice || 16236;
+  const lastUpdated = state.goldPrice?.lastUpdated || null;
   const availableGold = state.portfolio?.totalGrams || 0;
 
-  const [sellMode, setSellMode] = useState('rupees');
-  const [amount, setAmount]     = useState('');
+  const [sellMode, setSellMode] = useState("rupees");
+  const [amount, setAmount] = useState("");
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+
   const scrollViewRef = useRef(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (event) => {
-      setKeyboardOffset(event.endCoordinates.height);
-      setTimeout(() => {
-        if (scrollViewRef.current) {
-          scrollViewRef.current.scrollTo({ y: 200, animated: true });
-        }
-      }, 100);
+    const show = Keyboard.addListener("keyboardDidShow", (e) => {
+      setKeyboardOffset(e.endCoordinates.height);
+      setTimeout(
+        () => scrollViewRef.current?.scrollTo({ y: 200, animated: true }),
+        100,
+      );
     });
-
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardOffset(0));
-
+    const hide = Keyboard.addListener("keyboardDidHide", () =>
+      setKeyboardOffset(0),
+    );
     return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
+      show.remove();
+      hide.remove();
     };
   }, []);
 
   const handleSell = () => {
     if (!amount || parseFloat(amount) <= 0 || isNaN(parseFloat(amount))) {
-      Alert.alert('Enter Amount', 'Please enter a valid amount to proceed');
+      Alert.alert("Enter Amount", "Please enter a valid amount to proceed");
       return;
     }
-    
     const numAmount = parseFloat(amount);
-    
-    if (sellMode === 'rupees' && numAmount < 100) {
-      Alert.alert('Error', 'Minimum sell amount is ₹100');
+    if (sellMode === "rupees" && numAmount < 100) {
+      Alert.alert("Error", "Minimum sell amount is ₹100");
       return;
     }
-    
-    const grams = sellMode === 'rupees' ? (numAmount / sellRate).toFixed(3) : numAmount.toFixed(3);
-    
+    const grams =
+      sellMode === "rupees"
+        ? (numAmount / sellRate).toFixed(3)
+        : numAmount.toFixed(3);
     if (parseFloat(grams) > availableGold) {
-      Alert.alert('Error', 'Insufficient gold balance');
+      Alert.alert("Error", "Insufficient gold balance");
       return;
     }
-    
-    navigation.navigate('SellSummary', {
-      amount: sellMode === 'rupees' ? numAmount : (numAmount * sellRate).toFixed(2),
+    navigation.navigate("SellSummary", {
+      amount:
+        sellMode === "rupees" ? numAmount : (numAmount * sellRate).toFixed(2),
       grams,
       sellRate,
       availableGold,
-      lockedAt: new Date().toISOString()
+      lockedAt: new Date().toISOString(),
     });
   };
 
-  return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#F8F9FA', '#FFFFFF', '#F8F9FA']}
-        style={styles.backgroundGradient}
-      >
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <TouchableOpacity 
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-            >
-              <Text style={styles.backText}>←</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Sell Gold</Text>
-          </View>
-          <View style={styles.logoContainer}>
-            <Ionicons name="logo-usd" size={24} color="#DAA520" />
-          </View>
-        </View>
+  const rupeesPreview =
+    amount && !isNaN(parseFloat(amount)) && sellMode === "grams"
+      ? (parseFloat(amount) * sellRate).toLocaleString("en-IN", {
+          maximumFractionDigits: 0,
+        })
+      : null;
+  const gramsPreview =
+    amount && !isNaN(parseFloat(amount)) && sellMode === "rupees"
+      ? (parseFloat(amount) / sellRate).toFixed(4)
+      : null;
 
-      <ScrollView 
+  const currentValue = availableGold * sellRate;
+
+  return (
+    <SafeAreaView style={s.container} edges={["top"]}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+
+      {/* ─── Header ───────────────────────────────────────────────── */}
+      <View style={s.header}>
+        <TouchableOpacity
+          style={s.backBtn}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Text style={s.backBtnText}>‹</Text>
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>Sell Gold</Text>
+        <View style={s.liveChip}>
+          <View style={s.liveDot} />
+          <Text style={s.liveLabel}>LIVE</Text>
+        </View>
+      </View>
+
+      <ScrollView
         ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: keyboardOffset > 0 ? keyboardOffset + 30 : 30 }]}
+        bounces={false}
+        contentContainerStyle={[
+          s.scroll,
+          { paddingBottom: keyboardOffset > 0 ? keyboardOffset + 24 : 40 },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
-        <LinearGradient colors={['#2C2C54', '#40407A', '#464B8B']} style={styles.compactBanner}>
-          <View style={styles.goldRateSection}>
-            <Text style={styles.goldRateLabel}>Live Sell Price</Text>
-            <View style={styles.rateRow}>
-              <Text style={styles.goldRate}>₹{sellRate.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</Text>
-              <Text style={styles.perGramText}>/ gram</Text>
-              <View style={styles.liveIndicator}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveText}>LIVE</Text>
-              </View>
+        {/* ─── Hero Card ────────────────────────────────────────────── */}
+        <LinearGradient
+          colors={["#1C2340", "#2A3260", "#1C2340"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.heroCard}
+        >
+          <View style={s.heroRing1} />
+          <View style={s.heroRing2} />
+
+          {/* Sell price row */}
+          <View style={s.heroPriceRow}>
+            <View>
+              <Text style={s.heroPurity}>24K Gold · 999.9 Pure</Text>
+              <Text style={s.heroPrice}>
+                ₹
+                {sellRate.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+              </Text>
+              <Text style={s.heroPriceSub}>
+                sell price / gram{lastUpdated ? `   ·   ${lastUpdated}` : ""}
+              </Text>
             </View>
-            <Text style={styles.purityText}>24K Gold • 999.9 Purity Guaranteed{lastUpdated ? `  ·  ${lastUpdated}` : ''}</Text>
+            <View style={s.heroCoin}>
+              <Text style={s.heroCoinEmoji}>🪙</Text>
+            </View>
           </View>
-          
-          <View style={styles.portfolioSection}>
-            <Text style={styles.portfolioLabel}>Available Balance</Text>
-            <View style={styles.portfolioRow}>
-              <View style={styles.portfolioLeft}>
-                <Text style={styles.portfolioValue}>₹{(availableGold * sellRate).toLocaleString()}</Text>
-                <Text style={styles.portfolioGrams}>{availableGold} grams owned</Text>
-              </View>
+
+          <View style={s.heroDivider} />
+
+          {/* Available balance */}
+          <View style={s.heroPortfolio}>
+            <View>
+              <Text style={s.heroPortLabel}>AVAILABLE TO SELL</Text>
+              <Text style={s.heroPortValue}>
+                ₹
+                {currentValue.toLocaleString("en-IN", {
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+              <Text style={s.heroPortGrams}>
+                {availableGold.toFixed(4)} grams owned
+              </Text>
+            </View>
+            <View style={s.heroBalanceTag}>
+              <Text style={s.heroBalanceGrams}>{availableGold.toFixed(4)}</Text>
+              <Text style={s.heroBalanceUnit}>grams</Text>
             </View>
           </View>
         </LinearGradient>
 
-        <View style={styles.buySection}>
-          <Text style={styles.buySectionTitle}>Sell Gold</Text>
-          
-          <View style={styles.toggleContainer}>
-            <TouchableOpacity 
-              style={[styles.toggleTab, sellMode === 'rupees' && styles.activeTab]}
-              onPress={() => setSellMode('rupees')}
-            >
-              <Text style={[styles.toggleText, sellMode === 'rupees' && styles.activeToggleText]}>Sell in Rupees (₹)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.toggleTab, sellMode === 'grams' && styles.activeTab]}
-              onPress={() => setSellMode('grams')}
-            >
-              <Text style={[styles.toggleText, sellMode === 'grams' && styles.activeToggleText]}>Sell in Grams (g)</Text>
-            </TouchableOpacity>
+        {/* ─── Sell Gold Card ───────────────────────────────────────── */}
+        <View style={s.card}>
+          <View style={s.cardTop}>
+            <Text style={s.cardTitle}>Sell Gold</Text>
+            <View style={s.ratePill}>
+              <Text style={s.ratePillText}>
+                ₹
+                {sellRate.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                /g
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.inputContainer}>
+          {/* Mode Toggle */}
+          <View style={s.toggle}>
+            {["rupees", "grams"].map((mode) => (
+              <TouchableOpacity
+                key={mode}
+                onPress={() => {
+                  setSellMode(mode);
+                  setAmount("");
+                }}
+                style={[s.toggleTab, sellMode === mode && s.toggleTabActive]}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    s.toggleTabText,
+                    sellMode === mode && s.toggleTabTextActive,
+                  ]}
+                >
+                  {mode === "rupees" ? "₹  Rupees" : "⚖  Grams"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Input */}
+          <View style={s.inputBox}>
+            <Text style={s.inputSymbol}>
+              {sellMode === "rupees" ? "₹" : "g"}
+            </Text>
             <TextInput
               ref={inputRef}
-              style={styles.amountInput}
-              placeholder={sellMode === 'rupees' ? 'Enter amount in ₹' : 'Enter grams'}
-              placeholderTextColor="#999"
+              style={s.input}
+              placeholder={sellMode === "rupees" ? "0" : "0.0000"}
+              placeholderTextColor="#CCCAC3"
               value={amount}
               onChangeText={(value) => {
                 const numValue = parseFloat(value) || 0;
-                if (sellMode === 'grams' && numValue > availableGold) return;
-                if (sellMode === 'rupees' && numValue > availableGold * sellRate) return;
+                if (sellMode === "grams" && numValue > availableGold) return;
+                if (
+                  sellMode === "rupees" &&
+                  numValue > availableGold * sellRate
+                )
+                  return;
                 setAmount(value);
               }}
               keyboardType="numeric"
               returnKeyType="done"
               onSubmitEditing={() => Keyboard.dismiss()}
             />
-            
-            {amount && (
-              <Text style={styles.equivalentText}>
-                {sellMode === 'rupees' 
-                  ? `≈ ${(parseFloat(amount) / sellRate).toFixed(3)} grams`
-                  : `≈ ₹${(parseFloat(amount) * sellRate).toFixed(0)}`
-                }
+          </View>
+
+          {/* Equivalent row */}
+          {gramsPreview || rupeesPreview ? (
+            <View style={s.equivRow}>
+              <Text style={s.equivText}>
+                {gramsPreview
+                  ? `≈ ${gramsPreview} grams`
+                  : `≈ ₹${rupeesPreview}`}
               </Text>
-            )}
-            
-            <Text style={styles.helperText}>Based on live gold rate</Text>
-            <Text style={styles.noteText}>Available: {availableGold}g (₹{(availableGold * sellRate).toLocaleString('en-IN', {maximumFractionDigits: 0})})</Text>
-          </View>
-
-          <View style={styles.chipContainer}>
-            <TouchableOpacity style={styles.amountChip} onPress={() => setAmount(sellMode === 'rupees' ? (availableGold * sellRate * 0.25).toFixed(0) : (availableGold * 0.25).toFixed(3))}>
-              <Text style={styles.chipText}>25%</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.amountChip} onPress={() => setAmount(sellMode === 'rupees' ? (availableGold * sellRate * 0.5).toFixed(0) : (availableGold * 0.5).toFixed(3))}>
-              <Text style={styles.chipText}>50%</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.amountChip} onPress={() => setAmount(sellMode === 'rupees' ? (availableGold * sellRate).toFixed(0) : availableGold.toString())}>
-              <Text style={styles.chipText}>All</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.buyButton} onPress={handleSell}>
-            <View style={styles.buyButtonGradient}>
-              <Text style={styles.buyButtonText}>Sell Gold</Text>
+              <Text style={s.equivSub}>Based on live rate</Text>
             </View>
+          ) : (
+            <Text style={s.inputHint}>
+              {`Available: ${availableGold.toFixed(4)}g  ·  Min sell ₹100`}
+            </Text>
+          )}
+
+          {/* Quick % Chips */}
+          <View style={s.chips}>
+            {[
+              {
+                label: "25%",
+                rupVal: (availableGold * sellRate * 0.25).toFixed(0),
+                gramVal: (availableGold * 0.25).toFixed(4),
+              },
+              {
+                label: "50%",
+                rupVal: (availableGold * sellRate * 0.5).toFixed(0),
+                gramVal: (availableGold * 0.5).toFixed(4),
+              },
+              {
+                label: "75%",
+                rupVal: (availableGold * sellRate * 0.75).toFixed(0),
+                gramVal: (availableGold * 0.75).toFixed(4),
+              },
+              {
+                label: "All",
+                rupVal: (availableGold * sellRate).toFixed(0),
+                gramVal: availableGold.toFixed(4),
+              },
+            ].map(({ label, rupVal, gramVal }) => {
+              const val = sellMode === "rupees" ? rupVal : gramVal;
+              return (
+                <TouchableOpacity
+                  key={label}
+                  onPress={() => setAmount(val)}
+                  style={[s.chip, amount === val && s.chipActive]}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[s.chipText, amount === val && s.chipTextActive]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* CTA */}
+          <TouchableOpacity
+            onPress={handleSell}
+            activeOpacity={0.88}
+            style={s.sellBtnMain}
+          >
+            <LinearGradient
+              colors={["#D4A535", "#C8952A", "#B8841E"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={s.sellBtnGrad}
+            >
+              <Text style={s.sellBtnText}>Proceed to Sell →</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.alertCard}>
-          <View style={styles.alertIcon}>
-            <Text style={styles.alertEmoji}>💡</Text>
+        {/* ─── Settlement Details ───────────────────────────────────── */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Settlement Details</Text>
+          <View style={s.infoCard}>
+            {[
+              {
+                emoji: "🏦",
+                title: "T+1 Settlement",
+                sub: "Amount credited to your bank next business day",
+              },
+              {
+                emoji: "📋",
+                title: "TDS Deduction",
+                sub: "Tax deducted at source as per regulations",
+              },
+              {
+                emoji: "🔒",
+                title: "Price Lock",
+                sub: "Sell price locked for 30 minutes after confirm",
+              },
+            ].map((item, i, arr) => (
+              <View
+                key={item.title}
+                style={[s.infoRow, i < arr.length - 1 && s.infoRowBorder]}
+              >
+                <View style={s.infoIconBox}>
+                  <Text style={s.infoEmoji}>{item.emoji}</Text>
+                </View>
+                <View style={s.infoContent}>
+                  <Text style={s.infoTitle}>{item.title}</Text>
+                  <Text style={s.infoSub}>{item.sub}</Text>
+                </View>
+              </View>
+            ))}
           </View>
-          <View style={styles.alertContent}>
-            <Text style={styles.alertTitle}>Important Information</Text>
-            <Text style={styles.alertSubtitle}>• Minimum sell: ₹100 • T+1 settlement • TDS applicable</Text>
+        </View>
+
+        {/* ─── Important Notice ─────────────────────────────────────── */}
+        <View style={s.noticeCard}>
+          <Text style={s.noticeIcon}>💡</Text>
+          <View style={s.noticeContent}>
+            <Text style={s.noticeTitle}>Important Information</Text>
+            <Text style={s.noticeSub}>
+              Minimum sell ₹100 · Price locked 30 mins · Instant verification
+            </Text>
           </View>
         </View>
       </ScrollView>
-      </LinearGradient>
-    </View>
+    </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  backgroundGradient: { flex: 1 },
-  header: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between', 
-    paddingHorizontal: 20, 
-    paddingTop: 50, 
-    paddingBottom: 20
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
+
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 10 : 14,
+    paddingBottom: 14,
+    backgroundColor: C.bg,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center' },
-  logoContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(218, 165, 32, 0.1)', justifyContent: 'center', alignItems: 'center' },
-  backButton: { padding: 8 },
-  backText: {
-    fontSize: 24,
-    color: '#464B8B',
-    fontWeight: '600',
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: C.card,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: "rgba(28,35,64,0.08)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  headerTitle: { 
-    fontSize: 20, 
-    fontWeight: '700', 
-    color: '#464B8B',
-    marginLeft: 12
+  backBtnText: {
+    fontSize: 28,
+    lineHeight: 32,
+    color: C.navy,
+    fontWeight: "300",
+    marginTop: -2,
   },
-  headerPlaceholder: {},
-  scrollContent: { paddingBottom: 30 },
-  compactBanner: { marginHorizontal: 20, marginTop: 20, marginBottom: 16, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 20, borderWidth: 1, borderColor: '#E0E0E0' },
-  goldRateSection: { marginBottom: 20 },
-  goldRateLabel: { fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginBottom: 8 },
-  rateRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  goldRate: { fontSize: 20, fontWeight: '700', color: '#DAA520' },
-  perGramText: { fontSize: 12, color: 'rgba(218, 165, 32, 0.8)' },
-  purityText: { fontSize: 12, color: 'rgba(218, 165, 32, 0.8)' },
-  liveIndicator: { flexDirection: 'row', alignItems: 'center' },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00C851', marginRight: 8 },
-  liveText: { fontSize: 12, fontWeight: '600', color: '#00C851' },
-  portfolioSection: { borderTopWidth: 1, borderTopColor: 'rgba(218, 165, 32, 0.3)', paddingTop: 20 },
-  portfolioLabel: { fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginBottom: 12 },
-  portfolioRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  portfolioLeft: { flex: 1 },
-  portfolioValue: { fontSize: 28, fontWeight: '700', color: '#FFFFFF', marginBottom: 6 },
-  portfolioGrams: { fontSize: 14, color: 'rgba(218, 165, 32, 0.8)' },
-  buySection: { marginHorizontal: 20, borderRadius: 12, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#E0E0E0', backgroundColor: '#FFFFFF' },
-  buySectionTitle: { fontSize: 20, fontWeight: '700', color: '#464B8B', marginBottom: 20 },
-  toggleContainer: { flexDirection: 'row', backgroundColor: '#F5F5F5', borderRadius: 8, padding: 4, marginBottom: 20 },
-  toggleTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 6 },
-  activeTab: { backgroundColor: '#FFFFFF' },
-  toggleText: { fontSize: 14, color: '#666' },
-  activeToggleText: { color: '#333', fontWeight: '600' },
-  inputContainer: { marginBottom: 20 },
-  amountInput: { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 14, fontSize: 16, marginBottom: 8 },
-  equivalentText: { fontSize: 14, color: '#B8860B', marginBottom: 8, fontWeight: '600' },
-  helperText: { fontSize: 12, color: '#666', marginBottom: 4 },
-  noteText: { fontSize: 12, color: '#999' },
-  chipContainer: { flexDirection: 'row', marginBottom: 20 },
-  amountChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: '#DAA520', marginRight: 8 },
-  chipText: { fontSize: 14, color: '#2C2C2C', fontWeight: '500' },
-  buyButton: { borderRadius: 12, overflow: 'hidden' },
-  buyButtonGradient: { paddingVertical: 16, alignItems: 'center', backgroundColor: '#464B8B' },
-  buyButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  alertCard: { backgroundColor: '#F0FDF4', borderRadius: 8, padding: 14, marginHorizontal: 20, marginBottom: 30, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#10B981' },
-  alertIcon: { marginRight: 12 },
-  alertEmoji: { fontSize: 20 },
-  alertContent: { flex: 1 },
-  alertTitle: { fontSize: 14, fontWeight: '600', color: '#10B981', marginBottom: 2 },
-  alertSubtitle: { fontSize: 12, color: '#10B981', lineHeight: 18 }
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: C.navy,
+    letterSpacing: 0.2,
+  },
+  liveChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: C.greenBg,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.green },
+  liveLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: C.green,
+    letterSpacing: 0.8,
+  },
+
+  scroll: { paddingBottom: 40 },
+
+  // Hero
+  heroCard: {
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 14,
+    borderRadius: 22,
+    padding: 22,
+    overflow: "hidden",
+  },
+  heroRing1: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.05)",
+    right: -60,
+    top: -70,
+  },
+  heroRing2: {
+    position: "absolute",
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.04)",
+    right: -10,
+    top: -10,
+  },
+  heroPriceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  heroPurity: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.45)",
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  heroPrice: {
+    fontSize: 34,
+    fontWeight: "800",
+    color: C.goldMid,
+    letterSpacing: -1,
+    marginBottom: 4,
+  },
+  heroPriceSub: { fontSize: 12, color: "rgba(255,255,255,0.3)" },
+  heroCoin: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  heroCoinEmoji: { fontSize: 26 },
+  heroDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    marginBottom: 20,
+  },
+  heroPortfolio: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+  heroPortLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.35)",
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  heroPortValue: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  heroPortGrams: { fontSize: 13, color: "rgba(255,255,255,0.38)" },
+  heroBalanceTag: {
+    backgroundColor: "rgba(200,149,42,0.18)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(232,201,122,0.3)",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: "center",
+    minWidth: 80,
+  },
+  heroBalanceGrams: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: C.goldMid,
+    marginBottom: 3,
+  },
+  heroBalanceUnit: {
+    fontSize: 11,
+    color: "rgba(232,201,122,0.7)",
+    fontWeight: "500",
+  },
+
+  // Card
+  card: {
+    backgroundColor: C.card,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: "rgba(28,35,64,0.08)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: C.navy,
+    letterSpacing: -0.3,
+  },
+  ratePill: {
+    backgroundColor: C.goldLight,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: C.goldMid,
+  },
+  ratePillText: { fontSize: 12, fontWeight: "700", color: C.gold },
+
+  // Toggle
+  toggle: {
+    flexDirection: "row",
+    backgroundColor: "#F7F6F3",
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  toggleTab: {
+    flex: 1,
+    paddingVertical: 11,
+    alignItems: "center",
+    borderRadius: 10,
+  },
+  toggleTabActive: {
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: "rgba(28,35,64,0.06)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  toggleTabText: { fontSize: 14, fontWeight: "500", color: C.navyLight },
+  toggleTabTextActive: { color: C.navy, fontWeight: "700" },
+
+  // Input
+  inputBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F7F6F3",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    paddingHorizontal: 18,
+    marginBottom: 12,
+  },
+  inputSymbol: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: C.gold,
+    marginRight: 6,
+  },
+  input: {
+    flex: 1,
+    fontSize: 30,
+    fontWeight: "700",
+    color: C.navy,
+    paddingVertical: 16,
+  },
+  equivRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: C.goldLight,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: C.goldMid,
+  },
+  equivText: { fontSize: 13, fontWeight: "600", color: C.gold },
+  equivSub: { fontSize: 11, color: "#A07830", fontWeight: "500" },
+  inputHint: { fontSize: 12, color: C.navyLight, marginBottom: 16 },
+
+  // Chips
+  chips: { flexDirection: "row", gap: 8, marginBottom: 18 },
+  chip: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: "#F7F6F3",
+  },
+  chipActive: { borderColor: C.gold, backgroundColor: C.goldLight },
+  chipText: { fontSize: 13, fontWeight: "600", color: C.navyLight },
+  chipTextActive: { color: C.gold },
+
+  // Sell CTA
+  sellBtnMain: {
+    borderRadius: 14,
+    overflow: "hidden",
+    shadowColor: "rgba(200,149,42,0.35)",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  sellBtnGrad: { paddingVertical: 17, alignItems: "center", borderRadius: 14 },
+  sellBtnText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.2,
+  },
+
+  // Section
+  section: { marginBottom: 20 },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: C.navy,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+
+  // Info card
+  infoCard: {
+    backgroundColor: C.card,
+    marginHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: C.border,
+    overflow: "hidden",
+    shadowColor: "rgba(28,35,64,0.06)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  infoRowBorder: { borderBottomWidth: 1, borderBottomColor: C.divider },
+  infoIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: C.goldLight,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: C.goldMid,
+  },
+  infoEmoji: { fontSize: 18 },
+  infoContent: { flex: 1 },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.navy,
+    marginBottom: 3,
+  },
+  infoSub: { fontSize: 12, color: C.navyLight },
+
+  // Notice
+  noticeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFBEB",
+    marginHorizontal: 16,
+    marginTop: 4,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  noticeIcon: { fontSize: 22, marginRight: 12 },
+  noticeContent: { flex: 1 },
+  noticeTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#92400E",
+    marginBottom: 3,
+  },
+  noticeSub: { fontSize: 12, color: "#B45309" },
 });
 
 export default SellGoldScreen;

@@ -1,3 +1,4 @@
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * PHYSICAL GOLD API SERVICE - PRODUCTION READY
@@ -564,15 +565,24 @@ export const generateInvoice = async (orderId) => {
 
   try {
     const url = `${BASE_URL}/invoices/generate-from-order/${orderId}`;
-    console.log('[PhysicalGoldApi] generateInvoice URL:', url);
-    console.log('[PhysicalGoldApi] generateInvoice orderId:', orderId);
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] generateInvoice API CALL');
+    console.log('[PhysicalGoldApi] Method: POST');
+    console.log('[PhysicalGoldApi] URL:', url);
+    console.log('[PhysicalGoldApi] orderId:', orderId);
+    console.log('[PhysicalGoldApi] Request Body: {}');
+    console.log('========================================');
     
     // ✅ CORRECT: POST /api/invoices/generate-from-order/{orderId}
     const response = await apiPost(url, {});
-    console.log('[PhysicalGoldApi] generateInvoice response:', JSON.stringify(response));
+    
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] generateInvoice API RESPONSE');
+    console.log('[PhysicalGoldApi] Raw Response:', JSON.stringify(response, null, 2));
+    console.log('========================================');
     
     const data = extractData(response);
-    console.log('[PhysicalGoldApi] generateInvoice extracted data:', JSON.stringify(data));
+    console.log('[PhysicalGoldApi] Extracted Data:', JSON.stringify(data, null, 2));
     
     // If backend returns empty response, treat as success
     if (!data || (data.success && !data.invoiceNumber)) {
@@ -586,8 +596,12 @@ export const generateInvoice = async (orderId) => {
     
     return data;
   } catch (error) {
-    console.error('[PhysicalGoldApi] generateInvoice failed:', error.message);
-    console.error('[PhysicalGoldApi] generateInvoice error details:', JSON.stringify(error));
+    console.log('========================================');
+    console.error('[PhysicalGoldApi] generateInvoice API ERROR');
+    console.error('[PhysicalGoldApi] Error Message:', error.message);
+    console.error('[PhysicalGoldApi] Error Status:', error.status);
+    console.error('[PhysicalGoldApi] Error Details:', JSON.stringify(error, null, 2));
+    console.log('========================================');
     throw error;
   }
 };

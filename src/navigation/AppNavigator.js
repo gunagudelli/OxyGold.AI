@@ -1,9 +1,7 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useSelector } from 'react-redux';
 import { GoldProvider } from '../context/GoldContext';
-import { selectAccessToken, selectUserId } from '../store/authSlice';
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
 import DigitalGoldFlowScreen   from '../screens/DigitalGoldFlowScreen';
@@ -16,6 +14,7 @@ import RegisterScreen          from '../screens/RegisterScreen';
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 import DigitalGoldScreen       from '../screens/DigitalGoldScreen';
+import TransactionsScreen      from '../screens/TransactionsScreen';
 
 // ── Buy Flow ──────────────────────────────────────────────────────────────────
 import PaymentReviewScreen     from '../screens/PaymentReviewScreen';
@@ -45,146 +44,60 @@ import PgPaymentHandlerScreen  from '../physicalGoldScreens/PgPaymentHandlerScre
 import PgInvoiceViewerScreen   from '../physicalGoldScreens/PgInvoiceViewerScreen';
 
 const Stack = createNativeStackNavigator();
+const SCREEN = { headerShown: false, animation: 'slide_from_right' };
 
-const AppNavigator = () => {
-  const navigationRef = useRef(null);
-  const accessToken = useSelector(selectAccessToken) || null;
-  const userId = useSelector(selectUserId) || null;
+/**
+ * @param {{ navigationRef: React.RefObject }} props
+ * navigationRef is forwarded from App.js so apiClient can reset the stack on session expiry.
+ * 
+ * NOTE: No screen receives accessToken or userId via initialParams.
+ * All screens must read auth state via: useSelector(selectAccessToken) / useSelector(selectUserId)
+ */
+const AppNavigator = ({ navigationRef }) => (
+  <NavigationContainer ref={navigationRef}>
+    <GoldProvider navigationRef={navigationRef}>
+      <Stack.Navigator initialRouteName="Home" screenOptions={SCREEN}>
 
-  return (
-    <NavigationContainer ref={navigationRef}>
-      <GoldProvider navigationRef={navigationRef}>
-        <Stack.Navigator
-          initialRouteName="Home"
-          screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
-        >
-          {/* ── LANDING ── */}
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="FAQ" component={FAQScreen} />
+        {/* ── LANDING ── */}
+        <Stack.Screen name="Home"       component={HomeScreen} />
+        <Stack.Screen name="FAQ"        component={FAQScreen} />
+        <Stack.Screen name="HowItWorks" component={DigitalGoldFlowScreen} />
 
-          {/* ── ONBOARDING ── */}
-          <Stack.Screen name="HowItWorks" component={DigitalGoldFlowScreen} />
+        {/* ── AUTH ── */}
+        <Stack.Screen name="Login"    component={LoginScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
 
-          {/* ── AUTH ── */}
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
+        {/* ── DIGITAL GOLD ── */}
+        <Stack.Screen name="Dashboard"      component={DigitalGoldScreen} />
+        <Stack.Screen name="Transactions"   component={TransactionsScreen} />
+        <Stack.Screen name="PaymentReview"  component={PaymentReviewScreen} />
+        <Stack.Screen name="Payment"        component={PaymentScreen} />
+        <Stack.Screen name="PaymentProcess" component={PaymentProcessingScreen} />
+        <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
 
-          {/* ── DIGITAL GOLD DASHBOARD ── */}
-          <Stack.Screen 
-            name="Dashboard" 
-            component={DigitalGoldScreen}
-            initialParams={{ accessToken, userId }}
-          />
+        {/* ── SELL FLOW ── */}
+        <Stack.Screen name="SellGold"    component={SellGoldScreen} />
+        <Stack.Screen name="SellSummary" component={SellSummaryScreen} />
+        <Stack.Screen name="BankAccount" component={BankAccountScreen} />
+        <Stack.Screen name="SellProcess" component={SellProcessingScreen} />
+        <Stack.Screen name="SellSuccess" component={SellSuccessScreen} />
 
-          {/* ── DIGITAL GOLD BUY FLOW ── */}
-          <Stack.Screen 
-            name="PaymentReview" 
-            component={PaymentReviewScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="Payment" 
-            component={PaymentScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PaymentProcess" 
-            component={PaymentProcessingScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PaymentSuccess" 
-            component={PaymentSuccessScreen}
-            initialParams={{ accessToken, userId }}
-          />
+        {/* ── PHYSICAL GOLD ── */}
+        <Stack.Screen name="PgHome"           component={PgHomeScreen} />
+        <Stack.Screen name="PgProductDetails" component={PgProductDetailsScreen} />
+        <Stack.Screen name="PgCart"           component={PgCartScreen} />
+        <Stack.Screen name="PgAddress"        component={PgAddressScreen} />
+        <Stack.Screen name="PgOrders"         component={PgOrdersScreen} />
+        <Stack.Screen name="PgProfile"        component={PgProfileScreen} />
+        <Stack.Screen name="PgPaymentMethod"  component={PgPaymentMethodScreen} />
+        <Stack.Screen name="PgCheckout"       component={PgCheckoutScreen} />
+        <Stack.Screen name="PgPaymentHandler" component={PgPaymentHandlerScreen} />
+        <Stack.Screen name="PgPaymentStatus"  component={PgPaymentStatusScreen} />
+        <Stack.Screen name="PgInvoiceViewer"  component={PgInvoiceViewerScreen} />
 
-          {/* ── DIGITAL GOLD SELL FLOW ── */}
-          <Stack.Screen 
-            name="SellGold" 
-            component={SellGoldScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="SellSummary" 
-            component={SellSummaryScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="BankAccount" 
-            component={BankAccountScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="SellProcess" 
-            component={SellProcessingScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="SellSuccess" 
-            component={SellSuccessScreen}
-            initialParams={{ accessToken, userId }}
-          />
-
-          {/* ── PHYSICAL GOLD ── */}
-          <Stack.Screen 
-            name="PgHome" 
-            component={PgHomeScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PgProductDetails" 
-            component={PgProductDetailsScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PgCart" 
-            component={PgCartScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PgAddress" 
-            component={PgAddressScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PgOrders" 
-            component={PgOrdersScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PgProfile" 
-            component={PgProfileScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PgPaymentMethod" 
-            component={PgPaymentMethodScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PgCheckout" 
-            component={PgCheckoutScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PgPaymentHandler" 
-            component={PgPaymentHandlerScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PgPaymentStatus" 
-            component={PgPaymentStatusScreen}
-            initialParams={{ accessToken, userId }}
-          />
-          <Stack.Screen 
-            name="PgInvoiceViewer" 
-            component={PgInvoiceViewerScreen}
-            initialParams={{ accessToken, userId }}
-          />
-        </Stack.Navigator>
-      </GoldProvider>
-    </NavigationContainer>
-  );
-};
+      </Stack.Navigator>
+    </GoldProvider>
+  </NavigationContainer>
+);
 
 export default AppNavigator;

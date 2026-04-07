@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect, useCallback } 
 import { useSelector } from 'react-redux';
 import { selectUserId } from '../store/authSlice';
 import { fetchWallet, fetchTransactions, fetchProfile, clearAuthTokens } from '../services/goldApi';
+import { SESSION_EXPIRED } from '../constants/authConstants';
 import { API_GOLD_BUY_PRICE, API_GOLD_SELL_PRICE } from '../constants/api';
 
 const GoldContext = createContext(null);
@@ -123,7 +124,7 @@ export const GoldProvider = ({ children, navigationRef }) => {
 
       if (profile.status === 'fulfilled') {
         dispatch({ type: 'SET_USER', payload: profile.value });
-      } else if (profile.reason?.message === 'SESSION_EXPIRED') {
+      } else if (profile.reason?.message === SESSION_EXPIRED) {
         return handleSessionExpired();
       }
 
@@ -146,7 +147,7 @@ export const GoldProvider = ({ children, navigationRef }) => {
             walletBalance: w.walletBalance,
           },
         });
-      } else if (wallet.reason?.message === 'SESSION_EXPIRED') {
+      } else if (wallet.reason?.message === SESSION_EXPIRED) {
         return handleSessionExpired();
       } else if (transactions.status === 'fulfilled') {
         dispatch({

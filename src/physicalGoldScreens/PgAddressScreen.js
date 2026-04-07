@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, TextInput, Alert, Modal, FlatList,
+  ActivityIndicator, TextInput, Alert, Modal,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import { selectUserId } from '../store/authSlice';
+import { BASE_URL } from '../constants/api';
 import PgLayout from '../../components/physical/PgLayout';
+import { apiPost, apiGet, apiPut, apiDelete, apiPatch } from '../services/apiClient';
 
 const C = {
   bg: '#F7F5F0',
@@ -21,9 +26,7 @@ const C = {
   success: '#1A7A4A',
 };
 
-const API_BASE = 'http://65.0.147.157:9900';
-
-const AddressCard = ({ address, onEdit, onDelete }) => (
+const AddressCard = ({ address, onEdit }) => (
   <View style={styles.addressCard}>
     <View style={styles.addressHeader}>
       <View style={styles.addressTypeBadge}>
@@ -32,9 +35,6 @@ const AddressCard = ({ address, onEdit, onDelete }) => (
       <View style={styles.addressActions}>
         <TouchableOpacity onPress={() => onEdit(address)} style={styles.iconBtn}>
           <Ionicons name="pencil" size={18} color={C.gold} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => onDelete(address.id)} style={styles.iconBtn}>
-          <Ionicons name="trash-outline" size={18} color={C.error} />
         </TouchableOpacity>
       </View>
     </View>
@@ -48,8 +48,7 @@ const AddressCard = ({ address, onEdit, onDelete }) => (
 );
 
 const PgAddressScreen = ({ navigation, route }) => {
-  const userId = route?.params?.userId;
-  const accessToken = route?.params?.accessToken;
+  const userId = useSelector(selectUserId);
 
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,8 +62,6 @@ const PgAddressScreen = ({ navigation, route }) => {
     state: '',
     pinCode: '',
     type: 'Home',
-    latitude: '',
-    longitude: '',
   });
   const [errors, setErrors] = useState({});
 
@@ -72,34 +69,45 @@ const PgAddressScreen = ({ navigation, route }) => {
     fetchAddresses();
   }, []);
 
+  const STORAGE_KEY = `addresses_${userId}`;
+
   const fetchAddresses = async () => {
-    if (!userId) return;
-    const startTime = Date.now();
+    if (!userId) {
+      console.log('[Addresses] No userId available');
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      console.log('[Addresses Fetch] userId:', userId);
+      console.log('[Addresses] Fetching from API for userId:', userId);
+      console.log('[Addresses] Using endpoint: GET /auth/addresses/' + userId);
 
-      const response = await fetch(`${API_BASE}/api/auth/addresses/${userId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken || ''}`,
-        },
-      });
-
-      const data = await response.json();
-      console.log('[Addresses Response]', data);
-
-      const addressList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-      setAddresses(addressList);
+      const response = await apiGet(`${BASE_URL}/auth/addresses/${userId}`);
+      console.log('[Addresses] API response:', response);
+      
+      const addressList = response?.data || [];
+      console.log('[Addresses] Loaded:', addressList.length, 'addresses');
+      
+      // Transform API response to match form structure
+      const transformedAddresses = addressList.map(addr => ({
+        id: addr.id,
+        flatNo: addr.flatNo || '',
+        landMark: addr.landMark || '',
+        address: addr.address || '',
+        state: addr.state || '',
+        pinCode: addr.pincode || addr.pinCode || '',
+        type: addr.type || 'Home',
+      }));
+      
+      setAddresses(transformedAddresses);
     } catch (e) {
       console.log('[Addresses Error]', e.message);
+      console.log('[Addresses Error] Status:', e?.status);
+      console.log('[Addresses Error] Data:', e?.data);
       Alert.alert('Error', 'Failed to load addresses');
+      setAddresses([]);
     } finally {
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, 2000 - elapsedTime);
-      setTimeout(() => {
-        setLoading(false);
-      }, remainingTime);
+      setLoading(false);
     }
   };
 
@@ -126,91 +134,48 @@ const PgAddressScreen = ({ navigation, route }) => {
         landMark: addressForm.landMark,
         address: addressForm.address,
         state: addressForm.state,
-        pinCode: addressForm.pinCode,
+        pincode: addressForm.pinCode,
         type: addressForm.type,
       };
 
-      if (addressForm.latitude) payload.latitude = addressForm.latitude;
-      if (addressForm.longitude) payload.longitude = addressForm.longitude;
-
       if (editingAddress?.id) {
-        payload.id = editingAddress.id;
-      }
-
-      const method = editingAddress?.id ? 'PUT' : 'PATCH';
-      console.log(`[${method} Address Payload]`, JSON.stringify(payload, null, 2));
-
-      const response = await fetch(`${API_BASE}/api/auth/addAddress`, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${accessToken || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      console.log(`[${method} Address Status]`, response.status);
-      const responseData = await response.json();
-      console.log(`[${method} Address Response]`, responseData);
-
-      if (response.ok) {
-        Alert.alert('Success', editingAddress?.id ? 'Address updated' : 'Address added');
-        setShowModal(false);
-        setEditingAddress(null);
-        setAddressForm({
-          flatNo: '',
-          landMark: '',
-          address: '',
-          state: '',
-          pinCode: '',
-          type: 'Home',
-          latitude: '',
-          longitude: '',
-        });
-        setErrors({});
-        fetchAddresses();
+        payload.id = Number(editingAddress.id);
+        console.log('[SaveAddress] Updating:', payload);
+        console.log('[SaveAddress] Using endpoint: PUT /auth/addAddress');
+        await apiPut(`${BASE_URL}/auth/addAddress`, payload);
+        Alert.alert('Success', 'Address updated successfully');
       } else {
-        Alert.alert('Error', responseData?.message || 'Failed to save address');
+        console.log('[SaveAddress] Adding:', payload);
+        console.log('[SaveAddress] Using endpoint: PATCH /auth/addAddress');
+        await apiPatch(`${BASE_URL}/auth/addAddress`, payload);
+        Alert.alert('Success', 'Address added successfully');
       }
+
+      setShowModal(false);
+      setEditingAddress(null);
+      setAddressForm({
+        flatNo: '',
+        landMark: '',
+        address: '',
+        state: '',
+        pinCode: '',
+        type: 'Home',
+      });
+      setErrors({});
+      await fetchAddresses();
     } catch (e) {
-      console.log('[SaveAddress Error]', e);
-      Alert.alert('Error', e.message);
+      console.error('[SaveAddress Error]', e.message);
+      console.error('[SaveAddress Error] Status:', e?.status);
+      console.error('[SaveAddress Error] Data:', e?.data);
+      Alert.alert('Error', e?.message || 'Failed to save address');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteAddress = (addressId) => {
-    Alert.alert('Delete Address', 'Are you sure you want to delete this address?', [
-      { text: 'Cancel' },
-      {
-        text: 'Delete',
-        onPress: async () => {
-          try {
-            console.log('[DeleteAddress] addressId:', addressId);
-
-            const response = await fetch(`${API_BASE}/api/auth/addresses/${addressId}`, {
-              method: 'DELETE',
-              headers: {
-                'Authorization': `Bearer ${accessToken || ''}`,
-              },
-            });
-
-            console.log('[DeleteAddress Status]', response.status);
-
-            if (response.ok) {
-              Alert.alert('Success', 'Address deleted');
-              fetchAddresses();
-            } else {
-              Alert.alert('Error', 'Failed to delete address');
-            }
-          } catch (e) {
-            console.log('[DeleteAddress Error]', e);
-            Alert.alert('Error', e.message);
-          }
-        },
-        style: 'destructive',
-      },
+    Alert.alert('Delete Address', 'Delete functionality is not available yet', [
+      { text: 'OK' },
     ]);
   };
 
@@ -223,8 +188,6 @@ const PgAddressScreen = ({ navigation, route }) => {
       state: address.state || '',
       pinCode: address.pinCode || '',
       type: address.type || 'Home',
-      latitude: address.latitude || '',
-      longitude: address.longitude || '',
     });
     setErrors({});
     setShowModal(true);
@@ -239,8 +202,6 @@ const PgAddressScreen = ({ navigation, route }) => {
       state: '',
       pinCode: '',
       type: 'Home',
-      latitude: '',
-      longitude: '',
     });
     setErrors({});
     setShowModal(true);
@@ -251,6 +212,7 @@ const PgAddressScreen = ({ navigation, route }) => {
       <PgLayout title="My Addresses" showBack onBack={() => navigation.goBack()}>
         <View style={[styles.center, { flex: 1 }]}>
           <ActivityIndicator size="large" color={C.gold} />
+          <Text style={{ marginTop: 12, color: C.textSec }}>Loading addresses...</Text>
         </View>
       </PgLayout>
     );
@@ -259,11 +221,6 @@ const PgAddressScreen = ({ navigation, route }) => {
   return (
     <PgLayout title="My Addresses" showBack onBack={() => navigation.goBack()}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <TouchableOpacity style={styles.addBtn} onPress={handleAddNewAddress}>
-          <Ionicons name="add-circle" size={20} color="#fff" />
-          <Text style={styles.addBtnText}>Add New Address</Text>
-        </TouchableOpacity>
-
         {addresses.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="location-outline" size={48} color={C.textTer} />
@@ -277,27 +234,34 @@ const PgAddressScreen = ({ navigation, route }) => {
                 key={addr.id}
                 address={addr}
                 onEdit={handleEditAddress}
-                onDelete={handleDeleteAddress}
               />
             ))}
           </View>
         )}
+
+        <TouchableOpacity style={styles.addBtn} onPress={handleAddNewAddress}>
+          <Ionicons name="add-circle" size={20} color="#fff" />
+          <Text style={styles.addBtnText}>Add New Address</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Address Modal */}
-      <Modal visible={showModal} animationType="slide" transparent>
+      <Modal visible={showModal} animationType="slide" transparent onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editingAddress ? 'Update Address' : 'Add New Address'}
               </Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={24} color={C.textPri} />
+              <TouchableOpacity 
+                onPress={() => setShowModal(false)}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={28} color={C.textPri} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalScroll}>
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Flat / House Number *</Text>
                 <TextInput
@@ -357,6 +321,7 @@ const PgAddressScreen = ({ navigation, route }) => {
                   onChangeText={(text) => setAddressForm({ ...addressForm, pinCode: text })}
                   placeholderTextColor={C.textTer}
                   maxLength={6}
+                  keyboardType="numeric"
                 />
                 {errors.pinCode && <Text style={styles.errorText}>{errors.pinCode}</Text>}
               </View>
@@ -377,35 +342,6 @@ const PgAddressScreen = ({ navigation, route }) => {
                   ))}
                 </View>
               </View>
-
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Latitude (Optional)</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  placeholder="e.g., 17.3850"
-                  value={addressForm.latitude}
-                  onChangeText={(text) => setAddressForm({ ...addressForm, latitude: text })}
-                  placeholderTextColor={C.textTer}
-                />
-              </View>
-
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Longitude (Optional)</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  placeholder="e.g., 78.4867"
-                  value={addressForm.longitude}
-                  onChangeText={(text) => setAddressForm({ ...addressForm, longitude: text })}
-                  placeholderTextColor={C.textTer}
-                />
-              </View>
-
-              {addressForm.latitude && addressForm.longitude && (
-                <View style={styles.gpsInfo}>
-                  <Ionicons name="checkmark-circle" size={18} color={C.success} />
-                  <Text style={styles.gpsLinked}>✓ GPS Coordinates Set</Text>
-                </View>
-              )}
 
               <TouchableOpacity
                 style={[styles.confirmBtn, saving && styles.confirmBtnDisabled]}
@@ -432,7 +368,7 @@ const styles = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center' },
   scroll: { padding: 16, paddingBottom: 100 },
 
-  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: C.gold, borderRadius: 12, paddingVertical: 14, marginBottom: 20, shadowColor: '#B8891A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: C.gold, borderRadius: 12, paddingVertical: 12, marginTop: 20, marginBottom: 20, shadowColor: '#B8891A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 },
   addBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
 
   addressesList: { gap: 14 },
@@ -450,11 +386,12 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, fontWeight: '700', color: C.textPri, marginTop: 12 },
   emptySubtext: { fontSize: 13, color: C.textTer, marginTop: 6 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%', paddingTop: 16 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', zIndex: 1000 },
+  modalContent: { backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%', paddingTop: 16, zIndex: 1001 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.border },
   modalTitle: { fontSize: 18, fontWeight: '800', color: C.textPri },
-  modalScroll: { paddingHorizontal: 16, paddingVertical: 16 },
+  closeBtn: { padding: 8, marginRight: -8 },
+  modalScroll: { paddingHorizontal: 16, paddingVertical: 16, maxHeight: 600 },
 
   fieldContainer: { marginBottom: 16 },
   fieldLabel: { fontSize: 13, fontWeight: '700', color: C.textSec, marginBottom: 8 },
@@ -468,9 +405,6 @@ const styles = StyleSheet.create({
   typeBtnActive: { backgroundColor: C.goldDim, borderColor: C.gold },
   typeBtnText: { fontSize: 13, fontWeight: '600', color: C.textSec },
   typeBtnTextActive: { color: C.gold, fontWeight: '800' },
-
-  gpsInfo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EDFBF3', borderRadius: 10, padding: 12, marginBottom: 16, gap: 10, borderWidth: 1, borderColor: '#A3E6C4' },
-  gpsLinked: { fontSize: 13, fontWeight: '700', color: C.success },
 
   confirmBtn: { backgroundColor: C.gold, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 20, shadowColor: '#B8891A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 },
   confirmBtnDisabled: { opacity: 0.6 },

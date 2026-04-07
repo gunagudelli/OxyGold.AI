@@ -1,83 +1,43 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * REDUX AUTH SLICE - PRODUCTION READY
- * ═══════════════════════════════════════════════════════════════════════════
- * 
- * Manages:
- * ✅ accessToken
- * ✅ refreshToken
- * ✅ userId
- * ✅ userEmail
- * ✅ Login state
- * 
- * Usage:
- * const userId = useSelector(selectUserId);
- * const token = useSelector(selectAccessToken);
- * dispatch(setTokens({ accessToken, refreshToken, userId }));
- * ═══════════════════════════════════════════════════════════════════════════
- */
-
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-  accessToken: null,
-  refreshToken: null,
-  userId: null,
-  userEmail: null,
-  tokenType: 'Bearer',
-  expiresIn: null,
-  isLoggedIn: false,
+  accessToken:     null,
+  refreshToken:    null,
+  userId:          null,
+  userEmail:       null,
+  tokenType:       'Bearer',
+  tokenExpiresAt:  null, // Unix ms timestamp — used for proactive refresh
+  isLoggedIn:      false,
 };
 
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    /**
-     * Set tokens after login
-     * @param {Object} action.payload - { accessToken, refreshToken, userId, userEmail, tokenType, expiresIn }
-     */
     setTokens(state, action) {
-      const {
-        accessToken,
-        refreshToken,
-        userId,
-        userEmail,
-        tokenType,
-        expiresIn,
-      } = action.payload;
+      const { accessToken, refreshToken, userId, userEmail, tokenType, expiresIn } = action.payload;
 
-      state.accessToken = accessToken;
-      state.refreshToken = refreshToken;
-      state.userId = userId || state.userId;
-      state.userEmail = userEmail || state.userEmail;
-      state.tokenType = tokenType || 'Bearer';
-      state.expiresIn = expiresIn || null;
-      state.isLoggedIn = !!accessToken;
+      state.accessToken    = accessToken    || state.accessToken;
+      state.refreshToken   = refreshToken   || state.refreshToken;
+      state.userId         = userId         || state.userId;
+      state.userEmail      = userEmail      || state.userEmail;
+      state.tokenType      = tokenType      || 'Bearer';
+      state.isLoggedIn     = !!accessToken;
 
-      console.log('[Redux] Tokens updated');
+      // Store absolute expiry timestamp (subtract 30s buffer for proactive refresh)
+      state.tokenExpiresAt = expiresIn
+        ? Date.now() + (expiresIn - 30) * 1000
+        : null;
     },
 
-    /**
-     * Clear tokens on logout
-     */
     clearTokens(state) {
-      state.accessToken = null;
-      state.refreshToken = null;
-      state.userId = null;
-      state.userEmail = null;
-      state.isLoggedIn = false;
-
-      console.log('[Redux] Tokens cleared - user logged out');
+      Object.assign(state, initialState);
     },
 
-    /**
-     * Update user info
-     */
     setUserInfo(state, action) {
       const { userId, userEmail } = action.payload;
-      state.userId = userId || state.userId;
-      state.userEmail = userEmail || state.userEmail;
+      if (userId)    state.userId    = userId;
+      if (userEmail) state.userEmail = userEmail;
     },
   },
 });
@@ -85,62 +45,11 @@ const authSlice = createSlice({
 export const { setTokens, clearTokens, setUserInfo } = authSlice.actions;
 export default authSlice.reducer;
 
-// ─────────────────────────────────────────────────────────────────────────
-// SELECTORS
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Get access token from Redux
- * @param {Object} state - Redux state
- * @returns {string|null} Access token or null
- */
-export const selectAccessToken = (state) => state?.auth?.accessToken || null;
-
-/**
- * Get refresh token from Redux
- * @param {Object} state - Redux state
- * @returns {string|null} Refresh token or null
- */
-export const selectRefreshToken = (state) => state?.auth?.refreshToken || null;
-
-/**
- * Get user ID from Redux
- * @param {Object} state - Redux state
- * @returns {number|null} User ID or null
- */
-export const selectUserId = (state) => state?.auth?.userId || null;
-
-/**
- * Get user email from Redux
- * @param {Object} state - Redux state
- * @returns {string|null} User email or null
- */
-export const selectUserEmail = (state) => state?.auth?.userEmail || null;
-
-/**
- * Get login status from Redux
- * @param {Object} state - Redux state
- * @returns {boolean} Is user logged in
- */
-export const selectIsLoggedIn = (state) => state?.auth?.isLoggedIn || false;
-
-/**
- * Get token type from Redux
- * @param {Object} state - Redux state
- * @returns {string} Token type (usually 'Bearer')
- */
-export const selectTokenType = (state) => state?.auth?.tokenType || 'Bearer';
-
-/**
- * Get token expiry time from Redux
- * @param {Object} state - Redux state
- * @returns {number|null} Expiry time in seconds or null
- */
-export const selectExpiresIn = (state) => state?.auth?.expiresIn || null;
-
-/**
- * Get all auth state
- * @param {Object} state - Redux state
- * @returns {Object} Complete auth state
- */
-export const selectAuthState = (state) => state?.auth || initialState;
+// ─── Selectors ────────────────────────────────────────────────────────────────
+export const selectAccessToken    = (s) => s?.auth?.accessToken    || null;
+export const selectRefreshToken   = (s) => s?.auth?.refreshToken   || null;
+export const selectUserId         = (s) => s?.auth?.userId         || null;
+export const selectUserEmail      = (s) => s?.auth?.userEmail      || null;
+export const selectIsLoggedIn     = (s) => s?.auth?.isLoggedIn     || false;
+export const selectTokenExpiresAt = (s) => s?.auth?.tokenExpiresAt || null;
+export const selectAuthState      = (s) => s?.auth                 || initialState;
