@@ -7,9 +7,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { selectUserId } from '../store/authSlice';
-import { BASE_URL } from '../constants/api';
+import { PHYSICAL_GOLD_BASE_URL } from '../constants/api';
 import PgLayout from '../../components/physical/PgLayout';
-import { apiPost, apiGet, apiPut, apiDelete, apiPatch } from '../services/apiClient';
+import { getUserAddresses, addAddress, updateAddress } from './physicalGoldApi';
 
 const C = {
   bg: '#F7F5F0',
@@ -79,13 +79,9 @@ const PgAddressScreen = ({ navigation, route }) => {
     }
     try {
       setLoading(true);
-      console.log('[Addresses] Fetching from API for userId:', userId);
-      console.log('[Addresses] Using endpoint: GET /auth/addresses/' + userId);
+      console.log('[Addresses] Fetching addresses for userId:', userId);
 
-      const response = await apiGet(`${BASE_URL}/auth/addresses/${userId}`);
-      console.log('[Addresses] API response:', response);
-      
-      const addressList = response?.data || [];
+      const addressList = await getUserAddresses(userId);
       console.log('[Addresses] Loaded:', addressList.length, 'addresses');
       
       // Transform API response to match form structure
@@ -103,7 +99,6 @@ const PgAddressScreen = ({ navigation, route }) => {
     } catch (e) {
       console.log('[Addresses Error]', e.message);
       console.log('[Addresses Error] Status:', e?.status);
-      console.log('[Addresses Error] Data:', e?.data);
       Alert.alert('Error', 'Failed to load addresses');
       setAddresses([]);
     } finally {
@@ -140,14 +135,12 @@ const PgAddressScreen = ({ navigation, route }) => {
 
       if (editingAddress?.id) {
         payload.id = Number(editingAddress.id);
-        console.log('[SaveAddress] Updating:', payload);
-        console.log('[SaveAddress] Using endpoint: PUT /auth/addAddress');
-        await apiPut(`${BASE_URL}/auth/addAddress`, payload);
+        console.log('[SaveAddress] Updating address:', payload);
+        await updateAddress(payload);
         Alert.alert('Success', 'Address updated successfully');
       } else {
-        console.log('[SaveAddress] Adding:', payload);
-        console.log('[SaveAddress] Using endpoint: PATCH /auth/addAddress');
-        await apiPatch(`${BASE_URL}/auth/addAddress`, payload);
+        console.log('[SaveAddress] Adding new address:', payload);
+        await addAddress(payload);
         Alert.alert('Success', 'Address added successfully');
       }
 
@@ -166,7 +159,6 @@ const PgAddressScreen = ({ navigation, route }) => {
     } catch (e) {
       console.error('[SaveAddress Error]', e.message);
       console.error('[SaveAddress Error] Status:', e?.status);
-      console.error('[SaveAddress Error] Data:', e?.data);
       Alert.alert('Error', e?.message || 'Failed to save address');
     } finally {
       setSaving(false);

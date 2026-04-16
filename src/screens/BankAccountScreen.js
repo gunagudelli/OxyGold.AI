@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { selectUserId, selectAccessToken } from "../store/authSlice";
 import { apiPost } from "../services/apiClient";
-import { BASE_URL } from "../constants/api";
+import { BASE_URL, PHYSICAL_GOLD_BASE_URL } from "../constants/api";
 
 const BankAccountScreen = ({ navigation, route }) => {
   const userId = useSelector(selectUserId);
@@ -59,11 +59,11 @@ const BankAccountScreen = ({ navigation, route }) => {
         JSON.stringify(payload, null, 2),
       );
       console.log(
-        "[BankAccountScreen] Calling: POST ${BASE_URL}/auth/saveBankDetails",
+        "[BankAccountScreen] Calling: POST ${PHYSICAL_GOLD_BASE_URL}/auth/saveBankDetails",
       );
 
       const response = await apiPost(
-        `${BASE_URL}/auth/saveBankDetails`,
+        `${PHYSICAL_GOLD_BASE_URL}/auth/saveBankDetails`,
         payload,
       );
 

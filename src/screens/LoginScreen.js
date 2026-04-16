@@ -233,7 +233,7 @@ const LoginScreen = ({ navigation, route }) => {
       }
 
       setShowSuccess(true);
-      setTimeout(() => navigation.replace("Dashboard"), 1500);
+      setTimeout(() => navigation.replace("PgHome"), 1500);
     } catch (err) {
       setError(err.message || "OTP verification failed. Please try again.");
     } finally {

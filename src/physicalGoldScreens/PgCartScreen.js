@@ -808,13 +808,16 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { selectUserId } from "../store/authSlice";
+import { setCartCount } from "../store/cartSlice";
 import { apiGet, apiPost, apiDelete } from "../services/apiClient";
-import { BASE_URL } from "../constants/api";
+import { PHYSICAL_GOLD_BASE_URL } from "../constants/api";
 import PgLayout from "../../components/physical/PgLayout";
+import { getProductImages } from "./physicalGoldApi";
 
 // ─── Design Tokens (mirrors PgProductDetailsScreen exactly) ──────────────────
 const C = {
@@ -939,13 +942,13 @@ const SkeletonItem = () => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PgCartScreen = ({ navigation, route }) => {
   const userId = useSelector(selectUserId);
+  const dispatch = useDispatch();
 
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState(false);
-
-  // Per-item loading: { [cartId]: true/false }
   const [itemLoading, setItemLoading] = useState({});
+  const [itemImages, setItemImages] = useState({});
 
   const [totalCartValue, setTotalCartValue] = useState(0);
   const [totalGstCharges, setTotalGstCharges] = useState(0);
@@ -966,12 +969,28 @@ const PgCartScreen = ({ navigation, route }) => {
     return unsubscribe;
   }, [navigation, userId]);
 
+  useEffect(() => {
+    cartItems.forEach((item) => {
+      if (item.productId && !itemImages[item.productId]) {
+        getProductImages(item.productId)
+          .then((res) => {
+            setItemImages((prev) => ({
+              ...prev,
+              [item.productId]: res?.frontViewUrl || null,
+            }));
+          })
+          .catch(() => {});
+      }
+    });
+  }, [cartItems]);
+
   const applyCartData = (data) => {
     setCartItems(data?.itemsInCart || []);
     setTotalCartValue(data?.totalCartValue || 0);
     setTotalGstCharges(data?.totalGstCharges || 0);
     setTotalMakingCharges(data?.totalMakingCharges || 0);
     setTotalPayableAmount(data?.totalPayableAmount || 0);
+    dispatch(setCartCount(data?.itemsInCart?.length || 0));
   };
 
   // Full page load (initial / refresh) — keeps loading state
@@ -979,7 +998,7 @@ const PgCartScreen = ({ navigation, route }) => {
     if (!silent) setLoading(true);
     const startTime = Date.now();
     try {
-      const data = await apiGet(`${BASE_URL}/cart/customer-cart-info`, {
+      const data = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/cart/customer-cart-info`, {
         params: { customerId: userId },
       });
       applyCartData(data);
@@ -1016,7 +1035,7 @@ const PgCartScreen = ({ navigation, route }) => {
   // Silent refresh after item action — only updates data, no full screen spinner
   const silentRefresh = async (cartId) => {
     try {
-      const data = await apiGet(`${BASE_URL}/cart/customer-cart-info`, {
+      const data = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/cart/customer-cart-info`, {
         params: { customerId: userId },
       });
       applyCartData(data);
@@ -1038,7 +1057,7 @@ const PgCartScreen = ({ navigation, route }) => {
         onPress: async () => {
           setItemBusy(item.cartId, true);
           try {
-            await apiDelete(`${BASE_URL}/cart/${item.cartId}`, {
+            await apiDelete(`${PHYSICAL_GOLD_BASE_URL}/cart/${item.cartId}`, {
               params: { userId },
             });
             await silentRefresh(item.cartId);
@@ -1055,7 +1074,7 @@ const PgCartScreen = ({ navigation, route }) => {
   const handleIncrement = async (item) => {
     setItemBusy(item.cartId, true);
     try {
-      await apiPost(`${BASE_URL}/cart/AddItemToCart`, {
+      await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/AddItemToCart`, {
         userId,
         productId: item.productId,
         productVariantId: item.productVariantId,
@@ -1075,7 +1094,7 @@ const PgCartScreen = ({ navigation, route }) => {
     }
     setItemBusy(item.cartId, true);
     try {
-      await apiPost(`${BASE_URL}/cart/decrementCartItems`, {
+      await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/decrementCartItems`, {
         userId,
         id: item.cartId,
         productId: item.productId,
@@ -1177,9 +1196,7 @@ const PgCartScreen = ({ navigation, route }) => {
                 const busy = !!itemLoading[item.cartId];
                 return (
                   <View key={item.cartId}>
-                    <View
-                      style={[styles.cartItem, busy && styles.cartItemBusy]}
-                    >
+                    <View style={styles.cartItem}>
                       {/* Busy overlay */}
                       {busy && (
                         <View style={styles.itemBusyOverlay}>
@@ -1197,19 +1214,29 @@ const PgCartScreen = ({ navigation, route }) => {
                         <Ionicons name="trash" size={13} color="#FFFFFF" />
                       </TouchableOpacity>
 
-                      {/* Thumb — navy coin style matching hero fallback */}
+                      {/* Thumb — show product image or navy coin */}
                       <View style={styles.itemThumb}>
-                        <Text style={styles.itemThumbWeight}>
-                          {item.weight ? `${item.weight}g` : "🏆"}
-                        </Text>
-                        {item.weight ? (
+                        {itemImages[item.productId] ? (
+                          <Image
+                            source={{ uri: itemImages[item.productId] }}
+                            style={styles.itemThumbImage}
+                            resizeMode="contain"
+                          />
+                        ) : (
                           <>
-                            <View style={styles.itemThumbDivider} />
-                            <Text style={styles.itemThumbPurity}>
-                              {item.purity || "—"}
+                            <Text style={styles.itemThumbWeight}>
+                              {item.weight ? `${item.weight}g` : "🏆"}
                             </Text>
+                            {item.weight ? (
+                              <>
+                                <View style={styles.itemThumbDivider} />
+                                <Text style={styles.itemThumbPurity}>
+                                  {item.purity || "—"}
+                                </Text>
+                              </>
+                            ) : null}
                           </>
-                        ) : null}
+                        )}
                       </View>
 
                       {/* Info column */}
@@ -1447,7 +1474,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
 
-  // Thumb — navy coin style matching hero fallback from PgProductDetailsScreen
+  // Thumb — show product image or navy coin
   itemThumb: {
     width: 76,
     height: 76,
@@ -1463,6 +1490,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
+    overflow: "hidden",
+  },
+  itemThumbImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 38,
   },
   itemThumbWeight: {
     fontSize: 16,

@@ -251,7 +251,7 @@ const PaymentReviewScreen = ({ navigation, route }) => {
 
         {/* Order Details */}
         <View style={s.card}>
-          <Text style={s.cardTitle}>🪙 Purchase Details</Text>
+          <Text style={s.cardTitle}> Purchase Details</Text>
           <Row label="Gold Weight" value={`${grams.toFixed(6)} grams`} gold />
           <Row
             label="Rate per gram"
@@ -275,13 +275,13 @@ const PaymentReviewScreen = ({ navigation, route }) => {
         </View>
 
         {/* Gold Specs */}
-        <View style={s.card}>
+        {/* <View style={s.card}>
           <Text style={s.cardTitle}>✦ Gold Specifications</Text>
           <Row label="Purity" value="999.9 Pure 24K" />
           <Row label="Certification" value="BIS Hallmarked" />
           <Row label="Storage" value="Mumbai Secure Vault" />
           <Row label="Insurance" value="100% Covered" />
-        </View>
+        </View> */}
 
         {/* Payment Method */}
         <View style={s.card}>

@@ -88,11 +88,11 @@ export const getSubCategories = async (parentId) => {
 };
 
 /**
- * Get category image
+ * Get category images (all types)
  * @param {number|string} categoryId - Category ID
- * @returns {Promise<string|null>} Image URL or null
+ * @returns {Promise<Object|null>} Image URLs object { frontViewurl, topViewUrl, leftViewUrl, rightViewUrl, backViewUrl, bottomViewUrl, expriesIn } or null
  */
-export const getCategoryImage = async (categoryId) => {
+export const getCategoryImages = async (categoryId) => {
   validateId(categoryId, 'Category ID');
 
   try {
@@ -102,11 +102,32 @@ export const getCategoryImage = async (categoryId) => {
     );
 
     const data = extractData(response);
-    return data?.urls?.[0] || data?.url || null;
+    if (!data) return null;
+
+    return {
+      frontViewUrl: data?.frontViewurl || null,
+      topViewUrl: data?.topViewUrl || null,
+      leftViewUrl: data?.leftViewUrl || null,
+      rightViewUrl: data?.rightViewUrl || null,
+      backViewUrl: data?.backViewUrl || null,
+      bottomViewUrl: data?.bottomViewUrl || null,
+      expiresIn: data?.expriesIn || 3600,
+    };
   } catch (error) {
-    console.warn(`[PhysicalGoldApi] Category image not found for ID: ${categoryId}`);
+    console.warn(`[PhysicalGoldApi] Category images not found for ID: ${categoryId}`);
     return null;
   }
+};
+
+/**
+ * Get category image (legacy - returns first available image)
+ * @param {number|string} categoryId - Category ID
+ * @returns {Promise<string|null>} Image URL or null
+ */
+export const getCategoryImage = async (categoryId) => {
+  const images = await getCategoryImages(categoryId);
+  if (!images) return null;
+  return images.frontViewUrl || images.topViewUrl || images.backViewUrl || null;
 };
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -125,8 +146,8 @@ export const getProducts = async (subCategoryId, page = 1, limit = 20) => {
   validatePagination(page, limit);
 
   try {
-    // ✅ CORRECT: Use /api/products/getAllProduct with categoryId query param
-    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL.replace('/admin', '')}/api/products/getAllProduct`, {
+    // ✅ CORRECT: Use /api/oxygold-api/products/getAllProduct with categoryId query param
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/products/getAllProduct`, {
       params: {
         categoryId: subCategoryId,
         page,
@@ -166,11 +187,11 @@ export const getProductDetails = async (productId) => {
 };
 
 /**
- * Get product image
+ * Get product images (all types)
  * @param {number|string} productId - Product ID
- * @returns {Promise<string|null>} Image URL or null
+ * @returns {Promise<Object|null>} Image URLs object { frontViewurl, topViewUrl, leftViewUrl, rightViewUrl, backViewUrl, bottomViewUrl, expriesIn } or null
  */
-export const getProductImage = async (productId) => {
+export const getProductImages = async (productId) => {
   validateId(productId, 'Product ID');
 
   try {
@@ -180,11 +201,32 @@ export const getProductImage = async (productId) => {
     );
 
     const data = extractData(response);
-    return data?.urls?.[0] || data?.url || null;
+    if (!data) return null;
+
+    return {
+      frontViewUrl: data?.frontViewurl || null,
+      topViewUrl: data?.topViewUrl || null,
+      leftViewUrl: data?.leftViewUrl || null,
+      rightViewUrl: data?.rightViewUrl || null,
+      backViewUrl: data?.backViewUrl || null,
+      bottomViewUrl: data?.bottomViewUrl || null,
+      expiresIn: data?.expriesIn || 3600,
+    };
   } catch (error) {
-    console.warn(`[PhysicalGoldApi] Product image not found for ID: ${productId}`);
+    console.warn(`[PhysicalGoldApi] Product images not found for ID: ${productId}`);
     return null;
   }
+};
+
+/**
+ * Get product image (legacy - returns first available image)
+ * @param {number|string} productId - Product ID
+ * @returns {Promise<string|null>} Image URL or null
+ */
+export const getProductImage = async (productId) => {
+  const images = await getProductImages(productId);
+  if (!images) return null;
+  return images.frontViewUrl || images.topViewUrl || images.backViewUrl || null;
 };
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -200,9 +242,9 @@ export const getProductVariants = async (productId) => {
   validateId(productId, 'Product ID');
 
   try {
-    // ✅ CORRECT: Use /api/productvariants/getVariantByProduct with query param
+    // ✅ CORRECT: Use /api/oxygold-api/productvariants/getVariantByProduct with query param
     const response = await apiGet(
-      `${PHYSICAL_GOLD_BASE_URL.replace('/admin', '')}/api/productvariants/getVariantByProduct`,
+      `${PHYSICAL_GOLD_BASE_URL}/productvariants/getVariantByProduct`,
       { params: { productId } }
     );
     return extractData(response) || [];
@@ -213,11 +255,11 @@ export const getProductVariants = async (productId) => {
 };
 
 /**
- * Get variant image
+ * Get variant images (all types)
  * @param {number|string} variantId - Variant ID
- * @returns {Promise<string|null>} Image URL or null
+ * @returns {Promise<Object|null>} Image URLs object { frontViewurl, topViewUrl, leftViewUrl, rightViewUrl, backViewUrl, bottomViewUrl, expriesIn } or null
  */
-export const getVariantImage = async (variantId) => {
+export const getVariantImages = async (variantId) => {
   validateId(variantId, 'Variant ID');
 
   try {
@@ -227,11 +269,32 @@ export const getVariantImage = async (variantId) => {
     );
 
     const data = extractData(response);
-    return data?.urls?.[0] || data?.url || null;
+    if (!data) return null;
+
+    return {
+      frontViewUrl: data?.frontViewurl || null,
+      topViewUrl: data?.topViewUrl || null,
+      leftViewUrl: data?.leftViewUrl || null,
+      rightViewUrl: data?.rightViewUrl || null,
+      backViewUrl: data?.backViewUrl || null,
+      bottomViewUrl: data?.bottomViewUrl || null,
+      expiresIn: data?.expriesIn || 3600,
+    };
   } catch (error) {
-    console.warn(`[PhysicalGoldApi] Variant image not found for ID: ${variantId}`);
+    console.warn(`[PhysicalGoldApi] Variant images not found for ID: ${variantId}`);
     return null;
   }
+};
+
+/**
+ * Get variant image (legacy - returns first available image)
+ * @param {number|string} variantId - Variant ID
+ * @returns {Promise<string|null>} Image URL or null
+ */
+export const getVariantImage = async (variantId) => {
+  const images = await getVariantImages(variantId);
+  if (!images) return null;
+  return images.frontViewUrl || images.topViewUrl || images.backViewUrl || null;
 };
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -247,8 +310,8 @@ export const getCart = async (userId) => {
   validateUserId(userId);
 
   try {
-    // GET /api/cart/customer-cart-info?customerId={userId}
-    const response = await apiGet(`${BASE_URL}/cart/customer-cart-info`, {
+    // GET /api/oxygold-api/cart/customer-cart-info?customerId={userId}
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/cart/customer-cart-info`, {
       params: { customerId: userId },
     });
     const data = extractData(response);
@@ -288,16 +351,37 @@ export const addToCart = async (userId, productId, productVariantId, quantity = 
   }
 
   try {
-    // POST /api/cart/AddItemToCart
-    const response = await apiPost(`${BASE_URL}/cart/AddItemToCart`, {
-      userId,
-      productId,
-      productVariantId,
-      quantity,
-    });
+    const payload = {
+      userId: Number(userId),
+      productId: Number(productId),
+      productVariantId: Number(productVariantId),
+      quantity: Number(quantity),
+    };
+    
+    const url = `${PHYSICAL_GOLD_BASE_URL}/cart/AddItemToCart`;
+    
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] addToCart REQUEST');
+    console.log('[PhysicalGoldApi] URL:', url);
+    console.log('[PhysicalGoldApi] Payload:', JSON.stringify(payload, null, 2));
+    console.log('========================================');
+    
+    // POST /api/oxygold-api/cart/AddItemToCart
+    const response = await apiPost(url, payload);
+    
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] addToCart RESPONSE');
+    console.log('[PhysicalGoldApi] Response:', JSON.stringify(response, null, 2));
+    console.log('========================================');
+    
     return extractData(response);
   } catch (error) {
-    console.error('[PhysicalGoldApi] addToCart failed:', error.message);
+    console.log('========================================');
+    console.error('[PhysicalGoldApi] addToCart ERROR');
+    console.error('[PhysicalGoldApi] Error Message:', error.message);
+    console.error('[PhysicalGoldApi] Error Status:', error.status);
+    console.error('[PhysicalGoldApi] Error Data:', JSON.stringify(error.data, null, 2));
+    console.log('========================================');
     throw error;
   }
 };
@@ -318,8 +402,8 @@ export const incrementCartItem = async (userId, productVariantId, quantity = 1) 
   }
 
   try {
-    // POST /api/cart/AddItemToCart (increments if exists)
-    const response = await apiPost(`${BASE_URL}/cart/AddItemToCart`, {
+    // POST /api/oxygold-api/cart/AddItemToCart (increments if exists)
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/AddItemToCart`, {
       userId,
       productVariantId,
       quantity,
@@ -347,8 +431,8 @@ export const decrementCartItem = async (userId, productVariantId, quantity = 1) 
   }
 
   try {
-    // POST /api/cart/decrementCartItems
-    const response = await apiPost(`${BASE_URL}/cart/decrementCartItems`, {
+    // POST /api/oxygold-api/cart/decrementCartItems
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/decrementCartItems`, {
       userId,
       productVariantId,
       quantity,
@@ -371,8 +455,8 @@ export const removeFromCart = async (cartId, userId) => {
   validateUserId(userId);
 
   try {
-    // ✅ CORRECT: DELETE /api/cart/{cartId}?userId={userId}
-    const response = await apiDelete(`${BASE_URL}/cart/${cartId}`, {
+    // ✅ CORRECT: DELETE /api/oxygold-api/cart/{cartId}?userId={userId}
+    const response = await apiDelete(`${PHYSICAL_GOLD_BASE_URL}/cart/${cartId}`, {
       params: { userId },
     });
     return extractData(response);
@@ -427,8 +511,8 @@ export const getUserOrders = async (userId) => {
   validateUserId(userId);
 
   try {
-    // ✅ CORRECT: GET /api/order/user/{userId}
-    const response = await apiGet(`${BASE_URL}/order/user/${userId}`);
+    // ✅ CORRECT: GET /api/oxygold-api/order/user/{userId}
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/order/user/${userId}`);
     const data = extractData(response);
     return Array.isArray(data) ? data : data?.items || [];
   } catch (error) {
@@ -496,12 +580,12 @@ export const createOrder = async (orderData) => {
   }
 
   try {
-    console.log('[PhysicalGoldApi] createOrder URL:', `${BASE_URL}/order/createOrder`);
+    console.log('[PhysicalGoldApi] createOrder URL:', `${PHYSICAL_GOLD_BASE_URL}/order/createOrder`);
     console.log('[PhysicalGoldApi] createOrder payload:', JSON.stringify(orderData, null, 2));
     
-    // ✅ CORRECT: POST /api/order/createOrder
+    // ✅ CORRECT: POST /api/oxygold-api/order/createOrder
     // Backend automatically fetches cart items for the user
-    const response = await apiPost(`${BASE_URL}/order/createOrder`, orderData);
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/order/createOrder`, orderData);
     console.log('[PhysicalGoldApi] createOrder raw response:', response);
     return extractData(response);
   } catch (error) {
@@ -521,8 +605,8 @@ export const confirmOrder = async (orderId, paymentData = {}) => {
   validateId(orderId, 'Order ID');
 
   try {
-    // ✅ CORRECT: POST /api/order/{orderId}/confirmOrders
-    const response = await apiPost(`${BASE_URL}/order/${orderId}/confirmOrders`, paymentData);
+    // ✅ CORRECT: POST /api/oxygold-api/order/{orderId}/confirmOrders
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/order/${orderId}/confirmOrders`, paymentData);
     return extractData(response);
   } catch (error) {
     console.error('[PhysicalGoldApi] confirmOrder failed:', error.message);
@@ -541,9 +625,9 @@ export const paymentWebhook = async (orderIdOrTxnId) => {
   if (!orderIdOrTxnId) throw new Error('Order ID or Transaction ID is required');
   try {
     console.log('[PhysicalGoldApi] paymentWebhook order_id:', orderIdOrTxnId);
-    // ✅ CORRECT: POST /api/digital-gold/payments/webhook?order_id={txnId}
+    // ✅ CORRECT: POST /api/oxygold-api/digital-gold/payments/webhook?order_id={txnId}
     const response = await apiPost(
-      `${BASE_URL}/digital-gold/payments/webhook`,
+      `${PHYSICAL_GOLD_BASE_URL}/digital-gold/payments/webhook`,
       {},
       { params: { order_id: orderIdOrTxnId } }
     );
@@ -564,7 +648,7 @@ export const generateInvoice = async (orderId) => {
   validateId(orderId, 'Order ID');
 
   try {
-    const url = `${BASE_URL}/invoices/generate-from-order/${orderId}`;
+    const url = `${PHYSICAL_GOLD_BASE_URL}/invoices/generate-from-order/${orderId}`;
     console.log('========================================');
     console.log('[PhysicalGoldApi] generateInvoice API CALL');
     console.log('[PhysicalGoldApi] Method: POST');
@@ -573,7 +657,7 @@ export const generateInvoice = async (orderId) => {
     console.log('[PhysicalGoldApi] Request Body: {}');
     console.log('========================================');
     
-    // ✅ CORRECT: POST /api/invoices/generate-from-order/{orderId}
+    // ✅ CORRECT: POST /api/oxygold-api/invoices/generate-from-order/{orderId}
     const response = await apiPost(url, {});
     
     console.log('========================================');
@@ -613,7 +697,7 @@ export const generateInvoice = async (orderId) => {
  */
 export const getInvoicePreviewUrl = (orderNumber) => {
   if (!orderNumber) throw new Error('Order number is required');
-  const url = `${BASE_URL}/invoices/${orderNumber}/pdf/preview`;
+  const url = `${PHYSICAL_GOLD_BASE_URL}/invoices/${orderNumber}/pdf/preview`;
   console.log('[PhysicalGoldApi] getInvoicePreviewUrl:', url);
   return url;
 };
@@ -625,7 +709,7 @@ export const getInvoicePreviewUrl = (orderNumber) => {
  */
 export const getInvoicePdfUrl = (orderNumber) => {
   if (!orderNumber) throw new Error('Order number is required');
-  const url = `${BASE_URL}/invoices/${orderNumber}/pdf`;
+  const url = `${PHYSICAL_GOLD_BASE_URL}/invoices/${orderNumber}/pdf`;
   console.log('[PhysicalGoldApi] getInvoicePdfUrl:', url);
   return url;
 };
@@ -644,7 +728,7 @@ export const getUserProfile = async (userId) => {
 
   try {
     // ✅ CORRECT: Use query parameter format ?userId={userId}
-    const response = await apiGet(`${BASE_URL}/auth/getUserBasedOnUserId`, {
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/auth/getUserBasedOnUserId`, {
       params: { userId },
     });
     return extractData(response);
@@ -665,8 +749,8 @@ export const saveUserProfile = async (profileData) => {
   }
 
   try {
-    // ✅ CORRECT: POST to /api/auth/saveUserProfile with full payload
-    const response = await apiPost(`${BASE_URL}/auth/saveUserProfile`, profileData);
+    // ✅ CORRECT: POST to /api/oxygold-api/auth/saveUserProfile with full payload
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/auth/saveUserProfile`, profileData);
     return extractData(response);
   } catch (error) {
     console.error('[PhysicalGoldApi] saveUserProfile failed:', error.message);
@@ -680,8 +764,8 @@ export const saveUserProfile = async (profileData) => {
  */
 export const logout = async () => {
   try {
-    // ✅ CORRECT: POST to /api/auth/logout
-    const response = await apiPost(`${BASE_URL}/auth/logout`, {});
+    // ✅ CORRECT: POST to /api/oxygold-api/auth/logout
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/auth/logout`, {});
     return extractData(response);
   } catch (error) {
     console.error('[PhysicalGoldApi] logout failed:', error.message);
@@ -698,8 +782,8 @@ export const getUserAddresses = async (userId) => {
   validateUserId(userId);
 
   try {
-    // ✅ CORRECT: GET /api/auth/addresses/{userId}
-    const response = await apiGet(`${BASE_URL}/auth/addresses/${userId}`);
+    // ✅ CORRECT: GET /api/oxygold-api/auth/addresses/{userId}
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/auth/addresses/${userId}`);
     return extractData(response) || [];
   } catch (error) {
     console.error('[PhysicalGoldApi] getUserAddresses failed:', error.message);
@@ -718,8 +802,8 @@ export const addAddress = async (addressData) => {
   }
 
   try {
-    // ✅ CORRECT: PATCH /api/auth/addAddress (for new addresses)
-    const response = await apiPatch(`${BASE_URL}/auth/addAddress`, addressData);
+    // ✅ CORRECT: PATCH /api/oxygold-api/auth/addAddress (for new addresses)
+    const response = await apiPatch(`${PHYSICAL_GOLD_BASE_URL}/auth/addAddress`, addressData);
     return extractData(response);
   } catch (error) {
     console.error('[PhysicalGoldApi] addAddress failed:', error.message);
@@ -738,8 +822,8 @@ export const updateAddress = async (addressData) => {
   }
 
   try {
-    // ✅ CORRECT: PUT /api/auth/addAddress (for updates)
-    const response = await apiPut(`${BASE_URL}/auth/addAddress`, addressData);
+    // ✅ CORRECT: PUT /api/oxygold-api/auth/addAddress (for updates)
+    const response = await apiPut(`${PHYSICAL_GOLD_BASE_URL}/auth/addAddress`, addressData);
     return extractData(response);
   } catch (error) {
     console.error('[PhysicalGoldApi] updateAddress failed:', error.message);
@@ -760,11 +844,11 @@ export const getWalletBalance = async (userId) => {
   validateUserId(userId);
 
   try {
-    const url = `${BASE_URL}/wallet/getWallet/${userId}`;
+    const url = `${PHYSICAL_GOLD_BASE_URL}/wallet/getWallet/${userId}`;
     console.log('[PhysicalGoldApi] getWalletBalance URL:', url);
     console.log('[PhysicalGoldApi] getWalletBalance userId:', userId);
     
-    // ✅ CORRECT: Use BASE_URL (already has /api) + path parameter
+    // ✅ CORRECT: Use PHYSICAL_GOLD_BASE_URL + path parameter
     const response = await apiGet(url);
     console.log('[PhysicalGoldApi] getWalletBalance response:', response);
     return extractData(response);
@@ -792,8 +876,8 @@ export const getWalletTransactions = async (userId, page = 1, limit = 20) => {
   validatePagination(page, limit);
 
   try {
-    // ✅ CORRECT: Use BASE_URL (already has /api) + path parameter
-    const response = await apiGet(`${BASE_URL}/wallet/${userId}/transactions`, {
+    // ✅ CORRECT: Use PHYSICAL_GOLD_BASE_URL + path parameter
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/wallet/${userId}/transactions`, {
       params: { page, limit },
     });
     const data = extractData(response);
@@ -808,4 +892,130 @@ export const getWalletTransactions = async (userId, page = 1, limit = 20) => {
     console.error('[PhysicalGoldApi] getWalletTransactions failed:', error.message);
     throw error;
   }
+};
+
+// ═════════════════════════════════════════════════════════════════════════
+// 9. WISHLIST
+// ═════════════════════════════════════════════════════════════════════════
+
+/**
+ * Add product to wishlist
+ * @param {number} userId - User ID
+ * @param {number|string} productId - Product ID
+ * @param {number|string} productVariantId - Variant ID
+ * @returns {Promise<Object>} Wishlist item data
+ */
+export const addToWishlist = async (userId, productId, productVariantId) => {
+  validateUserId(userId);
+  validateId(productId, 'Product ID');
+  validateId(productVariantId, 'Variant ID');
+
+  try {
+    // ✅ CORRECT: POST /api/oxygold-api/cart/addToWishlist
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/addToWishlist`, {
+      userId,
+      productId,
+      productVariantId,
+    });
+    return extractData(response);
+  } catch (error) {
+    console.error('[PhysicalGoldApi] addToWishlist failed:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get user wishlist
+ * @param {number} userId - User ID
+ * @returns {Promise<Array>} List of wishlist items
+ */
+export const getWishlist = async (userId) => {
+  validateUserId(userId);
+
+  try {
+    const url = `${PHYSICAL_GOLD_BASE_URL}/cart/wishlistByUserId/${userId}`;
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] getWishlist REQUEST');
+    console.log('[PhysicalGoldApi] URL:', url);
+    console.log('[PhysicalGoldApi] userId:', userId);
+    console.log('========================================');
+    
+    // ✅ CORRECT: GET /api/oxygold-api/cart/wishlistByUserId/{userId}
+    const response = await apiGet(url);
+    
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] getWishlist RESPONSE');
+    console.log('[PhysicalGoldApi] Raw Response:', JSON.stringify(response, null, 2));
+    console.log('========================================');
+    
+    const data = extractData(response);
+    
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] getWishlist EXTRACTED DATA');
+    console.log('[PhysicalGoldApi] Extracted Data:', JSON.stringify(data, null, 2));
+    console.log('[PhysicalGoldApi] Data Type:', typeof data);
+    console.log('[PhysicalGoldApi] Is Array:', Array.isArray(data));
+    console.log('[PhysicalGoldApi] Data Length:', Array.isArray(data) ? data.length : 'N/A');
+    console.log('========================================');
+    
+    const result = Array.isArray(data) ? data : data?.items || [];
+    console.log('[PhysicalGoldApi] Final Result:', JSON.stringify(result, null, 2));
+    return result;
+  } catch (error) {
+    if (error.status === 404) {
+      console.log('[PhysicalGoldApi] Wishlist not found (404), returning empty list');
+      return [];
+    }
+    console.error('[PhysicalGoldApi] getWishlist failed:', error.message);
+    console.error('[PhysicalGoldApi] Error Status:', error.status);
+    console.error('[PhysicalGoldApi] Error Data:', JSON.stringify(error.data, null, 2));
+    throw error;
+  }
+};
+
+/**
+ * Remove item from wishlist
+ * @param {number|string} wishlistId - Wishlist item ID
+ * @returns {Promise<Object>} { status, message }
+ */
+export const removeFromWishlist = async (wishlistId) => {
+  validateId(wishlistId, 'Wishlist ID');
+
+  try {
+    const url = `${PHYSICAL_GOLD_BASE_URL}/cart/removeToWishlist/${wishlistId}`;
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] removeFromWishlist REQUEST');
+    console.log('[PhysicalGoldApi] URL:', url);
+    console.log('[PhysicalGoldApi] Method: POST (not DELETE)');
+    console.log('[PhysicalGoldApi] wishlistId:', wishlistId);
+    console.log('========================================');
+    
+    // ✅ CORRECT: POST /api/oxygold-api/cart/removeToWishlist/{wishlistId}
+    // Backend doesn't support DELETE, uses POST instead
+    const response = await apiPost(url, {});
+    
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] removeFromWishlist RESPONSE');
+    console.log('[PhysicalGoldApi] Response:', JSON.stringify(response, null, 2));
+    console.log('========================================');
+    
+    return extractData(response);
+  } catch (error) {
+    console.log('========================================');
+    console.error('[PhysicalGoldApi] removeFromWishlist ERROR');
+    console.error('[PhysicalGoldApi] Error Message:', error.message);
+    console.error('[PhysicalGoldApi] Error Status:', error.status);
+    console.error('[PhysicalGoldApi] Error Data:', JSON.stringify(error.data, null, 2));
+    console.log('========================================');
+    throw error;
+  }
+};
+
+/**
+ * Get product all images (alias for getProductImages)
+ * @param {number|string} productId - Product ID
+ * @returns {Promise<Object>} Product images data
+ */
+export const getProductAllImages = async (productId) => {
+  return getProductImages(productId);
 };

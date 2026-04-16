@@ -19,7 +19,7 @@
  */
 
 import { apiGet, apiPost, extractData } from '../services/apiClient';
-import { BASE_URL } from '../constants/api';
+import { DIGITAL_GOLD_BASE_URL } from '../constants/api';
 
 // ─────────────────────────────────────────────────────────────────────────
 // VALIDATION HELPERS
@@ -54,7 +54,7 @@ const validatePagination = (page, limit) => {
  */
 export const getGoldPrice = async () => {
   try {
-    const response = await apiGet(`${BASE_URL}/digital-gold/price`);
+    const response = await apiGet(`${DIGITAL_GOLD_BASE_URL}/price`);
     const data = extractData(response);
 
     return {
@@ -81,7 +81,7 @@ export const getGoldPriceHistory = async (period = 'month') => {
   }
 
   try {
-    const response = await apiGet(`${BASE_URL}/digital-gold/price/history`, {
+    const response = await apiGet(`${DIGITAL_GOLD_BASE_URL}/price/history`, {
       params: { period },
     });
     return extractData(response) || [];
@@ -104,7 +104,7 @@ export const previewBuyGold = async (amount) => {
   validateAmount(amount, 'Buy amount');
 
   try {
-    const response = await apiPost(`${BASE_URL}/digital-gold/preview-buy`, {
+    const response = await apiPost(`${DIGITAL_GOLD_BASE_URL}/preview-buy`, {
       amount,
     });
 
@@ -141,7 +141,7 @@ export const buyGold = async (userId, amount, paymentMethod = 'wallet') => {
   }
 
   try {
-    const response = await apiPost(`${BASE_URL}/digital-gold/buy`, {
+    const response = await apiPost(`${DIGITAL_GOLD_BASE_URL}/buy`, {
       userId,
       amount,
       paymentMethod,
@@ -176,7 +176,7 @@ export const previewSellGold = async (goldQuantity) => {
   validateAmount(goldQuantity, 'Gold quantity');
 
   try {
-    const response = await apiPost(`${BASE_URL}/digital-gold/preview-sell`, {
+    const response = await apiPost(`${DIGITAL_GOLD_BASE_URL}/preview-sell`, {
       goldQuantity,
     });
 
@@ -208,7 +208,7 @@ export const sellGold = async (userId, goldQuantity, bankAccount = null) => {
   validateAmount(goldQuantity, 'Gold quantity');
 
   try {
-    const response = await apiPost(`${BASE_URL}/digital-gold/sell`, {
+    const response = await apiPost(`${DIGITAL_GOLD_BASE_URL}/sell`, {
       userId,
       goldQuantity,
       ...(bankAccount && { bankAccount }),
@@ -243,7 +243,7 @@ export const getPortfolio = async (userId) => {
   validateUserId(userId);
 
   try {
-    const response = await apiGet(`${BASE_URL}/digital-gold/portfolio`, {
+    const response = await apiGet(`${DIGITAL_GOLD_BASE_URL}/portfolio`, {
       params: { userId },
     });
 
@@ -270,7 +270,7 @@ export const getPortfolioBreakdown = async (userId) => {
   validateUserId(userId);
 
   try {
-    const response = await apiGet(`${BASE_URL}/digital-gold/portfolio/breakdown`, {
+    const response = await apiGet(`${DIGITAL_GOLD_BASE_URL}/portfolio/breakdown`, {
       params: { userId },
     });
 
@@ -303,7 +303,7 @@ export const getTransactions = async (userId, page = 1, limit = 20, type = 'all'
   }
 
   try {
-    const response = await apiGet(`${BASE_URL}/digital-gold/transactions`, {
+    const response = await apiGet(`${DIGITAL_GOLD_BASE_URL}/transactions`, {
       params: {
         userId,
         page,
@@ -335,7 +335,7 @@ export const getTransactionDetails = async (transactionId) => {
 
   try {
     const response = await apiGet(
-      `${BASE_URL}/digital-gold/transactions/${transactionId}`
+      `${DIGITAL_GOLD_BASE_URL}/transactions/${transactionId}`
     );
     return extractData(response);
   } catch (error) {
@@ -357,7 +357,7 @@ export const getWallet = async (userId) => {
   validateUserId(userId);
 
   try {
-    const response = await apiGet(`${BASE_URL}/digital-gold/wallet`, {
+    const response = await apiGet(`${DIGITAL_GOLD_BASE_URL}/wallet`, {
       params: { userId },
     });
 
@@ -385,7 +385,7 @@ export const addMoneyToWallet = async (userId, amount, paymentMethod = 'card') =
   validateAmount(amount, 'Add amount');
 
   try {
-    const response = await apiPost(`${BASE_URL}/digital-gold/wallet/add`, {
+    const response = await apiPost(`${DIGITAL_GOLD_BASE_URL}/wallet/add`, {
       userId,
       amount,
       paymentMethod,
@@ -417,7 +417,7 @@ export const withdrawFromWallet = async (userId, amount, bankAccount) => {
   if (!bankAccount) throw new Error('Bank account is required');
 
   try {
-    const response = await apiPost(`${BASE_URL}/digital-gold/wallet/withdraw`, {
+    const response = await apiPost(`${DIGITAL_GOLD_BASE_URL}/wallet/withdraw`, {
       userId,
       amount,
       bankAccount,
@@ -449,7 +449,7 @@ export const getAnalytics = async (userId) => {
   validateUserId(userId);
 
   try {
-    const response = await apiGet(`${BASE_URL}/digital-gold/analytics`, {
+    const response = await apiGet(`${DIGITAL_GOLD_BASE_URL}/analytics`, {
       params: { userId },
     });
 

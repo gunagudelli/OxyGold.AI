@@ -35,7 +35,7 @@ const PgInvoiceViewerScreen = ({ navigation, route }) => {
   const [webViewKey, setWebViewKey] = useState(0);
   const [error, setError] = useState(null);
 
-  const invoiceUrl = `${BASE_URL}/invoices/${orderNumber}/pdf`;
+  const invoiceUrl = `${BASE_URL}/oxygold-api/invoices/${orderNumber}/pdf/preview`;
 
   useEffect(() => {
     if (!orderNumber) {

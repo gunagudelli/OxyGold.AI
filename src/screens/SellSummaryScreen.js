@@ -14,10 +14,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { selectUserId, selectAccessToken } from "../store/authSlice";
-import { BASE_URL } from "../constants/api";
+import { BASE_URL, PHYSICAL_GOLD_BASE_URL } from "../constants/api";
 
-const BANK_API = `${BASE_URL}/auth/getBankDetailsByuserId`;
-const SELL_API = `${BASE_URL}/digital-gold/sell/initiate`;
+const BANK_API = `${PHYSICAL_GOLD_BASE_URL}/auth/getBankDetailsByuserId`;
+const SELL_API = `${PHYSICAL_GOLD_BASE_URL}/digital-gold/sell/initiate`;
 
 const Row = ({ label, value, gold }) => (
   <View style={s.row}>
@@ -61,18 +61,18 @@ export default function SellSummaryScreen({ navigation, route }) {
     return () => clearInterval(t);
   }, []);
 
-  // Fetch bank details
+  // Fetch bank details on mount and when returning from BankAccount screen
   useEffect(() => {
-    fetchBank();
-  }, []);
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchBank();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const fetchBank = async () => {
     try {
       setBankLoading(true);
       setBankError(null);
-      console.log('[SellSummaryScreen] ========== FETCH BANK DETAILS START ==========');
-      console.log('[SellSummaryScreen] userId:', userId);
-      console.log('[SellSummaryScreen] API URL:', `${BANK_API}?userId=${userId}`);
       
       const res = await fetch(`${BANK_API}?userId=${userId}`, {
         headers: {
@@ -81,35 +81,17 @@ export default function SellSummaryScreen({ navigation, route }) {
         },
       });
       
-      console.log('[SellSummaryScreen] Response Status:', res.status);
       const data = await res.json();
-      
-      console.log('[SellSummaryScreen] ========== FULL RESPONSE ==========');
-      console.log('[SellSummaryScreen] Response:', JSON.stringify(data, null, 2));
-      console.log('[SellSummaryScreen] Response Keys:', Object.keys(data));
-      console.log('[SellSummaryScreen] data.data:', JSON.stringify(data?.data, null, 2));
-      console.log('[SellSummaryScreen] data.data type:', Array.isArray(data?.data) ? 'ARRAY' : typeof data?.data);
       
       const list = data?.data;
       if (Array.isArray(list) && list.length > 0) {
-        console.log('[SellSummaryScreen] Bank details found (array), first item:', JSON.stringify(list[0], null, 2));
-        console.log('[SellSummaryScreen] First item keys:', Object.keys(list[0]));
         setBankDetails(list[0]);
       } else if (data?.accountNumber) {
-        console.log('[SellSummaryScreen] Bank details found (object):', JSON.stringify(data, null, 2));
-        console.log('[SellSummaryScreen] Object keys:', Object.keys(data));
         setBankDetails(data);
       } else {
-        console.log('[SellSummaryScreen] No bank details found in response');
-        console.log('[SellSummaryScreen] Checking for alternative structures...');
-        console.log('[SellSummaryScreen] data.success:', data?.success);
-        console.log('[SellSummaryScreen] data.message:', data?.message);
+        setBankDetails(null);
       }
-      console.log('[SellSummaryScreen] ========== FETCH BANK DETAILS END ==========');
     } catch (e) {
-      console.log('[SellSummaryScreen] ========== ERROR ==========');
-      console.log('[SellSummaryScreen] Error message:', e.message);
-      console.log('[SellSummaryScreen] Error:', e);
       setBankError("Failed to load bank details. Please try again.");
     } finally {
       setBankLoading(false);
@@ -151,6 +133,10 @@ export default function SellSummaryScreen({ navigation, route }) {
         productId: 4,
       };
 
+      console.log('[SellSummaryScreen] ========== SELL INITIATE START ==========');
+      console.log('[SellSummaryScreen] URL:', SELL_API);
+      console.log('[SellSummaryScreen] Payload:', JSON.stringify(body, null, 2));
+
       const res = await fetch(SELL_API, {
         method: "POST",
         headers: {
@@ -161,7 +147,11 @@ export default function SellSummaryScreen({ navigation, route }) {
       });
       const data = await res.json();
 
+      console.log('[SellSummaryScreen] Response Status:', res.status);
+      console.log('[SellSummaryScreen] Response:', JSON.stringify(data, null, 2));
+
       if (data?.success && data?.data) {
+        console.log('[SellSummaryScreen] ========== SELL INITIATE SUCCESS ==========');
         navigation.replace("SellProcess", {
           transactionId: data.data.transactionId,
           beneficiaryId: data.data.beneficiaryId,
@@ -172,9 +162,12 @@ export default function SellSummaryScreen({ navigation, route }) {
           bankDetails,
         });
       } else {
+        console.log('[SellSummaryScreen] ========== SELL INITIATE FAILED ==========');
         throw new Error(data?.message || "Sell initiation failed");
       }
     } catch (e) {
+      console.log('[SellSummaryScreen] ========== SELL INITIATE ERROR ==========');
+      console.error('[SellSummaryScreen] Error:', e.message);
       Alert.alert(
         "Transaction Failed",
         e.message || "Could not process sell. Please try again.",

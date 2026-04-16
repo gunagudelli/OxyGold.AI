@@ -13,4 +13,13 @@ const ENV = {
   },
 };
 
-export default ENV[APP_ENV];
+const config = ENV[APP_ENV];
+
+// Log configuration on app start
+console.log('═══════════════════════════════════════════════════════');
+console.log('🌍 Environment:', APP_ENV.toUpperCase());
+console.log('🔗 BASE_URL:', config.BASE_URL);
+console.log('🔗 MARKETING_URL:', config.MARKETING_URL);
+console.log('═══════════════════════════════════════════════════════');
+
+export default config;

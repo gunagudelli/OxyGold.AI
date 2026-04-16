@@ -21,7 +21,7 @@ import {
 } from "../store/authSlice";
 import { apiGet, apiPost } from "../services/apiClient";
 import { handleLogout } from "../services/logoutService";
-import { BASE_URL } from "../constants/api";
+import { PHYSICAL_GOLD_BASE_URL } from "../constants/api";
 import PgLayout from "../../components/physical/PgLayout";
 
 // ─── Design Tokens (mirrors PgProductDetailsScreen exactly) ──────────────────
@@ -123,7 +123,7 @@ const PgProfileScreen = ({ navigation, route }) => {
     const startTime = Date.now();
     try {
       setLoading(true);
-      const data = await apiGet(`${BASE_URL}/auth/getUserBasedOnUserId`, {
+      const data = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/auth/getUserBasedOnUserId`, {
         params: { userId },
       });
       const profileData = data?.data?.body || data?.data || data || {};
@@ -139,7 +139,7 @@ const PgProfileScreen = ({ navigation, route }) => {
       });
       try {
         const walletData = await apiGet(
-          `${BASE_URL}/wallet/getWallet/${userId}`,
+          `${PHYSICAL_GOLD_BASE_URL}/wallet/getWallet/${userId}`,
         );
         setWallet(walletData?.data?.balance || walletData?.balance || 0);
       } catch (e) {}
@@ -179,7 +179,7 @@ const PgProfileScreen = ({ navigation, route }) => {
         whatsappNumber: formData.whatsappNumber,
       };
       const responseData = await apiPost(
-        `${BASE_URL}/auth/saveUserProfile`,
+        `${PHYSICAL_GOLD_BASE_URL}/auth/saveUserProfile`,
         payload,
       );
       const updatedProfile = {
@@ -207,7 +207,7 @@ const PgProfileScreen = ({ navigation, route }) => {
 
   const handleAddressClick = async () => {
     try {
-      const response = await apiGet(`${BASE_URL}/auth/addresses/${userId}`);
+      const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/auth/addresses/${userId}`);
       const addresses = response?.data || [];
       const addressList = Array.isArray(addresses) ? addresses : [];
       if (addressList.length === 0) {
@@ -216,7 +216,7 @@ const PgProfileScreen = ({ navigation, route }) => {
           {
             text: "Add Address",
             onPress: () =>
-              navigation.navigate("PgAddress", { userId, accessToken }),
+              navigation.navigate("PgAddress", { userId }),
           },
         ]);
       } else {
@@ -238,7 +238,7 @@ const PgProfileScreen = ({ navigation, route }) => {
             {
               text: "Manage",
               onPress: () =>
-                navigation.navigate("PgAddress", { userId, accessToken }),
+                navigation.navigate("PgAddress", { userId }),
             },
           ],
         );

@@ -159,7 +159,12 @@ const SellGoldScreen = ({ navigation }) => {
               </Text>
             </View>
             <View style={s.heroCoin}>
-              <Text style={s.heroCoinEmoji}>🪙</Text>
+              <View style={s.coinInner}>
+                <Text style={s.coinKarat}>24K</Text>
+                <View style={s.coinLine} />
+                <Text style={s.coinPurity}>999.9</Text>
+                <Text style={s.coinPure}>PURE</Text>
+              </View>
             </View>
           </View>
 
@@ -364,11 +369,10 @@ const SellGoldScreen = ({ navigation }) => {
 
         {/* ─── Important Notice ─────────────────────────────────────── */}
         <View style={s.noticeCard}>
-          <Text style={s.noticeIcon}>💡</Text>
           <View style={s.noticeContent}>
             <Text style={s.noticeTitle}>Important Information</Text>
             <Text style={s.noticeSub}>
-              Minimum sell ₹100 · Price locked 30 mins · Instant verification
+              Minimum sell ₹100 · Price locked 5 mins · Instant verification
             </Text>
           </View>
         </View>
@@ -493,14 +497,51 @@ const s = StyleSheet.create({
   },
   heroPriceSub: { fontSize: 12, color: "rgba(255,255,255,0.3)" },
   heroCoin: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: "#2A3158",
+    borderWidth: 2,
+    borderColor: "#D4A843",
+    padding: 5,
+    shadowColor: "#D4A843",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  coinInner: {
+    flex: 1,
+    borderRadius: 38,
+    backgroundColor: "#D4A843",
     justifyContent: "center",
     alignItems: "center",
   },
-  heroCoinEmoji: { fontSize: 26 },
+  coinKarat: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#1C2340",
+    lineHeight: 24,
+  },
+  coinLine: {
+    width: 32,
+    height: 1.5,
+    backgroundColor: "rgba(28,35,64,0.35)",
+    marginVertical: 3,
+  },
+  coinPurity: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#1C2340",
+    lineHeight: 13,
+  },
+  coinPure: {
+    fontSize: 7.5,
+    fontWeight: "700",
+    color: "rgba(28,35,64,0.55)",
+    letterSpacing: 1.8,
+    marginTop: 2,
+  },
   heroDivider: {
     height: 1,
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -509,7 +550,7 @@ const s = StyleSheet.create({
   heroPortfolio: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
+    alignItems: "center",
   },
   heroPortLabel: {
     fontSize: 10,

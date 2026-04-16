@@ -164,7 +164,12 @@ const PgOrdersScreen = ({ navigation, route }) => {
 
   const handleViewInvoice = (orderNumber) => {
     console.log("[Orders] View invoice for order:", orderNumber);
-    navigation.navigate("PgInvoiceViewer", { orderNumber });
+    const order = orders.find(o => (o.orderNumber || o.orderId) === orderNumber);
+    if (order) {
+      navigation.navigate("PgInvoiceDetails", { order });
+    } else {
+      Alert.alert("Error", "Order not found");
+    }
   };
 
   const handleDownloadInvoice = async (orderNumber) => {

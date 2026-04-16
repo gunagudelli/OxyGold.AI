@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,9 +7,14 @@ import {
   ScrollView,
   StatusBar,
   Animated,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useSelector } from "react-redux";
+import { selectAccessToken } from "../store/authSlice";
+import { downloadSellInvoicePDF, openInvoicePDF } from "../utils/downloadInvoice";
 
 export default function SellSuccessScreen({ navigation, route }) {
   const {
@@ -21,10 +26,12 @@ export default function SellSuccessScreen({ navigation, route }) {
     sellRate,
     bankDetails,
   } = route.params ?? {};
+  const accessToken = useSelector(selectAccessToken);
 
   const isFailed = paymentStatus === "FAILED";
   const isPending = paymentStatus === "PENDING";
 
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -56,6 +63,54 @@ export default function SellSuccessScreen({ navigation, route }) {
   const iconColor = isFailed ? "#dc2626" : "#16a34a";
   const iconName = isFailed ? "close" : "checkmark";
   const iconBg = isFailed ? "#fef2f2" : "#f0fdf4";
+
+  const handleViewInvoice = () => {
+    if (!transactionId) {
+      Alert.alert("Error", "Transaction ID not available");
+      return;
+    }
+    console.log("[SellSuccess] View invoice for transaction:", transactionId);
+    navigation.navigate("PgInvoiceViewer", { orderNumber: transactionId });
+  };
+
+  const handleDownloadInvoice = async () => {
+    if (!transactionId) {
+      Alert.alert("Error", "Transaction ID not available");
+      return;
+    }
+
+    console.log("[SellSuccess] Download invoice for transaction:", transactionId);
+
+    if (!accessToken) {
+      Alert.alert("Error", "Session expired. Please login again.");
+      return;
+    }
+
+    setDownloadingInvoice(true);
+
+    try {
+      const fileUri = await downloadSellInvoicePDF(transactionId, accessToken);
+
+      Alert.alert("Success", "Invoice downloaded successfully", [
+        {
+          text: "Open",
+          onPress: async () => {
+            try {
+              await openInvoicePDF(fileUri);
+            } catch (e) {
+              Alert.alert("Error", e.message);
+            }
+          },
+        },
+        { text: "Close" },
+      ]);
+    } catch (error) {
+      console.error("[SellSuccess Download Error]", error.message);
+      Alert.alert("Download Failed", error.message || "Could not download invoice");
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
 
   return (
     <SafeAreaView style={s.root} edges={["top", "bottom"]}>
@@ -140,6 +195,33 @@ export default function SellSuccessScreen({ navigation, route }) {
               <Text style={s.infoText}>
                 TDS applicable on transactions above ₹50,000 · T+1 settlement
               </Text>
+            </View>
+          )}
+
+          {/* Invoice Actions */}
+          {!isFailed && (
+            <View style={s.invoiceActions}>
+              <TouchableOpacity
+                style={s.invoiceBtn}
+                onPress={handleViewInvoice}
+              >
+                <Ionicons name="eye-outline" size={16} color="#B8891A" />
+                <Text style={s.invoiceBtnText}>View Invoice</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={s.invoiceBtn}
+                onPress={handleDownloadInvoice}
+                disabled={downloadingInvoice}
+              >
+                {downloadingInvoice ? (
+                  <ActivityIndicator size="small" color="#B8891A" />
+                ) : (
+                  <Ionicons name="download-outline" size={16} color="#B8891A" />
+                )}
+                <Text style={s.invoiceBtnText}>
+                  {downloadingInvoice ? "Downloading..." : "Download"}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </Animated.View>
@@ -277,8 +359,33 @@ const s = StyleSheet.create({
     alignItems: "flex-start",
     gap: 6,
     paddingHorizontal: 4,
+    marginBottom: 16,
   },
   infoText: { fontSize: 11, color: "#8a96a3", flex: 1, lineHeight: 16 },
+
+  invoiceActions: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+    marginBottom: 16,
+  },
+  invoiceBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "rgba(184,137,26,0.10)",
+    borderRadius: 10,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "rgba(184,137,26,0.22)",
+  },
+  invoiceBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#B8891A",
+  },
 
   footer: {
     flexDirection: "row",

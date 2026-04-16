@@ -12,7 +12,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Platform, Alert } from 'react-native';
-import { BASE_URL } from '../constants/api';
+import { BASE_URL, PHYSICAL_GOLD_BASE_URL } from '../constants/api';
 
 export class InvoiceDownloadError extends Error {
   constructor(message, code, originalError) {
@@ -39,7 +39,7 @@ export const downloadInvoicePDF = async (orderNumber, accessToken, onProgress) =
     throw new InvoiceDownloadError('Access token is required', 'NO_TOKEN', null);
   }
 
-  const invoiceUrl = `${BASE_URL}/invoices/${orderNumber}/pdf`;
+  const invoiceUrl = `${BASE_URL}/oxygold-api/invoices/${orderNumber}/pdf`;
   const fileName = `Invoice_${orderNumber}_${Date.now()}.pdf`;
   const fileUri = `${FileSystem.documentDirectory}${fileName}`;
 
@@ -82,6 +82,99 @@ export const downloadInvoicePDF = async (orderNumber, accessToken, onProgress) =
     return fileUri;
   } catch (error) {
     console.error('[Invoice Download Error]', error.message);
+
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new InvoiceDownloadError(
+        'Session expired. Please login again.',
+        'UNAUTHORIZED',
+        error
+      );
+    }
+
+    if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+      throw new InvoiceDownloadError(
+        'Invoice not found',
+        'NOT_FOUND',
+        error
+      );
+    }
+
+    if (error.message?.includes('Network')) {
+      throw new InvoiceDownloadError(
+        'Network error. Please check your connection.',
+        'NETWORK_ERROR',
+        error
+      );
+    }
+
+    if (error instanceof InvoiceDownloadError) {
+      throw error;
+    }
+
+    throw new InvoiceDownloadError(
+      error.message || 'Failed to download invoice',
+      'DOWNLOAD_ERROR',
+      error
+    );
+  }
+};
+
+/**
+ * Download digital gold sell invoice PDF
+ * @param {string} transactionId - Transaction ID for the sell invoice
+ * @param {string} accessToken - Bearer token for authorization
+ * @returns {Promise<string>} - File URI of downloaded PDF
+ */
+export const downloadSellInvoicePDF = async (transactionId, accessToken) => {
+  if (!transactionId) {
+    throw new InvoiceDownloadError('Transaction ID is required', 'INVALID_TRANSACTION', null);
+  }
+
+  if (!accessToken) {
+    throw new InvoiceDownloadError('Access token is required', 'NO_TOKEN', null);
+  }
+
+  const invoiceUrl = `${BASE_URL}/oxygold-api/invoices/${transactionId}/pdf`;
+  const fileName = `Sell_Invoice_${transactionId}_${Date.now()}.pdf`;
+  const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+  console.log('[Sell Invoice Download] Starting download');
+  console.log('[Sell Invoice Download] URL:', invoiceUrl);
+  console.log('[Sell Invoice Download] File URI:', fileUri);
+
+  try {
+    const downloadResult = await FileSystem.downloadAsync(
+      invoiceUrl,
+      fileUri,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        md5: false,
+      }
+    );
+
+    console.log('[Sell Invoice Download] Download result:', downloadResult);
+
+    if (downloadResult.status !== 200) {
+      throw new InvoiceDownloadError(
+        `Download failed with status ${downloadResult.status}`,
+        'DOWNLOAD_FAILED',
+        null
+      );
+    }
+
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    if (!fileInfo.exists) {
+      throw new InvoiceDownloadError('Downloaded file not found', 'FILE_NOT_FOUND', null);
+    }
+
+    console.log('[Sell Invoice Download] File downloaded successfully');
+    console.log('[Sell Invoice Download] File size:', fileInfo.size, 'bytes');
+
+    return fileUri;
+  } catch (error) {
+    console.error('[Sell Invoice Download Error]', error.message);
 
     if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
       throw new InvoiceDownloadError(

@@ -42,6 +42,8 @@ import PgPaymentMethodScreen   from '../physicalGoldScreens/PgPaymentMethodScree
 import PgCheckoutScreen        from '../physicalGoldScreens/PgCheckoutScreen';
 import PgPaymentHandlerScreen  from '../physicalGoldScreens/PgPaymentHandlerScreen';
 import PgInvoiceViewerScreen   from '../physicalGoldScreens/PgInvoiceViewerScreen';
+import PgInvoiceDetailsScreen  from '../physicalGoldScreens/PgInvoiceDetailsScreen';
+import PgWishlistScreen        from '../physicalGoldScreens/PgWishlistScreen';
 
 const Stack = createNativeStackNavigator();
 const SCREEN = { headerShown: false, animation: 'slide_from_right' };
@@ -56,7 +58,7 @@ const SCREEN = { headerShown: false, animation: 'slide_from_right' };
 const AppNavigator = ({ navigationRef }) => (
   <NavigationContainer ref={navigationRef}>
     <GoldProvider navigationRef={navigationRef}>
-      <Stack.Navigator initialRouteName="Home" screenOptions={SCREEN}>
+      <Stack.Navigator initialRouteName="Login" screenOptions={SCREEN}>
 
         {/* ── LANDING ── */}
         <Stack.Screen name="Home"       component={HomeScreen} />
@@ -92,8 +94,10 @@ const AppNavigator = ({ navigationRef }) => (
         <Stack.Screen name="PgPaymentMethod"  component={PgPaymentMethodScreen} />
         <Stack.Screen name="PgCheckout"       component={PgCheckoutScreen} />
         <Stack.Screen name="PgPaymentHandler" component={PgPaymentHandlerScreen} />
-        <Stack.Screen name="PgPaymentStatus"  component={PgPaymentStatusScreen} />
-        <Stack.Screen name="PgInvoiceViewer"  component={PgInvoiceViewerScreen} />
+        <Stack.Screen name="PgPaymentStatus"   component={PgPaymentStatusScreen} />
+        <Stack.Screen name="PgInvoiceViewer"   component={PgInvoiceViewerScreen} />
+        <Stack.Screen name="PgInvoiceDetails"  component={PgInvoiceDetailsScreen} />
+        <Stack.Screen name="PgWishlist"        component={PgWishlistScreen} />
 
       </Stack.Navigator>
     </GoldProvider>
