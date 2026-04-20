@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { selectUserId, selectAccessToken } from "../store/authSlice";
 import { BASE_URL, PHYSICAL_GOLD_BASE_URL } from "../constants/api";
+import DigitalGoldTermsModal from "../components/DigitalGoldTermsModal";
 
 const BANK_API = `${PHYSICAL_GOLD_BASE_URL}/auth/getBankDetailsByuserId`;
 const SELL_API = `${PHYSICAL_GOLD_BASE_URL}/digital-gold/sell/initiate`;
@@ -37,6 +38,7 @@ export default function SellSummaryScreen({ navigation, route }) {
   const [bankLoading, setBankLoading] = useState(true);
   const [bankError, setBankError] = useState(null);
   const [sellLoading, setSellLoading] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const processingRef = useRef(false);
 
   const isPriceLocked = timeLeft > 0;
@@ -103,13 +105,16 @@ export default function SellSummaryScreen({ navigation, route }) {
       Alert.alert("Price Expired", "Please go back and get a fresh price.");
       return;
     }
+    
+    // Check if user has accepted the terms
     if (!isAccepted) {
       Alert.alert(
-        "Terms Required",
+        "Accept Terms & Conditions",
         "Please accept the Terms & Conditions to continue.",
       );
       return;
     }
+    
     if (!bankDetails) {
       Alert.alert(
         "Bank Required",
@@ -130,7 +135,7 @@ export default function SellSummaryScreen({ navigation, route }) {
         pergramPrice: parseFloat(sellRate),
         pergramSellingPrice: parseFloat(sellRate),
         paymentMode: "BANK",
-        productId: 4,
+        productId: 1,
       };
 
       console.log('[SellSummaryScreen] ========== SELL INITIATE START ==========');
@@ -184,8 +189,8 @@ export default function SellSummaryScreen({ navigation, route }) {
   }
 
   return (
-    <SafeAreaView style={s.root} edges={["top", "bottom"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={s.root} edges={["top", "bottom"]} backgroundColor="#1C2340">
+      <StatusBar barStyle="light-content" backgroundColor="#1C2340" />
 
       {/* Header */}
       <View style={s.header}>
@@ -200,10 +205,11 @@ export default function SellSummaryScreen({ navigation, route }) {
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-      >
+      <View style={{ flex: 1, backgroundColor: "#f7f8fa" }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        >
         {/* Timer Banner */}
         <View
           style={[
@@ -343,18 +349,23 @@ export default function SellSummaryScreen({ navigation, route }) {
         </View>
 
         {/* Terms */}
-        <TouchableOpacity
-          style={s.termsRow}
-          onPress={() => setIsAccepted((v) => !v)}
-          activeOpacity={0.7}
-        >
-          <View style={[s.checkbox, isAccepted && s.checkboxActive]}>
-            {isAccepted && <Ionicons name="checkmark" size={12} color="#fff" />}
-          </View>
+        <View style={s.termsRow}>
+          <TouchableOpacity
+            onPress={() => setIsAccepted(!isAccepted)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <View style={[s.checkbox, isAccepted && s.checkboxActive]}>
+              {isAccepted && <Ionicons name="checkmark" size={12} color="#fff" />}
+            </View>
+          </TouchableOpacity>
           <Text style={s.termsText}>
-            I agree to the <Text style={s.termsLink}>Terms & Conditions</Text>
+            I accept the{" "}
+            <Text style={s.termsLink} onPress={() => setShowTermsModal(true)}>
+              Terms & Conditions
+            </Text>
           </Text>
-        </TouchableOpacity>
+        </View>
 
         {/* Security note */}
         <View style={s.secRow}>
@@ -364,7 +375,8 @@ export default function SellSummaryScreen({ navigation, route }) {
             ₹50,000
           </Text>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       {/* Footer */}
       <View style={s.footer}>
@@ -400,33 +412,45 @@ export default function SellSummaryScreen({ navigation, route }) {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Terms Modal */}
+      <DigitalGoldTermsModal
+        visible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={() => {
+          setIsAccepted(true);
+          setShowTermsModal(false);
+        }}
+        type="sell"
+      />
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f7f8fa" },
+  root: { flex: 1, backgroundColor: "#1C2340" },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: "#fff",
+    backgroundColor: "#1C2340",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "rgba(212,168,67,0.22)",
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#464B8B",
+    backgroundColor: "rgba(212,168,67,0.12)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(212,168,67,0.28)",
   },
-  backBtnText: { fontSize: 18, color: "#464B8B", fontWeight: "600" },
-  headerTitle: { fontSize: 17, fontWeight: "700", color: "#464B8B" },
+  backBtnText: { fontSize: 18, color: "#D4A843", fontWeight: "600" },
+  headerTitle: { fontSize: 17, fontWeight: "700", color: "#E8C97A" },
 
   timerBanner: {
     borderRadius: 10,
@@ -549,17 +573,17 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 1.5,
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 2,
     borderColor: "#ccc",
     justifyContent: "center",
     alignItems: "center",
   },
-  checkboxActive: { backgroundColor: "#d9a020", borderColor: "#d9a020" },
-  termsText: { fontSize: 13, color: "#8a96a3", flex: 1 },
-  termsLink: { color: "#1a3060", fontWeight: "600" },
+  checkboxActive: { backgroundColor: "#10B981", borderColor: "#10B981" },
+  termsText: { fontSize: 13, color: "#666", flex: 1, fontWeight: "500" },
+  termsLink: { color: "#1a3060", fontWeight: "700", textDecorationLine: "underline" },
 
   secRow: {
     flexDirection: "row",

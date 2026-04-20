@@ -831,6 +831,26 @@ export const updateAddress = async (addressData) => {
   }
 };
 
+/**
+ * Delete address
+ * @param {number} userId - User ID
+ * @param {number|string} addressId - Address ID
+ * @returns {Promise<Object>} Delete response
+ */
+export const deleteAddress = async (userId, addressId) => {
+  validateUserId(userId);
+  validateId(addressId, 'Address ID');
+
+  try {
+    // ✅ CORRECT: DELETE /api/oxygold-api/order/{userId}/{addressId}
+    const response = await apiDelete(`${PHYSICAL_GOLD_BASE_URL}/order/${userId}/${addressId}`);
+    return extractData(response);
+  } catch (error) {
+    console.error('[PhysicalGoldApi] deleteAddress failed:', error.message);
+    throw error;
+  }
+};
+
 // ═════════════════════════════════════════════════════════════════════════
 // 8. WALLET
 // ═════════════════════════════════════════════════════════════════════════
@@ -1018,4 +1038,74 @@ export const removeFromWishlist = async (wishlistId) => {
  */
 export const getProductAllImages = async (productId) => {
   return getProductImages(productId);
+};
+
+// ═════════════════════════════════════════════════════════════════════════
+// 10. SEARCH
+// ═════════════════════════════════════════════════════════════════════════
+
+/**
+ * Search all products globally with filters
+ * @param {Object} searchParams - Search parameters
+ * @param {string} searchParams.q - Search query
+ * @param {string} searchParams.productType - Product type (PHYSICAL/DIGITAL)
+ * @param {number} searchParams.categoryId - Category ID (optional)
+ * @param {string} searchParams.purity - Purity filter (22K, 24K, 18K)
+ * @param {string} searchParams.size - Size filter
+ * @param {number} searchParams.minPrice - Minimum price
+ * @param {number} searchParams.maxPrice - Maximum price
+ * @param {number} searchParams.minWeight - Minimum weight in grams
+ * @param {number} searchParams.maxWeight - Maximum weight in grams
+ * @param {boolean} searchParams.inStock - In stock filter
+ * @param {string} searchParams.sortBy - Sort by (PRICE_ASC, PRICE_DESC, NEWEST, NAME_ASC)
+ * @param {number} searchParams.page - Page number (default: 0)
+ * @param {number} searchParams.pageSize - Page size (default: 20)
+ * @returns {Promise<Object>} { results, total, totalPages, facets }
+ */
+export const searchAllProducts = async (searchParams) => {
+  try {
+    const params = {
+      q: searchParams.q || '',
+      productType: searchParams.productType || 'PHYSICAL',
+      page: searchParams.page || 0,
+      pageSize: searchParams.pageSize || 20,
+    };
+
+    // Add optional filters
+    if (searchParams.categoryId) params.categoryId = searchParams.categoryId;
+    if (searchParams.purity) params.purity = searchParams.purity;
+    if (searchParams.size) params.size = searchParams.size;
+    if (searchParams.minPrice) params.minPrice = searchParams.minPrice;
+    if (searchParams.maxPrice) params.maxPrice = searchParams.maxPrice;
+    if (searchParams.minWeight) params.minWeight = searchParams.minWeight;
+    if (searchParams.maxWeight) params.maxWeight = searchParams.maxWeight;
+    if (searchParams.inStock !== undefined) params.inStock = searchParams.inStock;
+    if (searchParams.sortBy) params.sortBy = searchParams.sortBy;
+
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] searchAllProducts REQUEST');
+    console.log('[PhysicalGoldApi] URL:', `${BASE_URL}/search/products`);
+    console.log('[PhysicalGoldApi] Params:', JSON.stringify(params, null, 2));
+    console.log('========================================');
+
+    // ✅ CORRECT: GET /api/oxygold-api/search/products
+    const response = await apiGet(`${BASE_URL}/search/products`, { params });
+
+    console.log('========================================');
+    console.log('[PhysicalGoldApi] searchAllProducts RESPONSE');
+    console.log('[PhysicalGoldApi] Response:', JSON.stringify(response, null, 2));
+    console.log('========================================');
+
+    const data = extractData(response);
+
+    return {
+      results: data?.results || [],
+      total: data?.total || 0,
+      totalPages: data?.totalPages || 0,
+      facets: data?.facets || null,
+    };
+  } catch (error) {
+    console.error('[PhysicalGoldApi] searchAllProducts failed:', error.message);
+    throw error;
+  }
 };

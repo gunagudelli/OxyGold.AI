@@ -102,6 +102,7 @@ const PgProfileScreen = ({ navigation, route }) => {
   const userId = useSelector(selectUserId);
   const userEmail = useSelector(selectUserEmail);
   const refreshToken = useSelector(selectRefreshToken);
+  const returnTo = route?.params?.returnTo;
 
   const [profile, setProfile] = useState(null);
   const [wallet, setWallet] = useState(0);
@@ -123,20 +124,75 @@ const PgProfileScreen = ({ navigation, route }) => {
     const startTime = Date.now();
     try {
       setLoading(true);
+      
+      console.log('========================================');
+      console.log('[Profile] FETCHING PROFILE DATA');
+      console.log('[Profile] userId:', userId);
+      console.log('========================================');
+      
       const data = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/auth/getUserBasedOnUserId`, {
         params: { userId },
       });
+      
+      console.log('========================================');
+      console.log('[Profile] GET PROFILE API RAW RESPONSE');
+      console.log(JSON.stringify(data, null, 2));
+      console.log('========================================');
+      
       const profileData = data?.data?.body || data?.data || data || {};
+      
+      console.log('========================================');
+      console.log('[Profile] EXTRACTED PROFILE DATA');
+      console.log(JSON.stringify(profileData, null, 2));
+      console.log('========================================');
+      console.log('[Profile] Field Check:');
+      console.log('  - firstName:', profileData.firstName);
+      console.log('  - lastName:', profileData.lastName);
+      console.log('  - email:', profileData.email);
+      console.log('  - mobileNumber:', profileData.mobileNumber);
+      console.log('  - whatsappNumber:', profileData.whatsappNumber);
+      console.log('  - whatsAppNumber:', profileData.whatsAppNumber);
+      console.log('  - alternativeNumber:', profileData.alternativeNumber);
+      console.log('  - alterMobileNumber:', profileData.alterMobileNumber);
+      console.log('========================================');
+      
       setProfile(profileData);
-      setFormData({
+      const formFields = {
         firstName: profileData.firstName || profileData.name || "",
         lastName: profileData.lastName || "",
         email: profileData.email || userEmail || "",
         mobileNumber: profileData.mobileNumber || profileData.phone || "",
         alterMobileNumber:
           profileData.alterMobileNumber || profileData.alternativeNumber || "",
-        whatsappNumber: profileData.whatsappNumber || "",
-      });
+        whatsappNumber: profileData.whatsappNumber || profileData.whatsAppNumber || "",
+      };
+      
+      console.log('========================================');
+      console.log('[Profile] FORM FIELDS SET');
+      console.log(JSON.stringify(formFields, null, 2));
+      console.log('========================================');
+      
+      setFormData(formFields);
+      
+      // Check if important fields are missing
+      const hasFirstName = !!formFields.firstName;
+      const hasLastName = !!formFields.lastName;
+      const hasEmail = !!formFields.email;
+      
+      // Show message if any important field is missing
+      if (!hasFirstName || !hasLastName || !hasEmail) {
+        setTimeout(() => {
+          Alert.alert(
+            "Complete Your Profile",
+            "Please fill your profile details",
+            [
+              { text: "Fill Now", onPress: () => setEditing(true) },
+              { text: "Later", style: "cancel" }
+            ]
+          );
+        }, 500);
+      }
+      
       try {
         const walletData = await apiGet(
           `${PHYSICAL_GOLD_BASE_URL}/wallet/getWallet/${userId}`,
@@ -144,7 +200,35 @@ const PgProfileScreen = ({ navigation, route }) => {
         setWallet(walletData?.data?.balance || walletData?.balance || 0);
       } catch (e) {}
     } catch (e) {
-      Alert.alert("Error", "Failed to load profile");
+      // For new users or 404, just show empty profile (no error)
+      if (e?.status === 404) {
+        setProfile({});
+        const emptyFormData = {
+          firstName: "",
+          lastName: "",
+          email: userEmail || "",
+          mobileNumber: "",
+          alterMobileNumber: "",
+          whatsappNumber: "",
+        };
+        setFormData(emptyFormData);
+        
+        // Show message for new user to fill profile
+        setTimeout(() => {
+          Alert.alert(
+            "Complete Your Profile",
+            "Please fill your profile details",
+            [
+              { text: "Fill Now", onPress: () => setEditing(true) },
+              { text: "Later", style: "cancel" }
+            ]
+          );
+        }, 500);
+      } else if (e?.status >= 500) {
+        // Only show error for actual server errors
+        Alert.alert("Error", "Server error. Please try again later.");
+      }
+      // For other errors, silently handle and show empty profile
     } finally {
       const remaining = Math.max(0, 2000 - (Date.now() - startTime));
       setTimeout(() => {
@@ -168,6 +252,48 @@ const PgProfileScreen = ({ navigation, route }) => {
   };
 
   const handleSaveProfile = async () => {
+    // Validate email format with better domain checking
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (formData.email && !emailRegex.test(formData.email)) {
+      Alert.alert("Invalid Email", "Please enter a valid email address\n\nExample: user@gmail.com");
+      return;
+    }
+    
+    // Additional check for common typos in popular domains
+    if (formData.email) {
+      const email = formData.email.toLowerCase();
+      const commonTypos = [
+        { wrong: '@gail.', correct: '@gmail.' },
+        { wrong: '@gmial.', correct: '@gmail.' },
+        { wrong: '@yahooo.', correct: '@yahoo.' },
+        { wrong: '@hotmial.', correct: '@hotmail.' },
+        { wrong: '.con', correct: '.com' },
+        { wrong: '.cmo', correct: '.com' },
+        { wrong: '.ocm', correct: '.com' },
+      ];
+      
+      for (const typo of commonTypos) {
+        if (email.includes(typo.wrong)) {
+          Alert.alert(
+            "Check Email",
+            `Did you mean ${email.replace(typo.wrong, typo.correct)}?\n\nPlease verify your email address.`
+          );
+          return;
+        }
+      }
+    }
+    
+    // Validate phone numbers (10 digits)
+    if (formData.alterMobileNumber && !/^[6-9]\d{9}$/.test(formData.alterMobileNumber)) {
+      Alert.alert("Invalid Number", "Alternative mobile number must be 10 digits starting with 6-9");
+      return;
+    }
+    
+    if (formData.whatsappNumber && !/^[6-9]\d{9}$/.test(formData.whatsappNumber)) {
+      Alert.alert("Invalid Number", "WhatsApp number must be 10 digits starting with 6-9");
+      return;
+    }
+    
     setSaving(true);
     try {
       const payload = {
@@ -178,27 +304,41 @@ const PgProfileScreen = ({ navigation, route }) => {
         alternativeNumber: formData.alterMobileNumber,
         whatsappNumber: formData.whatsappNumber,
       };
+      
+      console.log('========================================');
+      console.log('[Profile] SAVE PROFILE API CALL');
+      console.log('[Profile] Payload:', JSON.stringify(payload, null, 2));
+      console.log('========================================');
+      
       const responseData = await apiPost(
         `${PHYSICAL_GOLD_BASE_URL}/auth/saveUserProfile`,
         payload,
       );
-      const updatedProfile = {
-        ...profile,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        alterMobileNumber: formData.alterMobileNumber,
-        whatsappNumber: formData.whatsappNumber,
-      };
-      setProfile(updatedProfile);
-      const user = JSON.parse(
-        (await AsyncStorage.getItem("auth_tokens")) || "{}",
-      );
-      user.profile = updatedProfile;
-      await AsyncStorage.setItem("auth_tokens", JSON.stringify(user));
+      
+      console.log('========================================');
+      console.log('[Profile] SAVE PROFILE API RESPONSE');
+      console.log(JSON.stringify(responseData, null, 2));
+      console.log('========================================');
+      
+      // Refresh profile data from API after save
+      console.log('[Profile] Refreshing profile data after save...');
+      await fetchProfileData();
+      
       setEditing(false);
       Alert.alert("Success", "Profile updated successfully");
+      
+      // Navigate back to checkout if returnTo is specified
+      if (returnTo === 'PgCheckout') {
+        setTimeout(() => {
+          navigation.navigate('PgCheckout');
+        }, 500);
+      }
     } catch (e) {
+      console.log('========================================');
+      console.error('[Profile] SAVE PROFILE ERROR');
+      console.error('[Profile] Error:', e);
+      console.error('[Profile] Error Message:', e?.message);
+      console.log('========================================');
       Alert.alert("Error", e?.message || "Failed to update profile");
     } finally {
       setSaving(false);
@@ -542,7 +682,7 @@ const PgProfileScreen = ({ navigation, route }) => {
             {
               icon: "document-text-outline",
               label: "Terms & Conditions",
-              onPress: null,
+              onPress: () => navigation.navigate("PgTerms"),
             },
           ].map((item, index, arr) => (
             <React.Fragment key={item.label}>

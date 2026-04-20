@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { selectUserId } from "../store/authSlice";
 import { executeBuy, checkWebhookStatus } from "../services/goldApi";
 import { CFPaymentGatewayService } from "react-native-cashfree-pg-sdk";
 import { CFEnvironment, CFSession } from "cashfree-pg-api-contract";
+import DigitalGoldTermsModal from "../components/DigitalGoldTermsModal";
 
 const Row = ({ label, value, bold, gold }) => (
   <View style={s.row}>
@@ -53,30 +54,49 @@ const PaymentReviewScreen = ({ navigation, route }) => {
   }
   const userId = useSelector(selectUserId);
 
-  const goldValue = Number(preview.amount || 0);
-  const grams = Number(preview.grams || 0);
-  const pergramPrice = Number(preview.pergramBuyingPrice || goldRate || 0);
-  const platformFee = Number(preview.fees?.platformFee || 0);
+  // Memoize calculations to prevent excessive re-renders
+  const calculations = useMemo(() => {
+    const goldValue = Number(preview.amount || 0);
+    const grams = Number(preview.grams || 0);
+    const pergramPrice = Number(preview.pergramBuyingPrice || goldRate || 0);
+    const platformFee = Number(preview.fees?.platformFee || 0);
 
-  console.log("[PaymentReview] preview:", preview);
-  console.log("[PaymentReview] goldValue from backend:", goldValue);
+    // If goldValue is 97% of user input (after 3% GST)
+    // Then: userInput = goldValue / 0.97
+    const userInputAmount = Math.round((goldValue / 0.97) * 100) / 100;
+    // GST = 3% of user input
+    const gst = Math.round(userInputAmount * 0.03 * 100) / 100;
+    // Total user pays = user input amount
+    const totalPayable = userInputAmount;
 
-  // If goldValue is 97% of user input (after 3% GST)
-  // Then: userInput = goldValue / 0.97
-  const userInputAmount = Math.round((goldValue / 0.97) * 100) / 100;
-  // GST = 3% of user input
-  const gst = Math.round(userInputAmount * 0.03 * 100) / 100;
-  // Total user pays = user input amount
-  const totalPayable = userInputAmount;
+    return {
+      goldValue,
+      grams,
+      pergramPrice,
+      platformFee,
+      userInputAmount,
+      gst,
+      totalPayable,
+    };
+  }, [preview, goldRate]);
 
-  console.log("[PaymentReview] userInputAmount:", userInputAmount);
-  console.log("[PaymentReview] gst:", gst);
-  console.log("[PaymentReview] totalPayable:", totalPayable);
+  const { goldValue, grams, pergramPrice, platformFee, userInputAmount, gst, totalPayable } = calculations;
+
+  // Log only once when component mounts or preview changes
+  useEffect(() => {
+    console.log("[PaymentReview] preview:", preview);
+    console.log("[PaymentReview] goldValue from backend:", goldValue);
+    console.log("[PaymentReview] userInputAmount:", userInputAmount);
+    console.log("[PaymentReview] gst:", gst);
+    console.log("[PaymentReview] totalPayable:", totalPayable);
+  }, [preview]);
 
   const [timeLeft, setTimeLeft] = useState(preview?.lockDuration || 300);
   const [method, setMethod] = useState("UPI");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [isAccepted, setIsAccepted] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const timerRef = useRef(null);
 
   useEffect(() => {
@@ -102,23 +122,51 @@ const PaymentReviewScreen = ({ navigation, route }) => {
   const lockPct = (timeLeft / (preview?.lockDuration || 300)) * 100;
 
   const handlePay = async () => {
+    // Check if user has accepted the terms
+    if (!isAccepted) {
+      Alert.alert(
+        "Accept Terms & Conditions",
+        "Please accept the Terms & Conditions to continue with payment.",
+      );
+      return;
+    }
+ 
+    if (!userId) {
+      console.log('[PaymentReview] ERROR: No userId found!');
+      Alert.alert(
+        "Session Expired",
+        "Please login again.",
+        [{ text: "OK", onPress: () => navigation.replace("Login") }]
+      );
+      return;
+    }
+    
     setLoading(true);
     try {
       const purchaseType = buyMode === "rupees" ? "AMOUNT" : "GRAMS";
       const isUPI = method === "UPI";
       const paymentMode = isUPI ? "CASHFREE" : "WALLET";
 
-      const result = await executeBuy({
+      const buyPayload = {
         userId,
         purchaseType,
         amount: totalPayable,
         grams,
         pergramPrice,
         paymentMode,
-        productId: 4,
-      });
+        productId:1,
+      };
+      
+      console.log('========================================');
+      console.log('[PaymentReview] Calling executeBuy with payload:');
+      console.log(JSON.stringify(buyPayload, null, 2));
+      console.log('========================================');
 
-      console.log("Payment Result:", result);
+      const result = await executeBuy(buyPayload);
+
+      console.log('========================================');
+      console.log('[PaymentReview] executeBuy result:', JSON.stringify(result, null, 2));
+      console.log('========================================');
       setResult(result);
       clearInterval(timerRef.current);
 
@@ -141,6 +189,14 @@ const PaymentReviewScreen = ({ navigation, route }) => {
         );
       }
     } catch (e) {
+      console.log('========================================');
+      console.error('[PaymentReview] ERROR in handlePay');
+      console.error('[PaymentReview] Error message:', e.message);
+      console.error('[PaymentReview] Error status:', e.status);
+      console.error('[PaymentReview] Error data:', JSON.stringify(e.data, null, 2));
+      console.error('[PaymentReview] Full error:', e);
+      console.log('========================================');
+      
       Alert.alert(
         "Payment Failed",
         e.message || "Could not process payment. Please try again.",
@@ -205,8 +261,8 @@ const PaymentReviewScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={s.root} edges={["top", "bottom"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={s.root} edges={["top", "bottom"]} backgroundColor="#1C2340">
+      <StatusBar barStyle="light-content" backgroundColor="#1C2340" />
 
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
@@ -218,10 +274,11 @@ const PaymentReviewScreen = ({ navigation, route }) => {
         </View>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-      >
+      <View style={{ flex: 1, backgroundColor: "#f7f8fa" }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        >
         {/* Price Lock Banner */}
         <View style={s.lockBanner}>
           <View style={s.lockTop}>
@@ -319,7 +376,27 @@ const PaymentReviewScreen = ({ navigation, route }) => {
             256-bit SSL encrypted · 100% secure · Instant confirmation
           </Text>
         </View>
-      </ScrollView>
+
+        {/* Terms & Conditions */}
+        <View style={s.termsRow}>
+          <TouchableOpacity
+            onPress={() => setIsAccepted(!isAccepted)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <View style={[s.checkbox, isAccepted && s.checkboxActive]}>
+              {isAccepted && <Ionicons name="checkmark" size={14} color="#fff" />}
+            </View>
+          </TouchableOpacity>
+          <Text style={s.termsText}>
+            I accept the{" "}
+            <Text style={s.termsLink} onPress={() => setShowTermsModal(true)}>
+              Terms & Conditions
+            </Text>
+          </Text>
+        </View>
+        </ScrollView>
+      </View>
 
       <View style={s.footer}>
         <TouchableOpacity
@@ -347,33 +424,45 @@ const PaymentReviewScreen = ({ navigation, route }) => {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Terms Modal */}
+      <DigitalGoldTermsModal
+        visible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={() => {
+          setIsAccepted(true);
+          setShowTermsModal(false);
+        }}
+        type="buy"
+      />
     </SafeAreaView>
   );
 };
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f7f8fa" },
+  root: { flex: 1, backgroundColor: "#1C2340" },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: "#fff",
+    backgroundColor: "#1C2340",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "rgba(212,168,67,0.22)",
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#464B8B",
+    backgroundColor: "rgba(212,168,67,0.12)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(212,168,67,0.28)",
   },
-  backBtnText: { fontSize: 18, color: "#464B8B", fontWeight: "600" },
-  headerTitle: { fontSize: 17, fontWeight: "700", color: "#464B8B" },
+  backBtnText: { fontSize: 18, color: "#D4A843", fontWeight: "600" },
+  headerTitle: { fontSize: 17, fontWeight: "700", color: "#E8C97A" },
   headerRight: {
     width: 36,
     height: 36,
@@ -493,8 +582,28 @@ const s = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: "#10B981",
+    marginBottom: 12,
   },
   secText: { fontSize: 12, color: "#10B981", flex: 1 },
+
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#ccc",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxActive: { backgroundColor: "#10B981", borderColor: "#10B981" },
+  termsText: { fontSize: 14, color: "#666", flex: 1, fontWeight: "500" },
+  termsLink: { color: "#1a3060", fontWeight: "700", textDecorationLine: "underline" },
 
   footer: {
     flexDirection: "row",

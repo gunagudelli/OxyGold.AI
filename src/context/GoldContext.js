@@ -10,7 +10,7 @@ const GoldContext = createContext(null);
 // Constants
 const DEFAULT_PRICE = 6500; // Default gold price per gram in INR
 const TIMEOUT_MS = 10000;   // 10 seconds timeout
-const REFRESH_MS = 30000;   // Refresh every 30 seconds
+const REFRESH_MS = 60000;   // Refresh every 60 seconds (reduced from 30s)
 
 const BUY_API     = API_GOLD_BUY_PRICE;
 const SELL_API    = API_GOLD_SELL_PRICE;

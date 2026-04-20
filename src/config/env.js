@@ -4,8 +4,8 @@ const APP_ENV = 'live'; // 'live' | 'staging'
 
 const ENV = {
   live: {
-    BASE_URL:       'http://65.0.147.157:9900/api',
-    MARKETING_URL:  'http://65.0.147.157:9229/api',
+    BASE_URL:       'https://meta.oxyloans.com/api',
+    MARKETING_URL:  'https://meta.oxyloans.com/api',
   },
   staging: {
     BASE_URL:       'https://meta.oxyglobal.tech/api',

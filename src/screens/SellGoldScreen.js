@@ -107,8 +107,8 @@ const SellGoldScreen = ({ navigation }) => {
   const currentValue = availableGold * sellRate;
 
   return (
-    <SafeAreaView style={s.container} edges={["top"]}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+    <SafeAreaView style={s.container} edges={["top"]} backgroundColor="#1C2340">
+      <StatusBar barStyle="light-content" backgroundColor="#1C2340" />
 
       {/* ─── Header ───────────────────────────────────────────────── */}
       <View style={s.header}>
@@ -138,7 +138,7 @@ const SellGoldScreen = ({ navigation }) => {
       >
         {/* ─── Hero Card ────────────────────────────────────────────── */}
         <LinearGradient
-          colors={["#1C2340", "#2A3260", "#1C2340"]}
+          colors={["#1C2340", "#2A3158", "#1C2340"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={s.heroCard}
@@ -149,18 +149,19 @@ const SellGoldScreen = ({ navigation }) => {
           {/* Sell price row */}
           <View style={s.heroPriceRow}>
             <View>
-              <Text style={s.heroPurity}>24K Gold · 999.9 Pure</Text>
+              <View style={s.livePriceTag}>
+                <View style={s.livePriceDot} />
+                <Text style={s.livePriceText}>SELL LIVE PRICE</Text>
+              </View>
               <Text style={s.heroPrice}>
                 ₹
                 {sellRate.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
               </Text>
-              <Text style={s.heroPriceSub}>
-                sell price / gram{lastUpdated ? `   ·   ${lastUpdated}` : ""}
-              </Text>
+              <Text style={s.heroPriceSub}>per gram </Text>
             </View>
             <View style={s.heroCoin}>
               <View style={s.coinInner}>
-                <Text style={s.coinKarat}>24K</Text>
+                <Text style={s.coinKarat}>SELL</Text>
                 <View style={s.coinLine} />
                 <Text style={s.coinPurity}>999.9</Text>
                 <Text style={s.coinPure}>PURE</Text>
@@ -195,13 +196,13 @@ const SellGoldScreen = ({ navigation }) => {
         <View style={s.card}>
           <View style={s.cardTop}>
             <Text style={s.cardTitle}>Sell Gold</Text>
-            <View style={s.ratePill}>
-              <Text style={s.ratePillText}>
-                ₹
-                {sellRate.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                /g
-              </Text>
-            </View>
+            <TouchableOpacity
+              style={s.buyGoldBtn}
+              onPress={() => navigation.navigate("Dashboard")}
+              activeOpacity={0.85}
+            >
+              <Text style={s.buyGoldText}>Buy Gold</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Mode Toggle */}
@@ -383,7 +384,7 @@ const SellGoldScreen = ({ navigation }) => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: "#1C2340" },
 
   // Header
   header: {
@@ -393,58 +394,53 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === "ios" ? 10 : 14,
     paddingBottom: 14,
-    backgroundColor: C.bg,
+    backgroundColor: "#1C2340",
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: "rgba(212,168,67,0.22)",
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: C.card,
+    backgroundColor: "rgba(212,168,67,0.12)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: C.border,
-    shadowColor: "rgba(28,35,64,0.08)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: "rgba(212,168,67,0.28)",
   },
   backBtnText: {
     fontSize: 28,
     lineHeight: 32,
-    color: C.navy,
+    color: "#D4A843",
     fontWeight: "300",
     marginTop: -2,
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: C.navy,
+    color: "#E8C97A",
     letterSpacing: 0.2,
   },
   liveChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: C.greenBg,
+    backgroundColor: "rgba(212,168,67,0.12)",
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderWidth: 1,
-    borderColor: "#A7F3D0",
+    borderColor: "rgba(212,168,67,0.28)",
   },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.green },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#D4A843" },
   liveLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: C.green,
+    color: "#D4A843",
     letterSpacing: 0.8,
   },
 
-  scroll: { paddingBottom: 40 },
+  scroll: { paddingBottom: 40, backgroundColor: C.bg },
 
   // Hero
   heroCard: {
@@ -481,6 +477,29 @@ const s = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 20,
   },
+  livePriceTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginBottom: 8,
+  },
+  livePriceDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#10B981",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  livePriceText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#10B981",
+    letterSpacing: 1.2,
+  },
   heroPurity: {
     fontSize: 11,
     fontWeight: "600",
@@ -506,9 +525,9 @@ const s = StyleSheet.create({
     padding: 5,
     shadowColor: "#D4A843",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
   },
   coinInner: {
     flex: 1,
@@ -615,6 +634,19 @@ const s = StyleSheet.create({
     fontWeight: "800",
     color: C.navy,
     letterSpacing: -0.3,
+  },
+  buyGoldBtn: {
+    backgroundColor: C.greenBg,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "rgba(14,159,110,0.3)",
+  },
+  buyGoldText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.green,
   },
   ratePill: {
     backgroundColor: C.goldLight,

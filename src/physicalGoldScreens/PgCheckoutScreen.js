@@ -26,6 +26,8 @@ import {
   getWalletBalance,
   createOrder,
   confirmOrder,
+  deleteAddress,
+  getCart,
 } from "./physicalGoldApi";
 
 // ─── Design Tokens (mirrors PgCartScreen exactly) ────────────────────────────
@@ -139,16 +141,22 @@ const SkeletonBlock = ({ height = 80 }) => {
 const PgCheckoutScreen = ({ navigation, route }) => {
   const userId = useSelector(selectUserId);
   const accessToken = useSelector(selectAccessToken);
-  const { cartTotal, cartItems } = route?.params || {};
+  const { cartTotal: routeCartTotal, cartItems: routeCartItems } = route?.params || {};
 
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [showAllAddresses, setShowAllAddresses] = useState(false);
+  const [deletingAddressId, setDeletingAddressId] = useState(null);
   const [paymentMode, setPaymentMode] = useState("CASHFREE");
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletExists, setWalletExists] = useState(false);
   const [profileComplete, setProfileComplete] = useState(false);
+  
+  // Store cart data in state so it persists when navigating back
+  const [cartTotal, setCartTotal] = useState(routeCartTotal || 0);
+  const [cartItems, setCartItems] = useState(routeCartItems || []);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -164,10 +172,11 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     setLoading(true);
     const startTime = Date.now();
     try {
-      const [profileRes, addrRes, walletRes] = await Promise.allSettled([
+      const [profileRes, addrRes, walletRes, cartRes] = await Promise.allSettled([
         getUserProfile(userId),
         getUserAddresses(userId),
         getWalletBalance(userId),
+        getCart(userId),
       ]);
 
       if (profileRes.status === "fulfilled") {
@@ -176,7 +185,21 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           profileRes.value?.data?.body ||
           profileRes.value?.data ||
           profileRes.value;
-        setProfileComplete(!!p?.firstName);
+        
+        const hasFirstName = !!p?.firstName;
+        const hasLastName = !!p?.lastName;
+        const hasEmail = !!p?.email;
+        const isComplete = hasFirstName && hasLastName && hasEmail;
+        
+        setProfileComplete(isComplete);
+        
+        if (!isComplete) {
+          Alert.alert(
+            "Profile Incomplete",
+            "Please complete your profile to proceed with checkout.",
+            [{ text: "OK" }]
+          );
+        }
       }
 
       if (addrRes.status === "fulfilled") {
@@ -190,12 +213,44 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           state: a.state || "",
         }));
         setAddresses(list);
-        if (list.length > 0) setSelectedAddressId(list[0].id);
+        if (list.length > 0) {
+          setSelectedAddressId(list[0].id);
+        } else {
+          Alert.alert(
+            "No Address Found",
+            "Please add a delivery address to proceed with checkout.",
+            [
+              {
+                text: "OK",
+                onPress: () => navigation.navigate("PgAddress", { userId, returnTo: "PgCheckout" })
+              }
+            ]
+          );
+        }
       }
 
       if (walletRes.status === "fulfilled") {
         setWalletBalance(walletRes.value?.balance || 0);
         setWalletExists(true);
+      }
+      
+      // Fetch cart data from API
+      if (cartRes.status === "fulfilled") {
+        const cart = cartRes.value;
+        console.log('========================================');
+        console.log('[Checkout] Cart Data from API');
+        console.log('[Checkout] Cart:', JSON.stringify(cart, null, 2));
+        console.log('[Checkout] Total Items:', cart?.totalItemsInCart);
+        console.log('[Checkout] Total Amount:', cart?.totalPayableAmount);
+        console.log('========================================');
+        
+        setCartItems(cart?.itemsInCart || []);
+        setCartTotal(cart?.totalPayableAmount || 0);
+      } else if (routeCartTotal && routeCartItems) {
+        // Fallback to route params if API fails
+        console.log('[Checkout] Using cart data from route params');
+        setCartItems(routeCartItems);
+        setCartTotal(routeCartTotal);
       }
     } catch (err) {
       console.error("[Checkout] loadCheckoutData error:", err.message);
@@ -222,6 +277,41 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleDeleteAddress = async (addressId) => {
+    Alert.alert(
+      "Delete Address",
+      "Are you sure you want to delete this address?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeletingAddressId(addressId);
+            try {
+              await deleteAddress(userId, addressId);
+              
+              // Remove from local state
+              const updatedAddresses = addresses.filter(a => a.id !== addressId);
+              setAddresses(updatedAddresses);
+              
+              // If deleted address was selected, select first remaining address
+              if (selectedAddressId === addressId) {
+                setSelectedAddressId(updatedAddresses.length > 0 ? updatedAddresses[0].id : null);
+              }
+              
+              Alert.alert("Success", "Address deleted successfully");
+            } catch (error) {
+              Alert.alert("Error", error?.message || "Failed to delete address");
+            } finally {
+              setDeletingAddressId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const handlePay = async () => {
     if (!accessToken) {
       Alert.alert("Session Expired", "Please login again", [
@@ -232,19 +322,29 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     if (!profileComplete) {
       Alert.alert(
         "Complete Your Profile",
-        "Please add your name before placing an order.",
+        "Please fill your profile details before placing an order.",
         [
           { text: "Cancel", style: "cancel" },
           {
             text: "Go to Profile",
-            onPress: () => navigation.navigate("PgProfile"),
+            onPress: () => navigation.navigate("PgProfile", { returnTo: "PgCheckout" }),
           },
         ],
       );
       return;
     }
     if (!selectedAddressId) {
-      Alert.alert("Select Address", "Please select a delivery address");
+      Alert.alert(
+        "Add Delivery Address",
+        "Please add a delivery address to continue.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Add Address",
+            onPress: () => navigation.navigate("PgAddress", { userId, returnTo: "PgCheckout" }),
+          },
+        ],
+      );
       return;
     }
     if (!cartItems || cartItems.length === 0) {
@@ -375,7 +475,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           {!profileComplete && (
             <TouchableOpacity
               style={styles.warningBox}
-              onPress={() => navigation.navigate("PgProfile")}
+              onPress={() => navigation.navigate("PgProfile", { returnTo: "PgCheckout" })}
               activeOpacity={0.85}
             >
               <Ionicons name="warning" size={15} color={C.warn} />
@@ -392,7 +492,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
               <SectionHeader title="DELIVERY ADDRESS" />
               <TouchableOpacity
                 onPress={() =>
-                  navigation.navigate("PgProfile", { tab: "address" })
+                  navigation.navigate("PgAddress", { userId, returnTo: "PgCheckout" })
                 }
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
@@ -404,7 +504,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
               <TouchableOpacity
                 style={styles.emptyAddressBox}
                 onPress={() =>
-                  navigation.navigate("PgProfile", { tab: "address" })
+                  navigation.navigate("PgAddress", { userId, returnTo: "PgCheckout" })
                 }
                 activeOpacity={0.8}
               >
@@ -417,7 +517,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             ) : (
               <View style={styles.addressList}>
-                {addresses.map((addr, index) => {
+                {(showAllAddresses ? addresses : addresses.slice(0, 2)).map((addr, index, arr) => {
                   const selected = selectedAddressId === addr.id;
                   return (
                     <View key={addr.id}>
@@ -478,13 +578,47 @@ const PgCheckoutScreen = ({ navigation, route }) => {
                             {addr.state} — {addr.pinCode}
                           </Text>
                         </View>
+                        
+                        {/* Delete Button */}
+                        <TouchableOpacity
+                          style={styles.deleteAddrBtn}
+                          onPress={() => handleDeleteAddress(addr.id)}
+                          disabled={deletingAddressId === addr.id}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          {deletingAddressId === addr.id ? (
+                            <ActivityIndicator size="small" color={C.red} />
+                          ) : (
+                            <Ionicons name="trash-outline" size={18} color={C.red} />
+                          )}
+                        </TouchableOpacity>
                       </TouchableOpacity>
-                      {index < addresses.length - 1 && (
+                      {index < arr.length - 1 && (
                         <View style={styles.itemDivider} />
                       )}
                     </View>
                   );
                 })}
+                
+                {/* Show More/Less Button */}
+                {addresses.length > 2 && (
+                  <TouchableOpacity
+                    style={styles.showMoreBtn}
+                    onPress={() => setShowAllAddresses(!showAllAddresses)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.showMoreText}>
+                      {showAllAddresses
+                        ? "Show Less"
+                        : `Show ${addresses.length - 2} More Address${addresses.length - 2 > 1 ? "es" : ""}`}
+                    </Text>
+                    <Ionicons
+                      name={showAllAddresses ? "chevron-up" : "chevron-down"}
+                      size={16}
+                      color={C.gold}
+                    />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
@@ -832,6 +966,38 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
+  // Delete Address Button
+  deleteAddrBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: C.redBg,
+    borderWidth: 1,
+    borderColor: C.redBorder,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+
+  // Show More Button
+  showMoreBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 8,
+    borderRadius: 10,
+    backgroundColor: C.goldDim,
+    borderWidth: 1,
+    borderColor: C.goldDimBorder,
+  },
+  showMoreText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.gold,
+  },
+
   // ── Payment ──
   paymentRow: { flexDirection: "row", gap: 10 },
   payCard: {
@@ -991,7 +1157,7 @@ const styles = StyleSheet.create({
   checkoutBtnText: {
     fontSize: 15,
     fontWeight: "900",
-    color: "#1C2340",
+    color: "#ffff",
     letterSpacing: 0.3,
   },
 });

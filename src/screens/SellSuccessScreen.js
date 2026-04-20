@@ -11,10 +11,24 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { selectAccessToken } from "../store/authSlice";
 import { downloadSellInvoicePDF, openInvoicePDF } from "../utils/downloadInvoice";
+
+const C = {
+  bg: "#F7F6F3",
+  card: "#FFFFFF",
+  gold: "#C8952A",
+  goldLight: "#F5ECD7",
+  navy: "#1C2340",
+  green: "#0E9F6E",
+  greenBg: "#ECFDF5",
+  red: "#E02424",
+  redBg: "#FEF2F2",
+  border: "#EAE8E2",
+};
 
 export default function SellSuccessScreen({ navigation, route }) {
   const {
@@ -60,9 +74,9 @@ export default function SellSuccessScreen({ navigation, route }) {
     hour12: true,
   });
 
-  const iconColor = isFailed ? "#dc2626" : "#16a34a";
-  const iconName = isFailed ? "close" : "checkmark";
-  const iconBg = isFailed ? "#fef2f2" : "#f0fdf4";
+  const iconColor = isFailed ? C.red : C.green;
+  const iconName = isFailed ? "close-circle" : "checkmark-circle";
+  const iconBg = isFailed ? C.redBg : C.greenBg;
 
   const handleViewInvoice = () => {
     if (!transactionId) {
@@ -114,7 +128,22 @@ export default function SellSuccessScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={s.root} edges={["top", "bottom"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
+
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity
+          style={s.backBtn}
+          onPress={() => navigation.navigate("Dashboard")}
+          activeOpacity={0.7}
+        >
+          <Text style={s.backBtnText}>✕</Text>
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>
+          {isFailed ? "Transaction Failed" : "Transaction Complete"}
+        </Text>
+        <View style={{ width: 40 }} />
+      </View>
 
       <ScrollView
         contentContainerStyle={s.scroll}
@@ -124,10 +153,11 @@ export default function SellSuccessScreen({ navigation, route }) {
         <Animated.View
           style={[
             s.iconWrap,
-            { backgroundColor: iconBg, transform: [{ scale: scaleAnim }] },
+            isFailed ? s.iconWrapFail : s.iconWrapSuccess,
+            { transform: [{ scale: scaleAnim }] },
           ]}
         >
-          <Ionicons name={iconName} size={48} color={iconColor} />
+          <Ionicons name={iconName} size={64} color={iconColor} />
         </Animated.View>
 
         <Animated.View style={{ opacity: fadeAnim, alignItems: "center" }}>
@@ -145,7 +175,7 @@ export default function SellSuccessScreen({ navigation, route }) {
           </Text>
 
           {/* Summary Card */}
-          <View style={s.card}>
+          <View style={[s.card, isFailed && s.cardFailed]}>
             <Row label="Transaction ID" value={transactionId || "—"} />
             {transferId && <Row label="Transfer ID" value={transferId} />}
             <Row
@@ -173,14 +203,19 @@ export default function SellSuccessScreen({ navigation, route }) {
           {/* Bank Details */}
           {bankDetails && !isFailed && (
             <View style={s.bankCard}>
-              <Text style={s.bankTitle}>💳 Credited To</Text>
-              <Text style={s.bankName}>{bankDetails.nameAtBank}</Text>
-              <Text style={s.bankInfo}>
-                {bankDetails.bankName} · {bankDetails.accountNumber}
-              </Text>
-              {bankDetails.ifsc && (
-                <Text style={s.bankInfo}>IFSC: {bankDetails.ifsc}</Text>
-              )}
+              <View style={s.bankIconBox}>
+                <Ionicons name="card" size={20} color={C.green} />
+              </View>
+              <View style={s.bankContent}>
+                <Text style={s.bankTitle}>Credited To</Text>
+                <Text style={s.bankName}>{bankDetails.nameAtBank}</Text>
+                <Text style={s.bankInfo}>
+                  {bankDetails.bankName} · {bankDetails.accountNumber}
+                </Text>
+                {bankDetails.ifsc && (
+                  <Text style={s.bankInfo}>IFSC: {bankDetails.ifsc}</Text>
+                )}
+              </View>
             </View>
           )}
 
@@ -204,19 +239,21 @@ export default function SellSuccessScreen({ navigation, route }) {
               <TouchableOpacity
                 style={s.invoiceBtn}
                 onPress={handleViewInvoice}
+                activeOpacity={0.8}
               >
-                <Ionicons name="eye-outline" size={16} color="#B8891A" />
+                <Ionicons name="document-text" size={18} color={C.gold} />
                 <Text style={s.invoiceBtnText}>View Invoice</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={s.invoiceBtn}
                 onPress={handleDownloadInvoice}
                 disabled={downloadingInvoice}
+                activeOpacity={0.8}
               >
                 {downloadingInvoice ? (
-                  <ActivityIndicator size="small" color="#B8891A" />
+                  <ActivityIndicator size="small" color={C.gold} />
                 ) : (
-                  <Ionicons name="download-outline" size={16} color="#B8891A" />
+                  <Ionicons name="download" size={18} color={C.gold} />
                 )}
                 <Text style={s.invoiceBtnText}>
                   {downloadingInvoice ? "Downloading..." : "Download"}
@@ -229,23 +266,34 @@ export default function SellSuccessScreen({ navigation, route }) {
 
       {/* Footer */}
       <View style={s.footer}>
+        {!isFailed && (
+          <TouchableOpacity
+            style={s.secondaryBtn}
+            onPress={() => navigation.navigate("Dashboard")}
+            activeOpacity={0.8}
+          >
+            <Text style={s.secondaryBtnText}>View Portfolio</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
-          style={s.secondaryBtn}
-          onPress={() => navigation.navigate("Dashboard")}
-        >
-          <Text style={s.secondaryBtnText}>View Portfolio</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={s.primaryBtn}
+          style={[s.primaryBtn, isFailed && s.primaryBtnFull]}
           onPress={() =>
             isFailed
               ? navigation.navigate("SellGold")
               : navigation.navigate("Dashboard")
           }
+          activeOpacity={0.88}
         >
-          <Text style={s.primaryBtnText}>
-            {isFailed ? "Try Again" : "Done"}
-          </Text>
+          <LinearGradient
+            colors={isFailed ? ["#E02424", "#C81E1E"] : ["#D4A535", "#C8952A", "#B8841E"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={s.primaryBtnGrad}
+          >
+            <Text style={s.primaryBtnText}>
+              {isFailed ? "Try Again" : "Done"}
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -269,103 +317,166 @@ const Row = ({ label, value, gold, status }) => (
 );
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff" },
-  scroll: { padding: 24, alignItems: "center", paddingBottom: 20 },
-
-  iconWrap: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+  root: { flex: 1, backgroundColor: C.bg },
+  
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: C.navy,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(212,168,67,0.22)",
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(212,168,67,0.12)",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(212,168,67,0.28)",
+  },
+  backBtnText: {
+    fontSize: 20,
+    color: "#D4A843",
+    fontWeight: "400",
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#E8C97A",
+    letterSpacing: 0.2,
+  },
+
+  scroll: { padding: 20, alignItems: "center", paddingBottom: 20 },
+
+  iconWrap: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 30,
+    marginBottom: 24,
+    borderWidth: 3,
+  },
+  iconWrapSuccess: {
+    backgroundColor: C.greenBg,
+    borderColor: C.green,
+  },
+  iconWrapFail: {
+    backgroundColor: C.redBg,
+    borderColor: C.red,
   },
 
   title: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#1c2b3a",
+    fontSize: 24,
+    fontWeight: "800",
+    color: C.navy,
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 10,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: "#8a96a3",
+    color: "#8891AF",
     textAlign: "center",
     lineHeight: 20,
-    marginBottom: 24,
-    paddingHorizontal: 8,
+    marginBottom: 28,
+    paddingHorizontal: 16,
   },
 
   card: {
     width: "100%",
-    backgroundColor: "#fafbfc",
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: C.card,
+    borderRadius: 18,
+    padding: 18,
     borderWidth: 1,
-    borderColor: "#e8ecf0",
-    marginBottom: 14,
+    borderColor: C.border,
+    marginBottom: 16,
+  },
+  cardFailed: {
+    borderColor: "rgba(224,36,36,0.2)",
+    backgroundColor: "#FFFBFB",
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 7,
+    paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f2f5",
+    borderBottomColor: C.border,
   },
-  rowLabel: { fontSize: 13, color: "#9eaab8" },
+  rowLabel: { fontSize: 13, color: "#8891AF", fontWeight: "500" },
   rowValue: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#1c2b3a",
+    fontWeight: "700",
+    color: C.navy,
     flexShrink: 1,
     textAlign: "right",
     marginLeft: 8,
   },
-  rowGold: { color: "#b8720a" },
-  rowFail: { color: "#dc2626" },
-  rowOk: { color: "#16a34a" },
-  divider: { height: 1, backgroundColor: "#e8ecf0", marginVertical: 6 },
+  rowGold: { color: C.gold, fontSize: 15 },
+  rowFail: { color: C.red },
+  rowOk: { color: C.green },
+  divider: { height: 1, backgroundColor: C.border, marginVertical: 8 },
 
   bankCard: {
     width: "100%",
-    backgroundColor: "#f0fdf4",
-    borderRadius: 10,
-    padding: 14,
+    backgroundColor: C.greenBg,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "rgba(22,163,74,0.2)",
-    marginBottom: 14,
+    borderColor: "rgba(14,159,110,0.25)",
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "flex-start",
   },
+  bankIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: C.card,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "rgba(14,159,110,0.2)",
+  },
+  bankContent: { flex: 1 },
   bankTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
-    color: "#16a34a",
+    color: C.green,
     marginBottom: 6,
+    letterSpacing: 0.5,
   },
   bankName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
-    color: "#1c2b3a",
-    marginBottom: 2,
+    color: C.navy,
+    marginBottom: 4,
   },
-  bankInfo: { fontSize: 12, color: "#8a96a3" },
+  bankInfo: { fontSize: 12, color: "#8891AF", marginTop: 2 },
 
   infoRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 6,
-    paddingHorizontal: 4,
+    alignItems: "center",
+    backgroundColor: "#FFFBEB",
+    borderRadius: 12,
+    padding: 12,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
   },
-  infoText: { fontSize: 11, color: "#8a96a3", flex: 1, lineHeight: 16 },
+  infoText: { fontSize: 11, color: "#92400E", flex: 1, lineHeight: 16, marginLeft: 8 },
 
   invoiceActions: {
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
     width: "100%",
     marginBottom: 16,
   },
@@ -374,44 +485,49 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    backgroundColor: "rgba(184,137,26,0.10)",
-    borderRadius: 10,
-    paddingVertical: 10,
+    gap: 8,
+    backgroundColor: C.goldLight,
+    borderRadius: 12,
+    paddingVertical: 13,
     borderWidth: 1,
-    borderColor: "rgba(184,137,26,0.22)",
+    borderColor: C.gold,
   },
   invoiceBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
-    color: "#B8891A",
+    color: C.gold,
   },
 
   footer: {
     flexDirection: "row",
     paddingHorizontal: 20,
     paddingBottom: 32,
-    paddingTop: 12,
+    paddingTop: 16,
     gap: 12,
-    backgroundColor: "#fff",
+    backgroundColor: C.card,
     borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
+    borderTopColor: C.border,
   },
   secondaryBtn: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
+    paddingVertical: 15,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: C.border,
     alignItems: "center",
+    backgroundColor: C.bg,
   },
-  secondaryBtnText: { fontSize: 14, fontWeight: "600", color: "#666" },
+  secondaryBtnText: { fontSize: 14, fontWeight: "700", color: C.navy },
   primaryBtn: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: "#f0bb3a",
-    alignItems: "center",
+    borderRadius: 12,
+    overflow: "hidden",
   },
-  primaryBtnText: { fontSize: 14, fontWeight: "700", color: "#0d1f3c" },
+  primaryBtnFull: { flex: 2 },
+  primaryBtnGrad: {
+    paddingVertical: 15,
+    alignItems: "center",
+    borderRadius: 12,
+  },
+  primaryBtnText: { fontSize: 15, fontWeight: "800", color: "#FFFFFF", letterSpacing: 0.3 },
 });

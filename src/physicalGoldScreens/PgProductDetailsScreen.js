@@ -95,7 +95,6 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const [productImages,     setProductImages]     = useState({});
   const [availableViews,    setAvailableViews]    = useState([]);
   const [selectedViewIndex, setSelectedViewIndex] = useState(0);
-  const [qty,               setQty]               = useState(1);
   const [loading,           setLoading]           = useState(true);
   const [cartLoading,       setCartLoading]       = useState(false);
   const [cartMsg,           setCartMsg]           = useState({ text: "", type: "" });
@@ -190,7 +189,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
           });
         }
       } finally {
-        const remaining = Math.max(0, 2000 - (Date.now() - startTime));
+        const remaining = Math.max(0, 800 - (Date.now() - startTime));
         setTimeout(() => setLoading(false), remaining);
       }
     })();
@@ -263,7 +262,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const price      = selectedVariant?.price || 0;
   const mrp        = selectedVariant?.mrp || price;
   const discount   = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
-  const totalPrice = price * qty;
+  const totalPrice = price;
   const inStock    = (selectedVariant?.stockQuantity ?? 0) > 0;
 
   const heroTranslate   = heroAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] });
@@ -286,22 +285,22 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     setCartMsg({ text: "", type: "" });
     const startTime = Date.now();
     try {
-      await addToCart(userId, product.id, selectedVariant.id, qty);
+      await addToCart(userId, product.id, selectedVariant.id, 1);
       const elapsed = Date.now() - startTime;
       setTimeout(() => {
-        Alert.alert("Success", `${qty} item${qty > 1 ? "s" : ""} added to cart!`, [
+        Alert.alert("Success", "Item added to cart!", [
           { text: "OK", onPress: () => navigation.navigate("PgCart") },
         ]);
-      }, Math.max(0, 2000 - elapsed));
+      }, Math.max(0, 800 - elapsed));
     } catch (e) {
       const elapsed = Date.now() - startTime;
       setTimeout(() => {
         setCartMsg({ text: e?.message || "Failed to add to cart", type: "error" });
         setTimeout(() => setCartMsg({ text: "", type: "" }), 4000);
-      }, Math.max(0, 2000 - elapsed));
+      }, Math.max(0, 800 - elapsed));
     } finally {
       const elapsed = Date.now() - startTime;
-      setTimeout(() => setCartLoading(false), Math.max(0, 2000 - elapsed));
+      setTimeout(() => setCartLoading(false), Math.max(0, 800 - elapsed));
     }
   };
 
@@ -498,28 +497,6 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
               </View>
             )}
 
-            {/* Quantity */}
-            <View style={styles.card}>
-              <SectionHeader title="Quantity" />
-              <View style={styles.qtyRow}>
-                <TouchableOpacity
-                  style={[styles.qtyBtn, qty <= 1 && styles.qtyBtnOff]}
-                  onPress={() => qty > 1 && setQty(qty - 1)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.qtyBtnText, qty <= 1 && styles.qtyBtnTextOff]}>−</Text>
-                </TouchableOpacity>
-                <Text style={styles.qtyNum}>{qty}</Text>
-                <TouchableOpacity style={styles.qtyBtn} onPress={() => setQty(qty + 1)} activeOpacity={0.8}>
-                  <Text style={styles.qtyBtnText}>+</Text>
-                </TouchableOpacity>
-                <View style={styles.qtyTotalBlock}>
-                  <Text style={styles.qtyTotalLabel}>Total</Text>
-                  <Text style={styles.qtyTotalValue}>₹{Number(totalPrice).toLocaleString("en-IN")}</Text>
-                </View>
-              </View>
-            </View>
-
             {cartMsg.text ? (
               <View style={[styles.cartMsg, cartMsg.type === "success" ? styles.cartMsgSuccess : styles.cartMsgError]}>
                 <Text style={[styles.cartMsgText, cartMsg.type === "success" ? styles.cartMsgTextSuccess : styles.cartMsgTextError]}>
@@ -535,9 +512,8 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
         <View style={styles.footer}>
           <View style={styles.footerMain}>
             <View style={styles.footerLeft}>
-              <Text style={styles.footerPriceLabel}>Total Amount</Text>
+              <Text style={styles.footerPriceLabel}>Price</Text>
               <Text style={styles.footerPriceValue}>₹{Number(totalPrice).toLocaleString("en-IN")}</Text>
-              {qty > 1 && <Text style={styles.footerPriceSub}>{qty} × ₹{Number(price).toLocaleString("en-IN")}</Text>}
             </View>
             <TouchableOpacity
               style={[styles.cartBtn, (!selectedVariant || !inStock) && styles.cartBtnDisabled]}

@@ -7,11 +7,22 @@ import {
   Animated,
   Easing,
   BackHandler,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSelector } from "react-redux";
 import { selectAccessToken } from "../store/authSlice";
 import { BASE_URL } from "../constants/api";
+
+const C = {
+  bg: "#F7F6F3",
+  card: "#FFFFFF",
+  gold: "#C8952A",
+  goldLight: "#F5ECD7",
+  navy: "#1C2340",
+  border: "#EAE8E2",
+};
 
 const SELL_EXECUTE_API = `${BASE_URL}/digital-gold/sell/execute`;
 const PAYOUT_STATUS_API = `${BASE_URL}/digital-gold/payout/status`;
@@ -138,30 +149,56 @@ export default function SellProcessingScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={s.root} edges={["top", "bottom"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f7f8fa" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
+      
+      {/* Header */}
+      <View style={s.header}>
+        <Text style={s.headerTitle}>Processing Transaction</Text>
+      </View>
+
       <View style={s.center}>
-        {/* Spinner */}
-        <Animated.View
-          style={[s.spinnerRing, { transform: [{ rotate: spin }] }]}
-        />
-        <View style={s.spinnerInner}>
-          <Text style={s.spinnerEmoji}>🪙</Text>
+        {/* Animated Spinner */}
+        <View style={s.spinnerContainer}>
+          <Animated.View
+            style={[s.spinnerRing, { transform: [{ rotate: spin }] }]}
+          />
+          <LinearGradient
+            colors={["#D4A535", "#C8952A"]}
+            style={s.spinnerInner}
+          >
+            <Text style={s.spinnerEmoji}>🪙</Text>
+          </LinearGradient>
         </View>
 
         <Text style={s.title}>Processing Sell Order</Text>
         <Text style={s.subtitle}>{statusMessage}</Text>
-        <Text style={s.txnId}>TXN: {transactionId}</Text>
+        
+        {/* Transaction ID Card */}
+        <View style={s.txnCard}>
+          <Text style={s.txnLabel}>Transaction ID</Text>
+          <Text style={s.txnId}>{transactionId}</Text>
+        </View>
 
         {/* Steps */}
-        <View style={s.stepsWrap}>
+        <View style={s.stepsCard}>
           {STEPS.map((step, i) => (
             <View key={i} style={s.stepRow}>
-              <View
-                style={[
-                  s.stepDot,
-                  i <= currentStep ? s.stepDotActive : s.stepDotInactive,
-                ]}
-              />
+              <View style={s.stepDotWrap}>
+                {i < currentStep ? (
+                  <View style={s.stepDotComplete}>
+                    <Text style={s.checkmark}>✓</Text>
+                  </View>
+                ) : i === currentStep ? (
+                  <Animated.View
+                    style={[
+                      s.stepDotActive,
+                      { transform: [{ scale: spinAnim }] },
+                    ]}
+                  />
+                ) : (
+                  <View style={s.stepDotInactive} />
+                )}
+              </View>
               <Text
                 style={[
                   s.stepText,
@@ -174,67 +211,178 @@ export default function SellProcessingScreen({ navigation, route }) {
           ))}
         </View>
 
-        <Text style={s.note}>
-          Please do not close the app{"\n"}or press the back button
-        </Text>
+        <View style={s.noteCard}>
+          <Text style={s.noteIcon}>⚠️</Text>
+          <Text style={s.note}>
+            Please do not close the app or press the back button
+          </Text>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f7f8fa" },
+  root: { flex: 1, backgroundColor: C.bg },
+  
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: C.navy,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(212,168,67,0.22)",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#E8C97A",
+    letterSpacing: 0.2,
+  },
+
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
   },
 
+  spinnerContainer: {
+    marginBottom: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   spinnerRing: {
     position: "absolute",
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
     borderColor: "transparent",
-    borderTopColor: "#d4a017",
-    marginBottom: 0,
+    borderTopColor: C.gold,
+    borderRightColor: C.gold,
   },
   spinnerInner: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(212,160,23,0.08)",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 28,
+    shadowColor: C.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  spinnerEmoji: { fontSize: 32 },
+  spinnerEmoji: { fontSize: 40 },
 
   title: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1c2b3a",
-    marginBottom: 8,
+    fontSize: 24,
+    fontWeight: "800",
+    color: C.navy,
+    marginBottom: 10,
     textAlign: "center",
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: "#8a96a3",
-    marginBottom: 6,
+    color: "#8891AF",
+    marginBottom: 20,
     textAlign: "center",
   },
-  txnId: { fontSize: 11, color: "#bbb", marginBottom: 32 },
 
-  stepsWrap: { width: "100%", gap: 12, marginBottom: 32 },
-  stepRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  stepDot: { width: 8, height: 8, borderRadius: 4 },
-  stepDotActive: { backgroundColor: "#d4a017" },
-  stepDotInactive: { backgroundColor: "#ddd" },
-  stepText: { fontSize: 14 },
-  stepTextActive: { color: "#1c2b3a", fontWeight: "600" },
-  stepTextInactive: { color: "#bbb" },
+  txnCard: {
+    backgroundColor: C.card,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 24,
+    alignItems: "center",
+  },
+  txnLabel: {
+    fontSize: 11,
+    color: "#8891AF",
+    fontWeight: "600",
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  txnId: {
+    fontSize: 13,
+    color: C.navy,
+    fontWeight: "700",
+  },
 
-  note: { fontSize: 12, color: "#bbb", textAlign: "center", lineHeight: 18 },
+  stepsCard: {
+    width: "100%",
+    backgroundColor: C.card,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 20,
+  },
+  stepRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  stepDotWrap: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  stepDotComplete: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: C.gold,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkmark: {
+    fontSize: 12,
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  stepDotActive: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: C.gold,
+  },
+  stepDotInactive: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#E0E0E0",
+  },
+  stepText: { fontSize: 14, flex: 1 },
+  stepTextActive: { color: C.navy, fontWeight: "600" },
+  stepTextInactive: { color: "#B0B0B0" },
+
+  noteCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFBEB",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    width: "100%",
+  },
+  noteIcon: {
+    fontSize: 18,
+    marginRight: 10,
+  },
+  note: {
+    fontSize: 12,
+    color: "#92400E",
+    lineHeight: 18,
+    flex: 1,
+    fontWeight: "500",
+  },
 });

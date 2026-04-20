@@ -19,8 +19,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width: W } = Dimensions.get("window");
 
-const API_AUTH = "http://65.0.147.157:9900/api/auth/userLoginOrRegister";
-const API_ROLE = "http://65.0.147.157:9900/api/auth/createRole";
+const API_AUTH = "https://meta.oxyloans.com/api/oxygold-api/auth/userLoginOrRegister";
+const API_ROLE = "https://meta.oxyloans.com/api/oxygold-api/auth/createRole";
 const SELECTED_ROLE = "DIGITALGOld";
 
 // ── Colours (matches your web theme) ─────────────────────────────────────────
@@ -98,7 +98,7 @@ const RegisterScreen = ({ navigation }) => {
   const [showOtpSent, setShowOtpSent] = useState(false);
 
   const otpRefs = useRef([]);
-  const anim = useSlideIn(step);
+  // Removed animation to prevent blinking on navigation
 
   // Resend countdown
   useEffect(() => {
@@ -294,7 +294,7 @@ const RegisterScreen = ({ navigation }) => {
 
             {/* RIGHT PANEL */}
             <View style={styles.rightPanel}>
-              <Animated.View style={anim}>
+              <View>
                 {step === "phone" ? (
                   <>
                     <Text style={styles.formTitle}>Create account</Text>
@@ -461,7 +461,7 @@ const RegisterScreen = ({ navigation }) => {
                     </TouchableOpacity>
                   </>
                 )}
-              </Animated.View>
+              </View>
             </View>
           </View>
         </ScrollView>

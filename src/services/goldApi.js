@@ -91,36 +91,70 @@ export const fetchGoldPrice = async () => {
 };
 
 // ─── Preview Buy ──────────────────────────────────────────────────────────────
-export const previewBuy = async ({ userId, purchaseType, amount, grams, pergramBuyingPrice, productId = 4 }) => {
-  const data = await apiPost(API_PREVIEW_BUY, {
+export const previewBuy = async ({ userId, purchaseType, amount, grams, pergramBuyingPrice, productId = 1 }) => {
+  const payload = {
     userId,
     purchaseType,
-    amount:      purchaseType === 'AMOUNT' ? amount : 0,
-    grams:       purchaseType === 'GRAMS'  ? grams  : 0,
     paymentMode: 'WALLET',
     pergramPrice: pergramBuyingPrice,
     productId,
-  });
-  const d = data?.data || data;
-  return {
-    orderId:            d.orderId || '',
-    amount:             parseFloat(d.amount             || amount  || 0),
-    grams:              parseFloat(d.grams              || grams   || 0),
-    pergramBuyingPrice: parseFloat(d.pergramBuyingPrice || d.pergramPrice || pergramBuyingPrice || 0),
-    fees: {
-      platformFee: parseFloat(d.fees?.platformFee || 0),
-      gst:         parseFloat(d.fees?.gst         || 0),
-      totalFees:   parseFloat(d.fees?.totalFees   || 0),
-    },
-    finalAmount:      parseFloat(d.finalAmount || d.amount || 0),
-    priceLockedUntil: d.priceLockedUntil || null,
-    lockDuration:     parseInt(d.lockDuration || 300, 10),
   };
+  
+  if (purchaseType === 'AMOUNT') {
+    payload.amount = amount;
+  } else {
+    payload.grams = grams;
+  }
+  
+  console.log('========================================');
+  console.log('[previewBuy] REQUEST PAYLOAD');
+  console.log(`[previewBuy] URL: ${API_PREVIEW_BUY}`);
+  console.log('[previewBuy] Payload:', JSON.stringify(payload, null, 2));
+  console.log('========================================');
+  
+  try {
+    const data = await apiPost(API_PREVIEW_BUY, payload);
+    const d = data?.data || data;
+    return {
+      orderId:            d.orderId || '',
+      amount:             parseFloat(d.amount             || amount  || 0),
+      grams:              parseFloat(d.grams              || grams   || 0),
+      pergramBuyingPrice: parseFloat(d.pergramBuyingPrice || d.pergramPrice || pergramBuyingPrice || 0),
+      fees: {
+        platformFee: parseFloat(d.fees?.platformFee || 0),
+        gst:         parseFloat(d.fees?.gst         || 0),
+        totalFees:   parseFloat(d.fees?.totalFees   || 0),
+      },
+      finalAmount:      parseFloat(d.finalAmount || d.amount || 0),
+      priceLockedUntil: d.priceLockedUntil || null,
+      lockDuration:     parseInt(d.lockDuration || 300, 10),
+    };
+  } catch (error) {
+    console.log('========================================');
+    console.error('[previewBuy] ERROR');
+    console.error('[previewBuy] Error Message:', error.message);
+    console.error('[previewBuy] Error Status:', error.status);
+    console.error('[previewBuy] Error Data:', JSON.stringify(error.data, null, 2));
+    console.log('========================================');
+    throw error;
+  }
 };
 
 // ─── Buy Gold ─────────────────────────────────────────────────────────────────
-export const executeBuy = async ({ userId, purchaseType, amount, grams, pergramPrice, paymentMode = 'WALLET', productId = 4 }) => {
-  const data = await apiPost(API_BUY, {
+export const executeBuy = async ({ userId, purchaseType, amount, grams, pergramPrice, paymentMode = 'WALLET', productId = 1 }) => {
+  console.log('========================================');
+  console.log('[executeBuy] FUNCTION CALLED');
+  console.log('[executeBuy] userId received:', userId);
+  console.log('[executeBuy] userId type:', typeof userId);
+  console.log('[executeBuy] purchaseType:', purchaseType);
+  console.log('[executeBuy] amount:', amount);
+  console.log('[executeBuy] grams:', grams);
+  console.log('[executeBuy] pergramPrice:', pergramPrice);
+  console.log('[executeBuy] paymentMode:', paymentMode);
+  console.log('[executeBuy] productId:', productId);
+  console.log('========================================');
+  
+  const payload = {
     userId,
     purchaseType,
     amount:      purchaseType === 'AMOUNT' ? amount : 0,
@@ -129,7 +163,15 @@ export const executeBuy = async ({ userId, purchaseType, amount, grams, pergramP
     pergramPrice,
     productId,
     "returnUrl":"http://localhost:5173/payment-success?order_id={ORDER_ID}"
-  });
+  };
+  
+  console.log('========================================');
+  console.log('[executeBuy] API PAYLOAD');
+  console.log('[executeBuy] URL:', API_BUY);
+  console.log('[executeBuy] Payload:', JSON.stringify(payload, null, 2));
+  console.log('========================================');
+  
+  const data = await apiPost(API_BUY, payload);
   const d = data?.data || data;
   console.log('[executeBuy] API response:', data);
   const rawSessionId = d.paymentSessionId || null;

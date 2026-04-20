@@ -63,24 +63,24 @@ const OrderCard = ({ order, onViewInvoice, onDownloadInvoice }) => {
     <View style={styles.orderCard}>
       <View style={styles.orderHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.orderId}>Order #{displayOrderId}</Text>
+          <View style={styles.orderTopRow}>
+            <Text style={styles.orderId}>Order #{displayOrderId}</Text>
+            <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
+          </View>
           <Text style={styles.orderDate}>{orderDate}</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
-          <Ionicons name={statusInfo.icon} size={12} color={statusInfo.color} />
-          <Text
-            style={[styles.statusText, { color: statusInfo.color }]}
-            numberOfLines={1}
-          >
-            {order.orderStatus || "Unknown"}
-          </Text>
         </View>
       </View>
 
       <View style={styles.orderBody}>
         <View style={styles.itemInfo}>
+          <View style={styles.statusRow}>
+            <Ionicons name={statusInfo.icon} size={11} color={statusInfo.color} />
+            <Text style={[styles.statusLabel, { color: statusInfo.color }]}>
+              {order.orderStatus || "Unknown"}
+            </Text>
+          </View>
           <Text style={styles.itemCount}>
-            {itemCount} item{itemCount > 1 ? "s" : ""}
+            {itemCount} item{itemCount !== 1 ? "s" : ""}
           </Text>
           <Text style={styles.itemDesc} numberOfLines={1}>
             {order.items?.[0]?.productName || "Gold Product"}
@@ -155,7 +155,7 @@ const PgOrdersScreen = ({ navigation, route }) => {
       Alert.alert("Error", "Failed to load orders");
     } finally {
       const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, 2000 - elapsedTime);
+      const remainingTime = Math.max(0, 800 - elapsedTime);
       setTimeout(() => {
         setLoading(false);
       }, remainingTime);
@@ -236,7 +236,7 @@ const PgOrdersScreen = ({ navigation, route }) => {
       >
         <View style={[styles.root, styles.center]}>
           <Ionicons name="receipt-outline" size={64} color={C.textTer} />
-          <Text style={styles.emptyText}>No orders yet</Text>
+          <Text style={styles.emptyText}>No orders yet ☹️</Text>
           <TouchableOpacity
             style={styles.shopBtn}
             onPress={() => navigation.navigate("PgHome")}
@@ -256,37 +256,54 @@ const PgOrdersScreen = ({ navigation, route }) => {
       hideLogo={true}
     >
       <View style={styles.root}>
-        {/* Filter Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterContent}
-        >
-          {[
-            "all",
-            "PENDING",
-            "PROCESSING",
-            "CONFIRMED",
-            "DELIVERED",
-            "CANCELLED",
-          ].map((f) => (
-            <TouchableOpacity
-              key={f}
-              style={[styles.filterTab, filter === f && styles.filterTabActive]}
-              onPress={() => setFilter(f)}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  filter === f && styles.filterTabTextActive,
-                ]}
-              >
-                {f === "all" ? "All" : f}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Filter Tabs - Modern Compact Design */}
+        <View style={styles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterContent}
+          >
+            {[
+              { key: "all", label: "All", icon: "apps" },
+              { key: "PENDING", label: "Pending", icon: "time-outline" },
+              { key: "PROCESSING", label: "Processing", icon: "sync-outline" },
+              { key: "CONFIRMED", label: "Confirmed", icon: "checkmark-circle-outline" },
+              { key: "DELIVERED", label: "Delivered", icon: "checkmark-done-circle-outline" },
+              { key: "CANCELLED", label: "Cancelled", icon: "close-circle-outline" },
+            ].map((item) => {
+              const isActive = filter === item.key;
+              const statusInfo = getStatusColor(item.key);
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[
+                    styles.filterChip,
+                    isActive && styles.filterChipActive,
+                    isActive && { borderColor: statusInfo.color },
+                  ]}
+                  onPress={() => setFilter(item.key)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={14}
+                    color={isActive ? statusInfo.color : C.textTer}
+                  />
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      isActive && styles.filterChipTextActive,
+                      isActive && { color: statusInfo.color },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  {isActive && <View style={[styles.filterDot, { backgroundColor: statusInfo.color }]} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         {/* Orders List */}
         <FlatList
@@ -317,41 +334,55 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: "center", alignItems: "center" },
 
-  /* FILTER */
-  filterScroll: {
+  /* FILTER - Modern Compact Design */
+  filterContainer: {
     backgroundColor: C.surface,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
 
   filterContent: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
     gap: 8,
   },
 
-  filterTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: "#F3F1EC",
-    borderWidth: 1,
-    borderColor: C.border,
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#FAFAF8",
+    borderWidth: 1.5,
+    borderColor: "transparent",
   },
 
-  filterTabActive: {
-    backgroundColor: C.gold,
-    borderColor: C.gold,
+  filterChipActive: {
+    backgroundColor: C.surface,
+    borderWidth: 1.5,
+    shadowColor: "rgba(0,0,0,0.08)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
-  filterTabText: {
-    fontSize: 11,
+  filterChipText: {
+    fontSize: 12,
     fontWeight: "600",
-    color: C.textSec,
+    color: C.textTer,
   },
 
-  filterTabTextActive: {
-    color: "#fff",
+  filterChipTextActive: {
+    fontWeight: "800",
+  },
+
+  filterDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
   },
 
   /* LIST */
@@ -373,8 +404,14 @@ const styles = StyleSheet.create({
   orderHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 10,
+  },
+
+  orderTopRow: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    gap: 8,
   },
 
   orderId: {
@@ -389,21 +426,25 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  /* STATUS BADGE */
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    minWidth: 90,
-    justifyContent: "center",
+  /* STATUS */
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
 
-  statusText: {
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 4,
+  },
+
+  statusLabel: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
 
   /* BODY */

@@ -71,7 +71,7 @@ const PaymentSuccessScreen = ({ navigation, route }) => {
 
         {/* Success Message */}
         <Animated.View style={[styles.messageContainer, { opacity: fadeAnim }]}>
-          <Text style={styles.successTitle}>Gold Purchased! 🎉</Text>
+          <Text style={styles.successTitle}>Gold Purchased! </Text>
           <Text style={styles.successSubtitle}>
             Your digital gold has been added to your portfolio
           </Text>
