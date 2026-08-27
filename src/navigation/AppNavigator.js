@@ -1,6 +1,8 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useSelector } from 'react-redux';
+import { selectAccessToken } from '../store/authSlice';
 import { GoldProvider } from '../context/GoldContext';
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
@@ -30,22 +32,24 @@ import SellProcessingScreen    from '../screens/SellProcessingScreen';
 import SellSuccessScreen       from '../screens/SellSuccessScreen';
 
 // ── Physical Gold ─────────────────────────────────────────────────────────────
-import PgHomeScreen            from '../physicalGoldScreens/PgHomeScreen';
-import PgProductDetailsScreen  from '../physicalGoldScreens/PgProductDetailsScreen';
-import PgCartScreen            from '../physicalGoldScreens/PgCartScreen';
-import PgAddressScreen         from '../physicalGoldScreens/PgAddressScreen';
-import PgOrdersScreen          from '../physicalGoldScreens/PgOrdersScreen';
-import PgProfileScreen         from '../physicalGoldScreens/PgProfileScreen';
-import PgPaymentStatusScreen   from '../physicalGoldScreens/PgPaymentStatusScreen';
-import PgPaymentScreen         from '../physicalGoldScreens/PgPaymentScreen';
-import PgPaymentMethodScreen   from '../physicalGoldScreens/PgPaymentMethodScreen';
-import PgCheckoutScreen        from '../physicalGoldScreens/PgCheckoutScreen';
-import PgPaymentHandlerScreen  from '../physicalGoldScreens/PgPaymentHandlerScreen';
-import PgInvoiceViewerScreen   from '../physicalGoldScreens/PgInvoiceViewerScreen';
-import PgInvoiceDetailsScreen  from '../physicalGoldScreens/PgInvoiceDetailsScreen';
-import PgWishlistScreen        from '../physicalGoldScreens/PgWishlistScreen';
-import PgTermsScreen           from '../physicalGoldScreens/PgTermsScreen';
-import PgSearchScreen          from '../physicalGoldScreens/PgSearchScreen';
+import SplashScreen            from '../screens/SplashScreen';
+import PgHomeScreen            from '../physicalGold/screens/PgHomeScreen';
+import PgProductDetailsScreen  from '../physicalGold/screens/PgProductDetailsScreen';
+import PgCartScreen            from '../physicalGold/screens/PgCartScreen';
+import PgAddressScreen         from '../physicalGold/screens/PgAddressScreen';
+import PgOrdersScreen          from '../physicalGold/screens/PgOrdersScreen';
+import PgProfileScreen         from '../physicalGold/screens/PgProfileScreen';
+import PgPaymentStatusScreen   from '../physicalGold/screens/PgPaymentStatusScreen';
+import PgPaymentScreen         from '../physicalGold/screens/PgPaymentScreen';
+import PgPaymentMethodScreen   from '../physicalGold/screens/PgPaymentMethodScreen';
+import PgCheckoutScreen        from '../physicalGold/screens/PgCheckoutScreen';
+import PgPaymentHandlerScreen  from '../physicalGold/screens/PgPaymentHandlerScreen';
+import PgInvoiceViewerScreen   from '../physicalGold/screens/PgInvoiceViewerScreen';
+import PgInvoiceDetailsScreen  from '../physicalGold/screens/PgInvoiceDetailsScreen';
+import PgWishlistScreen        from '../physicalGold/screens/PgWishlistScreen';
+import PgTermsScreen           from '../physicalGold/screens/PgTermsScreen';
+import PgSearchScreen          from '../physicalGold/screens/PgSearchScreen';
+import PgWalletScreen          from '../physicalGold/screens/PgWalletScreen';
 
 const Stack = createNativeStackNavigator();
 const SCREEN = { headerShown: false, animation: 'slide_from_right' };
@@ -56,11 +60,17 @@ const SCREEN = { headerShown: false, animation: 'slide_from_right' };
  * 
  * NOTE: No screen receives accessToken or userId via initialParams.
  * All screens must read auth state via: useSelector(selectAccessToken) / useSelector(selectUserId)
+ * 
+ * AUTO-LOGIN: App always starts at Splash screen, which checks accessToken and navigates accordingly
  */
-const AppNavigator = ({ navigationRef }) => (
-  <NavigationContainer ref={navigationRef}>
-    <GoldProvider navigationRef={navigationRef}>
-      <Stack.Navigator initialRouteName="Login" screenOptions={SCREEN}>
+const AppNavigator = ({ navigationRef }) => {
+  return (
+    <NavigationContainer ref={navigationRef}>
+      <GoldProvider navigationRef={navigationRef}>
+        <Stack.Navigator initialRouteName="Splash" screenOptions={SCREEN}>
+
+        {/* ── SPLASH ── */}
+        <Stack.Screen name="Splash" component={SplashScreen} />
 
         {/* ── LANDING ── */}
         <Stack.Screen name="Home"       component={HomeScreen} />
@@ -93,6 +103,7 @@ const AppNavigator = ({ navigationRef }) => (
         <Stack.Screen name="PgAddress"        component={PgAddressScreen} />
         <Stack.Screen name="PgOrders"         component={PgOrdersScreen} />
         <Stack.Screen name="PgProfile"        component={PgProfileScreen} />
+        <Stack.Screen name="PgWallet"         component={PgWalletScreen} />
         <Stack.Screen name="PgPaymentMethod"  component={PgPaymentMethodScreen} />
         <Stack.Screen name="PgCheckout"       component={PgCheckoutScreen} />
         <Stack.Screen name="PgPaymentHandler" component={PgPaymentHandlerScreen} />
@@ -106,6 +117,7 @@ const AppNavigator = ({ navigationRef }) => (
       </Stack.Navigator>
     </GoldProvider>
   </NavigationContainer>
-);
+  );
+};
 
 export default AppNavigator;

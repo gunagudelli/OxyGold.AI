@@ -30,7 +30,7 @@ const SessionExpired = ({
       <View style={styles.content}>
         {/* Icon */}
         <View style={styles.iconContainer}>
-          <Ionicons name="time-outline" size={64} color="#B8891A" />
+          <Ionicons name="time-outline" size={64} color="#D4AF37" />
         </View>
 
         {/* Message */}
@@ -49,7 +49,7 @@ const SessionExpired = ({
 
         {/* Additional Info */}
         <View style={styles.infoBox}>
-          <Ionicons name="information-circle-outline" size={16} color="#6B6050" />
+          <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
           <Text style={styles.infoText}>
             Your data is safe. Login to continue where you left off.
           </Text>
@@ -75,13 +75,13 @@ const sharedStyles = {
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1A1508',
+    color: '#1F2933',
     marginBottom: 8,
     textAlign: 'center',
   },
   description: {
     fontSize: 14,
-    color: '#6B6050',
+    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 20,
@@ -90,12 +90,12 @@ const sharedStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#B8891A',
+    backgroundColor: '#D4AF37',
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 32,
     gap: 8,
-    shadowColor: '#B8891A',
+    shadowColor: '#D4AF37',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -109,7 +109,7 @@ const sharedStyles = {
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F0EDE6',
+    backgroundColor: '#F8F6F2',
     borderRadius: 8,
     padding: 12,
     marginTop: 24,
@@ -118,7 +118,7 @@ const sharedStyles = {
   infoText: {
     flex: 1,
     fontSize: 12,
-    color: '#6B6050',
+    color: '#6B7280',
     lineHeight: 16,
   },
 };
@@ -127,7 +127,7 @@ const sharedStyles = {
 const fullscreenStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F5F0',
+    backgroundColor: '#F5F3F0',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -148,7 +148,7 @@ const inlineStyles = StyleSheet.create({
     padding: 24,
     margin: 16,
     borderWidth: 1,
-    borderColor: '#E8E3D8',
+    borderColor: '#E5E7EB',
   },
   content: {
     alignItems: 'center',

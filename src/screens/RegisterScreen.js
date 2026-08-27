@@ -203,7 +203,7 @@ const RegisterScreen = ({ navigation }) => {
       });
 
       setShowSuccess(true);
-      setTimeout(() => navigation.replace("Main"), 1500);
+      setTimeout(() => navigation.replace("PgHome"), 1500);
     } catch (err) {
       setError(err.message || "Verification failed. Please try again.");
     } finally {

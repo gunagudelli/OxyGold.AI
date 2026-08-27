@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
 import { checkWebhookStatus } from "../services/goldApi";
 
@@ -26,7 +27,6 @@ const PollingView = ({
   statusText,
   pollAttempt,
   spinAnim,
-  pulseAnim,
 }) => {
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],
@@ -34,16 +34,14 @@ const PollingView = ({
   });
   return (
     <View style={s.center}>
-      <Animated.View
-        style={[s.spinnerOuter, { transform: [{ scale: pulseAnim }] }]}
-      >
+      <View style={s.spinnerOuter}>
         <Animated.View style={[s.spinner, { transform: [{ rotate: spin }] }]}>
           <View style={s.spinnerArc} />
         </Animated.View>
         <View style={s.spinnerInner}>
-          <Text style={s.spinnerEmoji}>🪙</Text>
+          <Ionicons name="ellipse" size={28} color="#f0bb3a" />
         </View>
-      </Animated.View>
+      </View>
       <Text style={s.title}>Confirming Payment</Text>
       <Text style={s.statusText}>{statusText}</Text>
       {pollAttempt > 1 && (
@@ -90,8 +88,11 @@ const PaymentProcessingScreen = ({ navigation, route }) => {
   const isValidSession =
     cleanSessionId.startsWith("session_") && cleanSessionId.length > 20;
 
-  // Sandbox URL — Cashfree hosted checkout, no JS SDK / iframe needed
-  const checkoutUrl = `https://sandbox.cashfree.com/pg/view/sessions/${cleanSessionId}`;
+  // Production Cashfree hosted checkout — the web app's equivalent checkout
+  // (PaymentMethod.tsx) loads Cashfree with `mode: 'production'`, and the
+  // backend issues production session tokens, so this must point at
+  // payments.cashfree.com, not sandbox.
+  const checkoutUrl = `https://payments.cashfree.com/pg/view/sessions/${cleanSessionId}`;
 
   console.log("[PaymentProcess] orderId:", orderId);
   console.log("[PaymentProcess] raw sessionId:", paymentSessionId);
@@ -105,7 +106,6 @@ const PaymentProcessingScreen = ({ navigation, route }) => {
   const [webviewKey, setWebviewKey] = useState(1);
 
   const spinAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   const attempt = useRef(0);
   const pollRef = useRef(null);
   const pollingStarted = useRef(false);
@@ -124,20 +124,6 @@ const PaymentProcessingScreen = ({ navigation, route }) => {
         easing: Easing.linear,
         useNativeDriver: true,
       }),
-    ).start();
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.12,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ]),
     ).start();
   }, []);
 
@@ -331,7 +317,6 @@ const PaymentProcessingScreen = ({ navigation, route }) => {
           statusText={statusText}
           pollAttempt={pollAttempt}
           spinAnim={spinAnim}
-          pulseAnim={pulseAnim}
         />
       )}
     </SafeAreaView>
@@ -400,8 +385,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  spinnerEmoji: { fontSize: 32 },
-
   title: { fontSize: 22, fontWeight: "700", color: "#fff", marginBottom: 10 },
   statusText: {
     fontSize: 14,

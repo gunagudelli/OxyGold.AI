@@ -29,7 +29,7 @@ const PaymentScreen = ({ navigation, route }) => {
       id: "card",
       name: "Debit/Credit Card",
       icon: "card-outline",
-      color: "#059669",
+      color: "#2ECC71",
     },
     {
       id: "netbanking",
@@ -72,7 +72,7 @@ const PaymentScreen = ({ navigation, route }) => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Complete Payment</Text>
         <View style={styles.headerRight}>
-          <Ionicons name="lock-closed" size={20} color="#10B981" />
+          <Ionicons name="lock-closed" size={20} color="#2ECC71" />
         </View>
       </View>
 
@@ -149,7 +149,7 @@ const PaymentScreen = ({ navigation, route }) => {
 
         {/* Security Badge */}
         <View style={styles.securityBadge}>
-          <Ionicons name="shield-checkmark" size={18} color="#10B981" />
+          <Ionicons name="shield-checkmark" size={18} color="#2ECC71" />
           <Text style={styles.securityText}>
             256-bit SSL encrypted • 100% secure
           </Text>
@@ -334,14 +334,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#F0FDF4",
     borderWidth: 1,
-    borderColor: "#10B981",
+    borderColor: "#2ECC71",
     padding: 12,
     borderRadius: 8,
     marginBottom: 20,
   },
   securityText: {
     fontSize: 13,
-    color: "#10B981",
+    color: "#2ECC71",
     marginLeft: 8,
     fontWeight: "500",
   },
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   payButtonDisabled: {
-    backgroundColor: "#B8860B",
+    backgroundColor: "#D4AF37",
   },
   loadingRow: {
     flexDirection: "row",

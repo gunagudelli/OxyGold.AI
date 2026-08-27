@@ -13,14 +13,14 @@ import { Ionicons } from "@expo/vector-icons";
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const C = {
-  bg: "#F7F6F3",
+  bg: "#F5F3F0",
   card: "#FFFFFF",
-  gold: "#C8952A",
-  goldLight: "#F5ECD7",
-  navy: "#1C2340",
-  navyMid: "#3D4463",
-  navyLight: "#8891AF",
-  border: "#EAE8E2",
+  gold: "#D4AF37",
+  goldLight: "#F8F6F2",
+  navy: "#1F2933",
+  navyMid: "#6B7280",
+  navyLight: "#9CA3AF",
+  border: "#E5E7EB",
   overlay: "rgba(28, 35, 64, 0.85)",
 };
 
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   sectionContent: {
     fontSize: 13,
     lineHeight: 21,
-    color: "#2C3E50",
+    color: "#1F2933",
     fontWeight: "400",
     textAlign: "left",
   },

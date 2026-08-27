@@ -1,32 +1,31 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Animated,
-  Dimensions,
   TouchableOpacity,
   Platform,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "../constants/theme";
 
-const { width } = Dimensions.get("window");
-
+// ─── Design Tokens — sourced from the shared theme (src/constants/theme.js) ──
 const C = {
-  bg:         "#F5F3EE",
-  card:       "#FFFFFF",
-  navy:       "#1C2340",
-  navyMid:    "#3D4463",
-  navyLight:  "#8891AF",
-  gold:       "#C8952A",
-  goldBright: "#D4A843",
-  goldLight:  "#F5ECD7",
-  goldBorder: "rgba(200,149,42,0.22)",
-  goldMuted:  "rgba(200,149,42,0.10)",
-  border:     "#EAE8E2",
-  divider:    "#F4F3F0",
+  bg:         COLORS.bg,
+  card:       COLORS.bgCard,
+  navy:       COLORS.navy,
+  navyMid:    COLORS.navyMid,
+  navyLight:  COLORS.navySoft,
+  gold:       COLORS.goldMid,
+  goldBright: COLORS.goldBright,
+  goldLight:  COLORS.goldPale,
+  goldBorder: COLORS.goldBorder,
+  goldMuted:  COLORS.goldMuted,
+  border:     COLORS.border,
+  divider:    COLORS.divider,
 };
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
@@ -40,29 +39,29 @@ const STEPS = [
   },
   {
     icon:  "calculator-outline",
-    color: "#B45309",
-    bg:    "#FEF9EC",
+    color: "#D4A574",
+    bg:    "#FDF6ED",
     title: "Enter Amount or Grams",
     desc:  "Buy in ₹ or by weight — as little as ₹100 to start",
   },
   {
     icon:  "shield-checkmark-outline",
-    color: "#1D7A42",
-    bg:    "#EAF5E9",
+    color: "#2ECC71",
+    bg:    "#E8F5E9",
     title: "Make Payment Securely",
     desc:  "UPI, net banking or card — your transaction is encrypted",
   },
   {
     icon:  "lock-closed-outline",
-    color: "#6D28D9",
-    bg:    "#F5F3FF",
+    color: "#6A0DAD",
+    bg:    "#F3E8FF",
     title: "Gold Stored in Insured Vaults",
     desc:  "Your gold is kept safe with our trusted vault partner",
   },
   {
     icon:  "bar-chart-outline",
-    color: "#C8952A",
-    bg:    "#F5ECD7",
+    color: "#D4AF37",
+    bg:    "#F8F6F2",
     title: "Track Your Gold Balance",
     desc:  "Monitor your holdings and live value anytime in the app",
   },

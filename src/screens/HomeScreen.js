@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useGold } from "../context/GoldContext";
 import Header from "../components/Header";
 
@@ -39,46 +40,46 @@ const MARQUEE_ITEMS = [
 const HOW_STEPS = [
   {
     n: 1,
-    ic: "📈",
+    ic: "trending-up-outline",
     t: "Check Price",
     d: "Live 24K rate, updated every minute",
   },
-  { n: 2, ic: "💰", t: "Enter Amount", d: "Rupees or grams, from ₹100" },
-  { n: 3, ic: "🔒", t: "Pay Securely", d: "UPI, card or net banking" },
+  { n: 2, ic: "cash-outline", t: "Enter Amount", d: "Rupees or grams, from ₹100" },
+  { n: 3, ic: "lock-closed-outline", t: "Pay Securely", d: "UPI, card or net banking" },
   {
     n: 4,
-    ic: "🏦",
+    ic: "business-outline",
     t: "Gold in Vault",
     d: "Stored in certified insured vaults",
   },
-  { n: 5, ic: "📊", t: "Sell Anytime", d: "Live rates, same-day bank credit" },
+  { n: 5, ic: "bar-chart-outline", t: "Sell Anytime", d: "Live rates, same-day bank credit" },
 ];
 
 const FEATURES = [
   {
     n: "01",
-    ic: "🔐",
+    ic: "shield-checkmark-outline",
     t: "Insured Vaults",
     d: "Bank-grade vaults, 24/7 monitored. 100% insured.",
     tag: "Zero Fees",
   },
   {
     n: "02",
-    ic: "✦",
+    ic: "sparkles-outline",
     t: "999.9 Pure Gold",
     d: "BIS-certified 24K. Purity guaranteed, no making charges.",
     tag: "BIS Certified",
   },
   {
     n: "03",
-    ic: "⚡",
+    ic: "flash-outline",
     t: "Instant Liquidity",
     d: "Sell at live rates anytime. Money in your bank same day.",
     tag: "Same-Day",
   },
   {
     n: "04",
-    ic: "📊",
+    ic: "bar-chart-outline",
     t: "Start from ₹100",
     d: "No large commitment. Build wealth at your own pace.",
     tag: "Inflation Hedge",
@@ -115,17 +116,17 @@ const TESTIMONIALS = [
 
 const ABOUT_POINTS = [
   {
-    ic: "🪙",
+    ic: "diamond-outline",
     t: "Real Physical Gold",
     d: "Every rupee you invest is backed by actual 24K gold held in a vault.",
   },
   {
-    ic: "🏛️",
+    ic: "shield-checkmark-outline",
     t: "Certified & Insured",
     d: "BIS-certified purity. Fully insured vaults. Zero risk of theft or loss.",
   },
   {
-    ic: "📱",
+    ic: "phone-portrait-outline",
     t: "Digital Convenience",
     d: "Buy from ₹100. Track live rates. Sell in one tap, cash same day.",
   },
@@ -336,7 +337,7 @@ const AboutImage = () => {
 
       {/* Trust badge */}
       <View style={s.aboutBadge}>
-        <Text style={s.aboutBadgeIcon}>✦</Text>
+        <Ionicons name="checkmark-circle" size={16} color="#f0bb3a" />
         <View>
           <Text style={s.aboutBadgeTitle}>BIS Certified</Text>
           <Text style={s.aboutBadgeSub}>999.9 Purity Guaranteed</Text>
@@ -456,7 +457,7 @@ const HomeScreen = ({ navigation }) => {
             {ABOUT_POINTS.map((p) => (
               <View key={p.t} style={s.aboutRow}>
                 <View style={s.aboutIconBox}>
-                  <Text style={{ fontSize: 18 }}>{p.ic}</Text>
+                  <Ionicons name={p.ic} size={18} color="#f0bb3a" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.aboutTitle}>{p.t}</Text>
@@ -483,7 +484,7 @@ const HomeScreen = ({ navigation }) => {
             {HOW_STEPS.map((step) => (
               <View key={step.n} style={s.stepCard}>
                 <View style={s.stepCircle}>
-                  <Text style={s.stepIcon}>{step.ic}</Text>
+                  <Ionicons name={step.ic} size={20} color="#f0bb3a" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.stepTitle}>{step.t}</Text>
@@ -526,7 +527,7 @@ const HomeScreen = ({ navigation }) => {
                   </View>
                 </View>
                 <View style={s.featIconBox}>
-                  <Text style={s.featIcon}>{f.ic}</Text>
+                  <Ionicons name={f.ic} size={16} color="#f0bb3a" />
                 </View>
                 <Text style={s.featTitle}>{f.t}</Text>
                 <Text style={s.featDesc}>{f.d}</Text>
@@ -889,7 +890,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(240,187,58,0.3)",
   },
-  aboutBadgeIcon: { fontSize: 15, color: "#f0bb3a" },
   aboutBadgeTitle: { fontSize: 11, fontWeight: "700", color: "#f0bb3a" },
   aboutBadgeSub: { fontSize: 9, color: "rgba(255,255,255,0.6)" },
 
@@ -947,7 +947,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  stepIcon: { fontSize: 20 },
   stepTitle: {
     fontSize: 14,
     fontWeight: "600",
@@ -1005,7 +1004,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 8,
   },
-  featIcon: { fontSize: 16 },
   featTitle: {
     fontSize: 13,
     fontWeight: "600",

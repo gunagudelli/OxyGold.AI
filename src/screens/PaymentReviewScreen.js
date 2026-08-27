@@ -21,7 +21,11 @@ import DigitalGoldTermsModal from "../components/DigitalGoldTermsModal";
 const Row = ({ label, value, bold, gold }) => (
   <View style={s.row}>
     <Text style={[s.rowLabel, bold && s.rowBold]}>{label}</Text>
-    <Text style={[s.rowValue, bold && s.rowBold, gold && s.rowGold]}>
+    <Text
+      style={[s.rowValue, bold && s.rowBold, gold && s.rowGold]}
+      numberOfLines={1}
+      ellipsizeMode="tail"
+    >
       {value}
     </Text>
   </View>
@@ -249,7 +253,7 @@ const PaymentReviewScreen = ({ navigation, route }) => {
       let session = new CFSession(
         paymentSessionId,
         order_id,
-        CFEnvironment.SANDBOX,
+        CFEnvironment.PRODUCTION,
       );
       console.log("Session", JSON.stringify(session));
       CFPaymentGatewayService.setCallback(callback);
@@ -283,7 +287,9 @@ const PaymentReviewScreen = ({ navigation, route }) => {
         <View style={s.lockBanner}>
           <View style={s.lockTop}>
             <View style={s.lockLeft}>
-              <Text style={s.lockIcon}>🔒</Text>
+              <View style={s.lockIconWrap}>
+                <Ionicons name="lock-closed" size={16} color="#f0bb3a" />
+              </View>
               <View>
                 <Text style={s.lockTitle}>Price Locked</Text>
                 <Text style={s.lockSub}>Complete payment before expiry</Text>
@@ -308,7 +314,7 @@ const PaymentReviewScreen = ({ navigation, route }) => {
 
         {/* Order Details */}
         <View style={s.card}>
-          <Text style={s.cardTitle}> Purchase Details</Text>
+          <Text style={s.cardTitle}>Purchase Details</Text>
           <Row label="Gold Weight" value={`${grams.toFixed(6)} grams`} gold />
           <Row
             label="Rate per gram"
@@ -342,7 +348,7 @@ const PaymentReviewScreen = ({ navigation, route }) => {
 
         {/* Payment Method */}
         <View style={s.card}>
-          <Text style={s.cardTitle}>💳 Payment Method</Text>
+          <Text style={s.cardTitle}>Payment Method</Text>
           {METHODS.map((m) => (
             <TouchableOpacity
               key={m.id}
@@ -483,7 +489,14 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   lockLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  lockIcon: { fontSize: 22 },
+  lockIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(240,187,58,0.14)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   lockTitle: { fontSize: 14, fontWeight: "700", color: "#f0bb3a" },
   lockSub: { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 },
   lockTimer: {
@@ -520,8 +533,15 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  rowLabel: { fontSize: 14, color: "#666" },
-  rowValue: { fontSize: 14, fontWeight: "500", color: "#333" },
+  rowLabel: { fontSize: 14, color: "#666", flexShrink: 0 },
+  rowValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+    flexShrink: 1,
+    marginLeft: 12,
+    textAlign: "right",
+  },
   rowBold: { fontWeight: "700", fontSize: 16 },
   rowGold: { color: "#D4AF37" },
   divider: { height: 1, backgroundColor: "#f0f0f0", marginVertical: 10 },

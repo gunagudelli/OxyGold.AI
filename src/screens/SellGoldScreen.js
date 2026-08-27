@@ -11,50 +11,107 @@ import {
   Platform,
   StatusBar,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useGold } from "../context/GoldContext";
+import { useSelector } from "react-redux";
+import { selectUserId } from "../store/authSlice";
+import { fetchPortfolio } from "../services/goldApi";
 
 // ─── Design Tokens (mirrors DigitalGoldScreen) ────────────────────────────────
 const C = {
-  bg: "#F7F6F3",
+  bg: "#F5F3F0",
   card: "#FFFFFF",
-  gold: "#C8952A",
-  goldLight: "#F5ECD7",
-  goldMid: "#E8C97A",
-  navy: "#1C2340",
-  navyMid: "#3D4463",
-  navyLight: "#8891AF",
-  green: "#0E9F6E",
-  greenBg: "#ECFDF5",
-  red: "#E02424",
-  redBg: "#FEF2F2",
-  border: "#EAE8E2",
-  divider: "#F0EEE9",
+  gold: "#D4AF37",
+  goldLight: "#F8F6F2",
+  goldMid: "#C5A100",
+  navy: "#1F2933",
+  navyMid: "#6B7280",
+  navyLight: "#9CA3AF",
+  green: "#2ECC71",
+  greenBg: "#E8F5E9",
+  red: "#C85A54",
+  redBg: "#FDECEA",
+  border: "#E5E7EB",
+  divider: "#F2F0EB",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
-const SellGoldScreen = ({ navigation }) => {
-  const { state } = useGold();
+const SellGoldScreen = ({ navigation, route }) => {
+  const { state, dispatch, loadUserData } = useGold();
+  const userId = useSelector(selectUserId);
   const sellRate = state.goldPrice?.sellPrice || 16236;
   const lastUpdated = state.goldPrice?.lastUpdated || null;
-  const availableGold = state.portfolio?.totalGrams || 0;
 
   const [sellMode, setSellMode] = useState("rupees");
   const [amount, setAmount] = useState("");
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [portfolio, setPortfolio] = useState(null);
+  const [error, setError] = useState(null);
 
   const scrollViewRef = useRef(null);
   const inputRef = useRef(null);
 
+  const availableGold = portfolio?.totalGoldGrams ?? state.portfolio?.totalGrams ?? 0;
+  const currentValue = availableGold * sellRate;
+
+  // Fetch fresh portfolio data
+  const loadPortfolio = async () => {
+    if (!userId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchPortfolio(userId);
+      setPortfolio(data);
+      dispatch({ type: "SET_PORTFOLIO", payload: { 
+        totalGrams: data.totalGoldGrams,
+        totalInvested: data.totalInvestedAmount,
+        currentValue: data.currentValue 
+      } });
+    } catch (err) {
+      console.error("Portfolio fetch error:", err);
+      // Set empty portfolio on error
+      const emptyPortfolio = {
+        totalGoldGrams: 0,
+        totalInvestedAmount: 0,
+        currentValue: 0,
+      };
+      setPortfolio(emptyPortfolio);
+      dispatch({ type: "SET_PORTFOLIO", payload: { 
+        totalGrams: 0,
+        totalInvested: 0,
+        currentValue: 0 
+      } });
+      
+      // Only show error if we don't have cached data
+      if (!state.portfolio?.totalGrams || state.portfolio.totalGrams === 0) {
+        setError("Unable to load balance. You can still buy gold.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Check if we need to force refresh from route params
+  useFocusEffect(
+    React.useCallback(() => {
+      if (route?.params?.forceRefresh) {
+        loadPortfolio();
+        // Clear the param so it doesn't refresh again
+        navigation.setParams({ forceRefresh: undefined });
+      } else {
+        loadPortfolio();
+      }
+    }, [userId, route?.params?.forceRefresh])
+  );
+
   useEffect(() => {
     const show = Keyboard.addListener("keyboardDidShow", (e) => {
       setKeyboardOffset(e.endCoordinates.height);
-      setTimeout(
-        () => scrollViewRef.current?.scrollTo({ y: 200, animated: true }),
-        100,
-      );
     });
     const hide = Keyboard.addListener("keyboardDidHide", () =>
       setKeyboardOffset(0),
@@ -104,11 +161,9 @@ const SellGoldScreen = ({ navigation }) => {
       ? (parseFloat(amount) / sellRate).toFixed(4)
       : null;
 
-  const currentValue = availableGold * sellRate;
-
   return (
-    <SafeAreaView style={s.container} edges={["top"]} backgroundColor="#1C2340">
-      <StatusBar barStyle="light-content" backgroundColor="#1C2340" />
+    <SafeAreaView style={s.container} edges={["top"]} backgroundColor={C.bg}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
 
       {/* ─── Header ───────────────────────────────────────────────── */}
       <View style={s.header}>
@@ -116,16 +171,18 @@ const SellGoldScreen = ({ navigation }) => {
           style={s.backBtn}
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={s.backBtnText}>‹</Text>
+          <Ionicons name="chevron-back" size={22} color={C.navy} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Sell Gold</Text>
-        <View style={s.liveChip}>
-          <View style={s.liveDot} />
-          <Text style={s.liveLabel}>LIVE</Text>
-        </View>
+        <View style={s.headerRightSpace} />
       </View>
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
       <ScrollView
         ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
@@ -137,35 +194,22 @@ const SellGoldScreen = ({ navigation }) => {
         keyboardShouldPersistTaps="handled"
       >
         {/* ─── Hero Card ────────────────────────────────────────────── */}
-        <LinearGradient
-          colors={["#1C2340", "#2A3158", "#1C2340"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.heroCard}
-        >
-          <View style={s.heroRing1} />
-          <View style={s.heroRing2} />
-
+        <View style={s.heroCard}>
           {/* Sell price row */}
           <View style={s.heroPriceRow}>
-            <View>
+            <View style={{ flex: 1 }}>
               <View style={s.livePriceTag}>
                 <View style={s.livePriceDot} />
-                <Text style={s.livePriceText}>SELL LIVE PRICE</Text>
+                <Text style={s.livePriceText}>LIVE SELL PRICE</Text>
               </View>
-              <Text style={s.heroPrice}>
-                ₹
-                {sellRate.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-              </Text>
-              <Text style={s.heroPriceSub}>per gram </Text>
-            </View>
-            <View style={s.heroCoin}>
-              <View style={s.coinInner}>
-                <Text style={s.coinKarat}>SELL</Text>
-                <View style={s.coinLine} />
-                <Text style={s.coinPurity}>999.9</Text>
-                <Text style={s.coinPure}>PURE</Text>
+              <View style={s.heroPriceLine}>
+                <Text style={s.heroPrice}>
+                  ₹
+                  {sellRate.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                </Text>
+                <Text style={s.heroPriceSub}>/ gram</Text>
               </View>
+              <Text style={s.heroPurity}>24K · 999.9 purity</Text>
             </View>
           </View>
 
@@ -173,24 +217,47 @@ const SellGoldScreen = ({ navigation }) => {
 
           {/* Available balance */}
           <View style={s.heroPortfolio}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={s.heroPortLabel}>AVAILABLE TO SELL</Text>
-              <Text style={s.heroPortValue}>
-                ₹
-                {currentValue.toLocaleString("en-IN", {
-                  maximumFractionDigits: 0,
-                })}
-              </Text>
-              <Text style={s.heroPortGrams}>
-                {availableGold.toFixed(4)} grams owned
-              </Text>
+              {loading ? (
+                <ActivityIndicator
+                  color="#C5A100"
+                  size="small"
+                  style={{ marginTop: 10 }}
+                />
+              ) : error ? (
+                <View>
+                  <Text style={s.errorText}>{error}</Text>
+                  <TouchableOpacity
+                    onPress={loadPortfolio}
+                    style={s.retryBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={s.retryText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <Text style={s.heroPortValue}>
+                    ₹
+                    {currentValue.toLocaleString("en-IN", {
+                      maximumFractionDigits: 0,
+                    })}
+                  </Text>
+                  <Text style={s.heroPortGrams}>
+                    {availableGold.toFixed(4)} grams owned
+                  </Text>
+                </>
+              )}
             </View>
-            <View style={s.heroBalanceTag}>
-              <Text style={s.heroBalanceGrams}>{availableGold.toFixed(4)}</Text>
-              <Text style={s.heroBalanceUnit}>grams</Text>
-            </View>
+            {!loading && !error && (
+              <View style={s.heroBalanceTag}>
+                <Text style={s.heroBalanceGrams}>{availableGold.toFixed(4)}</Text>
+                <Text style={s.heroBalanceUnit}>grams</Text>
+              </View>
+            )}
           </View>
-        </LinearGradient>
+        </View>
 
         {/* ─── Sell Gold Card ───────────────────────────────────────── */}
         <View style={s.card}>
@@ -223,7 +290,7 @@ const SellGoldScreen = ({ navigation }) => {
                     sellMode === mode && s.toggleTabTextActive,
                   ]}
                 >
-                  {mode === "rupees" ? "₹  Rupees" : "⚖  Grams"}
+                  {mode === "rupees" ? "₹  Rupees" : "Grams"}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -238,7 +305,7 @@ const SellGoldScreen = ({ navigation }) => {
               ref={inputRef}
               style={s.input}
               placeholder={sellMode === "rupees" ? "0" : "0.0000"}
-              placeholderTextColor="#CCCAC3"
+              placeholderTextColor="#D1D5DB"
               value={amount}
               onChangeText={(value) => {
                 const numValue = parseFloat(value) || 0;
@@ -317,17 +384,11 @@ const SellGoldScreen = ({ navigation }) => {
           {/* CTA */}
           <TouchableOpacity
             onPress={handleSell}
-            activeOpacity={0.88}
+            activeOpacity={0.85}
             style={s.sellBtnMain}
           >
-            <LinearGradient
-              colors={["#D4A535", "#C8952A", "#B8841E"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={s.sellBtnGrad}
-            >
-              <Text style={s.sellBtnText}>Proceed to Sell →</Text>
-            </LinearGradient>
+            <Text style={s.sellBtnText}>Proceed to Sell</Text>
+            <Ionicons name="arrow-forward" size={17} color="#fff" />
           </TouchableOpacity>
         </View>
 
@@ -337,17 +398,17 @@ const SellGoldScreen = ({ navigation }) => {
           <View style={s.infoCard}>
             {[
               {
-                emoji: "🏦",
+                icon: "business-outline",
                 title: "T+1 Settlement",
                 sub: "Amount credited to your bank next business day",
               },
               {
-                emoji: "📋",
+                icon: "document-text-outline",
                 title: "TDS Deduction",
                 sub: "Tax deducted at source as per regulations",
               },
               {
-                emoji: "🔒",
+                icon: "lock-closed-outline",
                 title: "Price Lock",
                 sub: "Sell price locked for 30 minutes after confirm",
               },
@@ -357,7 +418,7 @@ const SellGoldScreen = ({ navigation }) => {
                 style={[s.infoRow, i < arr.length - 1 && s.infoRowBorder]}
               >
                 <View style={s.infoIconBox}>
-                  <Text style={s.infoEmoji}>{item.emoji}</Text>
+                  <Ionicons name={item.icon} size={17} color={C.gold} />
                 </View>
                 <View style={s.infoContent}>
                   <Text style={s.infoTitle}>{item.title}</Text>
@@ -378,189 +439,92 @@ const SellGoldScreen = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1C2340" },
+  container: { flex: 1, backgroundColor: C.bg },
 
   // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 10 : 14,
-    paddingBottom: 14,
-    backgroundColor: "#1C2340",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(212,168,67,0.22)",
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "ios" ? 8 : 12,
+    paddingBottom: 12,
+    backgroundColor: C.bg,
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    backgroundColor: "rgba(212,168,67,0.12)",
+    backgroundColor: C.card,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(212,168,67,0.28)",
-  },
-  backBtnText: {
-    fontSize: 28,
-    lineHeight: 32,
-    color: "#D4A843",
-    fontWeight: "300",
-    marginTop: -2,
+    borderColor: C.border,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#E8C97A",
-    letterSpacing: 0.2,
+    color: C.navy,
+    letterSpacing: 0.1,
   },
-  liveChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(212,168,67,0.12)",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: "rgba(212,168,67,0.28)",
-  },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#D4A843" },
-  liveLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#D4A843",
-    letterSpacing: 0.8,
-  },
+  headerRightSpace: { width: 38 },
 
   scroll: { paddingBottom: 40, backgroundColor: C.bg },
 
   // Hero
   heroCard: {
+    backgroundColor: "#1F2933",
     marginHorizontal: 16,
     marginTop: 20,
     marginBottom: 14,
-    borderRadius: 22,
+    borderRadius: 18,
     padding: 22,
-    overflow: "hidden",
-  },
-  heroRing1: {
-    position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
-    right: -60,
-    top: -70,
-  },
-  heroRing2: {
-    position: "absolute",
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.04)",
-    right: -10,
-    top: -10,
   },
   heroPriceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
     marginBottom: 20,
   },
   livePriceTag: {
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   livePriceDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#10B981",
-    shadowColor: "#10B981",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
-    elevation: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#2ECC71",
   },
   livePriceText: {
     fontSize: 10,
-    fontWeight: "800",
-    color: "#10B981",
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.5)",
     letterSpacing: 1.2,
   },
+  heroPriceLine: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 6,
+  },
   heroPurity: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.45)",
-    letterSpacing: 1,
-    marginBottom: 8,
+    fontSize: 12,
+    color: "rgba(255,255,255,0.35)",
+    marginTop: 6,
   },
   heroPrice: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: C.goldMid,
-    letterSpacing: -1,
-    marginBottom: 4,
-  },
-  heroPriceSub: { fontSize: 12, color: "rgba(255,255,255,0.3)" },
-  heroCoin: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    backgroundColor: "#2A3158",
-    borderWidth: 2,
-    borderColor: "#D4A843",
-    padding: 5,
-    shadowColor: "#D4A843",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  coinInner: {
-    flex: 1,
-    borderRadius: 38,
-    backgroundColor: "#D4A843",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  coinKarat: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#1C2340",
-    lineHeight: 24,
-  },
-  coinLine: {
-    width: 32,
-    height: 1.5,
-    backgroundColor: "rgba(28,35,64,0.35)",
-    marginVertical: 3,
-  },
-  coinPurity: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#1C2340",
-    lineHeight: 13,
-  },
-  coinPure: {
-    fontSize: 7.5,
+    fontSize: 32,
     fontWeight: "700",
-    color: "rgba(28,35,64,0.55)",
-    letterSpacing: 1.8,
-    marginTop: 2,
+    color: "#FFFFFF",
+    letterSpacing: -0.5,
   },
+  heroPriceSub: { fontSize: 13, color: "rgba(255,255,255,0.4)" },
   heroDivider: {
     height: 1,
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -586,6 +550,26 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   heroPortGrams: { fontSize: 13, color: "rgba(255,255,255,0.38)" },
+  errorText: {
+    fontSize: 13,
+    color: "#FCA5A5",
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  retryBtn: {
+    backgroundColor: "rgba(212,168,67,0.15)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "rgba(212,168,67,0.3)",
+  },
+  retryText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#C5A100",
+  },
   heroBalanceTag: {
     backgroundColor: "rgba(200,149,42,0.18)",
     borderRadius: 12,
@@ -661,7 +645,7 @@ const s = StyleSheet.create({
   // Toggle
   toggle: {
     flexDirection: "row",
-    backgroundColor: "#F7F6F3",
+    backgroundColor: "#F5F3F0",
     borderRadius: 14,
     padding: 4,
     marginBottom: 18,
@@ -691,7 +675,7 @@ const s = StyleSheet.create({
   inputBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F7F6F3",
+    backgroundColor: "#F5F3F0",
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: C.border,
@@ -724,7 +708,7 @@ const s = StyleSheet.create({
     borderColor: C.goldMid,
   },
   equivText: { fontSize: 13, fontWeight: "600", color: C.gold },
-  equivSub: { fontSize: 11, color: "#A07830", fontWeight: "500" },
+  equivSub: { fontSize: 11, color: "#C5A100", fontWeight: "500" },
   inputHint: { fontSize: 12, color: C.navyLight, marginBottom: 16 },
 
   // Chips
@@ -736,7 +720,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: C.border,
-    backgroundColor: "#F7F6F3",
+    backgroundColor: "#F5F3F0",
   },
   chipActive: { borderColor: C.gold, backgroundColor: C.goldLight },
   chipText: { fontSize: 13, fontWeight: "600", color: C.navyLight },
@@ -744,20 +728,24 @@ const s = StyleSheet.create({
 
   // Sell CTA
   sellBtnMain: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#1A1A1A",
+    paddingVertical: 16,
     borderRadius: 14,
-    overflow: "hidden",
-    shadowColor: "rgba(200,149,42,0.35)",
-    shadowOffset: { width: 0, height: 6 },
+    shadowColor: "rgba(0,0,0,0.30)",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
-    shadowRadius: 14,
-    elevation: 6,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  sellBtnGrad: { paddingVertical: 17, alignItems: "center", borderRadius: 14 },
   sellBtnText: {
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 15,
+    fontWeight: "700",
     color: "#FFFFFF",
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
 
   // Section
@@ -802,7 +790,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.goldMid,
   },
-  infoEmoji: { fontSize: 18 },
   infoContent: { flex: 1 },
   infoTitle: {
     fontSize: 14,
@@ -816,13 +803,13 @@ const s = StyleSheet.create({
   noticeCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFBEB",
+    backgroundColor: "#FDF6ED",
     marginHorizontal: 16,
     marginTop: 4,
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#FDE68A",
+    borderColor: "#D4A574",
   },
   noticeIcon: { fontSize: 22, marginRight: 12 },
   noticeContent: { flex: 1 },
@@ -832,7 +819,7 @@ const s = StyleSheet.create({
     color: "#92400E",
     marginBottom: 3,
   },
-  noticeSub: { fontSize: 12, color: "#B45309" },
+  noticeSub: { fontSize: 12, color: "#D4A574" },
 });
 
 export default SellGoldScreen;

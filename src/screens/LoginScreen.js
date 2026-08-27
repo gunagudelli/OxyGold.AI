@@ -217,6 +217,11 @@ const LoginScreen = ({ navigation, route }) => {
           userId: data.data.userId,
           tokenType: data.data.tokenType || "Bearer",
         };
+        console.log('[LoginScreen] Token payload:', {
+          userId: tokenPayload.userId,
+          hasAccessToken: !!tokenPayload.accessToken,
+          phone: phone
+        });
         dispatch(setTokens(tokenPayload));
         await persistTokens(tokenPayload);
       } else {
@@ -226,6 +231,11 @@ const LoginScreen = ({ navigation, route }) => {
           accessToken: data?.token || data?.accessToken,
           userId,
         };
+        console.log('[LoginScreen] Fallback token payload:', {
+          userId: tokenPayload.userId,
+          hasAccessToken: !!tokenPayload.accessToken,
+          phone: phone
+        });
         if (tokenPayload.accessToken) {
           dispatch(setTokens(tokenPayload));
           await persistTokens(tokenPayload);

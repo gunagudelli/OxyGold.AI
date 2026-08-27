@@ -1,93 +1,522 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  memo,
+} from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
+  FlatList,
   StatusBar,
   TextInput,
   Keyboard,
   Alert,
+  Animated,
   Platform,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSelector } from "react-redux";
 import { selectUserId } from "../store/authSlice";
 import { useGold } from "../context/GoldContext";
+import { COLORS } from "../constants/theme";
 import {
   previewBuy,
   fetchPortfolio,
   fetchTransactions,
 } from "../services/goldApi";
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
+// ─── Design Tokens — sourced from the shared theme (src/constants/theme.js) ──
 const C = {
-  bg: "#F7F6F3",
-  card: "#FFFFFF",
-  gold: "#C8952A",
-  goldLight: "#F5ECD7",
-  goldMid: "#E8C97A",
-  navy: "#1C2340",
-  navyMid: "#3D4463",
-  navyLight: "#8891AF",
-  green: "#0E9F6E",
-  greenBg: "#ECFDF5",
-  red: "#E02424",
-  redBg: "#FEF2F2",
-  border: "#EAE8E2",
-  divider: "#F0EEE9",
-  shadow: "rgba(28,35,64,0.08)",
-  goldShadow: "rgba(200,149,42,0.25)",
+  bg: COLORS.bg,
+  card: COLORS.bgCard,
+  gold: COLORS.goldMid,
+  goldLight: COLORS.goldPale,
+  goldMid: COLORS.goldBright,
+  navy: COLORS.navy,
+  navyMid: COLORS.navyMid,
+  navyLight: COLORS.navySoft,
+  green: COLORS.green,
+  greenBg: COLORS.greenBg,
+  red: COLORS.red,
+  redBg: COLORS.redBg,
+  border: COLORS.border,
+  divider: COLORS.divider,
 };
 
-const RADIUS = { sm: 10, md: 14, lg: 18, xl: 22 };
-const SHADOW = {
-  shadowColor: "rgba(28,35,64,0.08)",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 1,
-  shadowRadius: 8,
-  elevation: 3,
+const CTA = "#1A1A1A";
+
+// ─── Cache to prevent repeated API calls on focus ─────────────────────────────
+let _portfolioCache = null;
+let _transactionsCache = null;
+let _cacheTimestamp = 0;
+const CACHE_TTL_MS = 30_000; // 30 seconds
+
+const fmtINR = (n, digits = 0) =>
+  Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: digits });
+
+const relativeDate = (timestamp) => {
+  const d = new Date(timestamp);
+  const now = new Date();
+  const oneDay = 24 * 60 * 60 * 1000;
+  const diffDays = Math.floor((now.setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / oneDay);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 };
 
+// ─── Skeleton shimmer ──────────────────────────────────────────────────────────
+const Pulse = memo(({ style }) => {
+  const anim = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.9, duration: 700, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0.35, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+  return <Animated.View style={[style, { opacity: anim }]} />;
+});
+
+const HeroSkeleton = memo(() => (
+  <View style={s.heroCard}>
+    <Pulse style={[s.skelBlock, { width: 90, height: 10, backgroundColor: "#F2F0EB", marginBottom: 12 }]} />
+    <Pulse style={[s.skelBlock, { width: 160, height: 30, backgroundColor: "#F2F0EB" }]} />
+    <View style={[s.heroDivider, { marginTop: 20 }]} />
+    <Pulse style={[s.skelBlock, { width: 110, height: 22, backgroundColor: "#F2F0EB" }]} />
+  </View>
+));
+
+const TxnSkeleton = memo(() => (
+  <View style={s.txnCard}>
+    {[0, 1, 2].map((i) => (
+      <View key={i} style={[s.txnRow, i < 2 && s.txnBorder]}>
+        <Pulse style={[s.skelBlock, { width: 38, height: 38, borderRadius: 12, backgroundColor: "#F2F0EB" }]} />
+        <View style={{ flex: 1, marginLeft: 14 }}>
+          <Pulse style={[s.skelBlock, { width: 90, height: 11, backgroundColor: "#F2F0EB" }]} />
+        </View>
+      </View>
+    ))}
+  </View>
+));
+
+// ─── Sub-components (memoized) ────────────────────────────────────────────────
+
+/**
+ * HeroCard — live price + your gold, on one light card (no separate holdings block,
+ * no dark fill — the previous solid-navy card was the single heaviest element on screen).
+ */
+const HeroCard = memo(
+  ({ goldRate, currentValue, goldBalance, totalInvested, gainPercent, totalGain, isProfit, onSell }) => (
+    <View style={s.heroCard}>
+      <View style={s.livePriceTag}>
+        <View style={s.livePriceDot} />
+        <Text style={s.livePriceText}>LIVE GOLD PRICE</Text>
+      </View>
+      <View style={s.heroPriceLine}>
+        <Text style={s.heroPrice}>₹{fmtINR(goldRate, 2)}</Text>
+        <Text style={s.heroPriceSub}>/ gram</Text>
+      </View>
+      <Text style={s.heroPurity}>24K · 999.9 purity</Text>
+
+      {goldBalance > 0 && (
+        <>
+          <View style={s.heroDivider} />
+
+          <View style={s.heroPortfolioTop}>
+            <Text style={s.heroPortLabel}>YOUR GOLD</Text>
+            <TouchableOpacity onPress={onSell} activeOpacity={0.7}>
+              <Text style={s.heroSellLink}>Sell Gold ›</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={s.heroPortfolio}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.heroPortValue}>{goldBalance.toFixed(4)} g</Text>
+              <Text style={s.heroPortSub}>
+                Invested ₹{fmtINR(totalInvested)} · Now ₹{fmtINR(currentValue)}
+              </Text>
+            </View>
+            <View style={[s.heroGainTag, !isProfit && s.heroGainTagRed]}>
+              <Text style={[s.heroGainPct, !isProfit && s.heroGainRed]}>
+                {isProfit ? "▲" : "▼"} {Math.abs(gainPercent).toFixed(2)}%
+              </Text>
+              <Text style={[s.heroGainAmt, !isProfit && s.heroGainAmtRed]}>
+                {isProfit ? "Profit" : "Loss"} ₹{fmtINR(Math.abs(totalGain))}
+              </Text>
+            </View>
+          </View>
+        </>
+      )}
+    </View>
+  )
+);
+
+/**
+ * TradeCard — segmented Buy / Sell control with a single shared form shell.
+ * Only one of the two flows is ever visible, so the two actions never compete.
+ */
+const TradeCard = memo(
+  ({
+    tradeMode,
+    onTradeModeChange,
+    hasHoldings,
+
+    // Buy
+    buyMode,
+    amount,
+    gramsPreview,
+    rupeesPreview,
+    onBuyModeChange,
+    onAmountChange,
+    onBuy,
+    buyLoading,
+
+    // Sell
+    sellMode,
+    sellAmount,
+    sellGramsPreview,
+    sellRupeesPreview,
+    onSellModeChange,
+    onSellAmountChange,
+    onSellSubmit,
+    availableGold,
+    sellPrice,
+
+    inputRef,
+  }) => {
+    const isBuy = tradeMode === "buy";
+    const numAmount = parseFloat(isBuy ? amount : sellAmount);
+    const isAmountValid = !!numAmount && numAmount > 0 && !isNaN(numAmount);
+    const belowMinimum =
+      isAmountValid &&
+      ((isBuy && buyMode === "rupees" && numAmount < 100) ||
+        (!isBuy && sellMode === "rupees" && numAmount < 100));
+
+    const mode = isBuy ? buyMode : sellMode;
+    const value = isBuy ? amount : sellAmount;
+    const onModeChange = isBuy ? onBuyModeChange : onSellModeChange;
+    const onValueChange = isBuy ? onAmountChange : onSellAmountChange;
+
+    // Label direction depends on which value is entered vs. computed —
+    // "You receive" only applies when the computed side is what the user gets.
+    let receiveInfo = null;
+    if (isBuy) {
+      if (gramsPreview) receiveInfo = { label: "You receive", value: `≈ ${gramsPreview} g` };
+      else if (rupeesPreview) receiveInfo = { label: "Total cost", value: `≈ ₹${rupeesPreview}` };
+    } else {
+      if (sellRupeesPreview) receiveInfo = { label: "You receive", value: `≈ ₹${sellRupeesPreview}` };
+      else if (sellGramsPreview) receiveInfo = { label: "Gold you'll sell", value: `≈ ${sellGramsPreview} g` };
+    }
+
+    const sellChips = useMemo(
+      () =>
+        [0.25, 0.5, 0.75, 1].map((pct) => ({
+          label: pct === 1 ? "All" : `${pct * 100}%`,
+          rupVal: String(Math.round(availableGold * sellPrice * pct)),
+          gramVal: (availableGold * pct).toFixed(4),
+        })),
+      [availableGold, sellPrice]
+    );
+
+    return (
+      <View style={s.card}>
+        {/* Buy / Sell segmented control */}
+        <View style={s.segmented}>
+          <TouchableOpacity
+            style={[s.segTab, isBuy && s.segTabActiveBuy]}
+            onPress={() => onTradeModeChange("buy")}
+            activeOpacity={0.8}
+          >
+            <Text style={[s.segTabText, isBuy && s.segTabTextActive]}>Buy Gold</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.segTab, !isBuy && s.segTabActiveSell]}
+            onPress={() => hasHoldings && onTradeModeChange("sell")}
+            activeOpacity={0.8}
+            disabled={!hasHoldings}
+          >
+            <Text
+              style={[
+                s.segTabText,
+                !isBuy && s.segTabTextActive,
+                !hasHoldings && s.segTabTextDisabled,
+              ]}
+            >
+              Sell Gold
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Rupees / Grams toggle */}
+        <View style={s.toggle}>
+          {["rupees", "grams"].map((m) => (
+            <TouchableOpacity
+              key={m}
+              onPress={() => onModeChange(m)}
+              style={[s.toggleTab, mode === m && s.toggleTabActive]}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.toggleTabText, mode === m && s.toggleTabTextActive]}>
+                {m === "rupees" ? "₹ Rupees" : "Grams"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={s.inputLabel}>Enter amount</Text>
+        <View style={s.inputBox}>
+          <Text style={s.inputSymbol}>{mode === "rupees" ? "₹" : "g"}</Text>
+          <TextInput
+            ref={isBuy ? inputRef : undefined}
+            style={s.input}
+            placeholder="0"
+            placeholderTextColor="#D1D5DB"
+            value={value}
+            onChangeText={onValueChange}
+            keyboardType="numeric"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
+          />
+        </View>
+
+        {receiveInfo ? (
+          <View style={s.equivRow}>
+            <Text style={s.equivLabel}>{receiveInfo.label}</Text>
+            <Text style={s.equivText}>{receiveInfo.value}</Text>
+          </View>
+        ) : belowMinimum ? (
+          <Text style={s.inputHintError}>Minimum amount is ₹100</Text>
+        ) : (
+          <View style={s.inputHintRow}>
+            <Text style={s.inputHint}>
+              {isBuy
+                ? "Minimum ₹100  ·  3% GST included"
+                : `Available ${availableGold.toFixed(4)} g  ·  Min ₹100`}
+            </Text>
+            <Ionicons name="information-circle-outline" size={13} color={C.navyLight} />
+          </View>
+        )}
+
+        {/* Quick amounts */}
+        {isBuy && mode === "rupees" && (
+          <View style={s.chips}>
+            {[
+              ["100", "₹100"],
+              ["500", "₹500"],
+              ["1000", "₹1K"],
+              ["10000", "₹10K"],
+            ].map(([val, label]) => (
+              <TouchableOpacity
+                key={val}
+                onPress={() => onValueChange(val)}
+                style={[s.chip, amount === val && s.chipActive]}
+                activeOpacity={0.75}
+              >
+                <Text style={[s.chipText, amount === val && s.chipTextActive]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {!isBuy && availableGold > 0 && (
+          <View style={s.chips}>
+            {sellChips.map(({ label, rupVal, gramVal }) => {
+              const val = sellMode === "rupees" ? rupVal : gramVal;
+              const isActive = sellAmount === val;
+              return (
+                <TouchableOpacity
+                  key={label}
+                  onPress={() => onSellAmountChange(val)}
+                  style={[s.chip, isActive && s.chipActive]}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[s.chipText, isActive && s.chipTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* CTA */}
+        <TouchableOpacity
+          onPress={isBuy ? onBuy : onSellSubmit}
+          disabled={!isAmountValid || (isBuy && buyLoading)}
+          activeOpacity={0.85}
+          style={[
+            s.ctaBtn,
+            (!isAmountValid || (isBuy && buyLoading)) && s.ctaBtnDisabled,
+          ]}
+        >
+          {isBuy && buyLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <Text style={s.ctaBtnText}>
+                {!isAmountValid
+                  ? "Enter Amount"
+                  : isBuy
+                  ? "Proceed to Buy"
+                  : "Proceed to Sell"}
+              </Text>
+              {isAmountValid && <Ionicons name="arrow-forward" size={17} color="#fff" />}
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  }
+);
+
+/**
+ * TransactionRow — single compact row in the recent-activity list
+ */
+const TransactionRow = memo(({ txn, isLast }) => {
+  const isBuy = txn.type === "BUY";
+  return (
+    <View style={[s.txnRow, !isLast && s.txnBorder]}>
+      <View style={[s.txnDot, isBuy ? s.txnDotBuy : s.txnDotSell]}>
+        <Ionicons
+          name={isBuy ? "arrow-down" : "arrow-up"}
+          size={15}
+          color={isBuy ? C.green : C.red}
+        />
+      </View>
+      <View style={s.txnMid}>
+        <Text style={s.txnType}>{isBuy ? "Buy Gold" : "Sell Gold"}</Text>
+        <Text style={s.txnDate}>{relativeDate(txn.timestamp)}</Text>
+      </View>
+      <View style={s.txnRight}>
+        <Text style={[s.txnGrams, isBuy ? s.txnGramsBuy : s.txnGramsSell]}>
+          {isBuy ? "+" : "-"}
+          {txn.grams.toFixed(4)} g
+        </Text>
+        <Text style={s.txnAmt}>₹{fmtINR(txn.amount)}</Text>
+      </View>
+    </View>
+  );
+});
+
+/**
+ * PhysicalGoldBanner
+ */
+const PhysicalGoldBanner = memo(({ onPress }) => (
+  <TouchableOpacity style={s.physicalGoldBanner} onPress={onPress} activeOpacity={0.7}>
+    <View style={s.pgIconWrap}>
+      <Ionicons name="storefront-outline" size={19} color={C.gold} />
+    </View>
+    <View style={{ flex: 1 }}>
+      <Text style={s.pgTitle}>Try Physical Gold</Text>
+      <Text style={s.pgSubtitle}>BIS Hallmarked · Delivered to your door</Text>
+    </View>
+    <Ionicons name="chevron-forward" size={18} color="#D4AF37" />
+  </TouchableOpacity>
+));
+
+/**
+ * PANAlert
+ */
+const PANAlert = memo(() => (
+  <View style={s.panAlert}>
+    <View style={s.panAlertIconWrap}>
+      <Ionicons name="card-outline" size={18} color="#D4A574" />
+    </View>
+    <View style={s.panAlertContent}>
+      <Text style={s.panAlertTitle}>Verify your PAN</Text>
+      <Text style={s.panAlertSub}>Required for purchases above ₹50,000</Text>
+    </View>
+    <TouchableOpacity style={s.panBtn} activeOpacity={0.8}>
+      <Text style={s.panBtnText}>Verify</Text>
+    </TouchableOpacity>
+  </View>
+));
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 const DigitalGoldScreen = ({ navigation, route }) => {
-  const { state, refreshPrice } = useGold();
+  const { state } = useGold();
   const goldRate = state.goldPrice?.pricePerGram || 16236;
   const sellPrice = state.goldPrice?.sellPrice || 16236;
-  const lastUpdated = state.goldPrice?.lastUpdated || null;
   const userId = useSelector(selectUserId);
   const accessToken = route?.params?.accessToken;
 
+  const [tradeMode, setTradeMode] = useState("buy");
+
   const [buyMode, setBuyMode] = useState("rupees");
   const [amount, setAmount] = useState("");
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  const [sellMode, setSellMode] = useState("rupees");
+  const [sellAmount, setSellAmount] = useState("");
+
   const [portfolio, setPortfolio] = useState(null);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [txnLoading, setTxnLoading] = useState(false);
 
-  const scrollViewRef = useRef(null);
+  const flatListRef = useRef(null);
   const inputRef = useRef(null);
 
+  // ── Cached data loader — skips API if data is fresh ───────────────────────
   const loadScreenData = useCallback(async () => {
-    const uid = userId;
-    if (!uid) return;
+    if (!userId) return;
+
+    const now = Date.now();
+    const cacheHit = _portfolioCache && now - _cacheTimestamp < CACHE_TTL_MS;
+
+    if (cacheHit) {
+      setPortfolio(_portfolioCache);
+      setTransactions(_transactionsCache ?? []);
+      return;
+    }
+
     setPortfolioLoading(true);
     setTxnLoading(true);
+
     try {
       const [portfolioData, txnData] = await Promise.allSettled([
-        fetchPortfolio(uid),
-        fetchTransactions(uid),
+        fetchPortfolio(userId),
+        fetchTransactions(userId),
       ]);
-      if (portfolioData.status === "fulfilled")
-        setPortfolio(portfolioData.value);
-      if (txnData.status === "fulfilled")
-        setTransactions(txnData.value.slice(0, 5));
+
+      const p =
+        portfolioData.status === "fulfilled"
+          ? portfolioData.value
+          : {
+              totalGoldGrams: 0,
+              totalInvestedAmount: 0,
+              currentValue: 0,
+              totalGain: 0,
+              gainPercentage: 0,
+            };
+
+      const t = txnData.status === "fulfilled" ? txnData.value.slice(0, 5) : [];
+
+      // Update module-level cache
+      _portfolioCache = p;
+      _transactionsCache = t;
+      _cacheTimestamp = Date.now();
+
+      setPortfolio(p);
+      setTransactions(t);
     } catch {
+      setPortfolio({
+        totalGoldGrams: 0,
+        totalInvestedAmount: 0,
+        currentValue: 0,
+        totalGain: 0,
+        gainPercentage: 0,
+      });
+      setTransactions([]);
     } finally {
       setPortfolioLoading(false);
       setTxnLoading(false);
@@ -97,44 +526,90 @@ const DigitalGoldScreen = ({ navigation, route }) => {
   useFocusEffect(
     useCallback(() => {
       loadScreenData();
-    }, [loadScreenData]),
+    }, [loadScreenData])
   );
 
-  const goldBalance =
-    portfolio?.totalGoldGrams ?? state.portfolio?.totalGrams ?? 0;
-  const currentValue = portfolio?.currentValue ?? goldBalance * goldRate;
-  const totalInvested =
-    portfolio?.totalInvestedAmount ?? state.portfolio?.totalInvested ?? 0;
-  const totalGain = portfolio?.totalGain ?? currentValue - totalInvested;
-  const gainPercent = portfolio?.gainPercentage ?? 0;
-  const isProfit = totalGain >= 0;
-
+  // Snap back to Buy if the user has nothing left to sell (e.g. just sold everything)
   useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", (e) => {
-      setKeyboardOffset(e.endCoordinates.height);
-      setTimeout(
-        () => scrollViewRef.current?.scrollTo({ y: 200, animated: true }),
-        100,
-      );
+    if (tradeMode === "sell" && portfolio && (portfolio.totalGoldGrams ?? 0) <= 0) {
+      setTradeMode("buy");
+    }
+  }, [portfolio, tradeMode]);
+
+  // ── Derived values via useMemo — computed once, not on every render ────────
+  const { goldBalance, currentValue, totalInvested, totalGain, gainPercent, isProfit } =
+    useMemo(() => {
+      const gb = portfolio?.totalGoldGrams ?? state.portfolio?.totalGrams ?? 0;
+      const cv = portfolio?.currentValue ?? gb * goldRate;
+      const ti = portfolio?.totalInvestedAmount ?? state.portfolio?.totalInvested ?? 0;
+      const tg = portfolio?.totalGain ?? cv - ti;
+      const gp = portfolio?.gainPercentage ?? 0;
+      return {
+        goldBalance: gb,
+        currentValue: cv,
+        totalInvested: ti,
+        totalGain: tg,
+        gainPercent: gp,
+        isProfit: tg >= 0,
+      };
+    }, [portfolio, state.portfolio, goldRate]);
+
+  // ── Buy preview (unchanged formulas) ────────────────────────────────────────
+  const gramsPreview = useMemo(() => {
+    if (!amount || isNaN(parseFloat(amount)) || buyMode !== "rupees") return null;
+    return (parseFloat(amount) / goldRate).toFixed(4);
+  }, [amount, buyMode, goldRate]);
+
+  const rupeesPreview = useMemo(() => {
+    if (!amount || isNaN(parseFloat(amount)) || buyMode !== "grams") return null;
+    return (parseFloat(amount) * goldRate).toLocaleString("en-IN", {
+      maximumFractionDigits: 0,
     });
-    const hide = Keyboard.addListener("keyboardDidHide", () =>
-      setKeyboardOffset(0),
-    );
-    return () => {
-      show.remove();
-      hide.remove();
-    };
+  }, [amount, buyMode, goldRate]);
+
+  // ── Sell preview (same formula shape as SellGoldScreen) ─────────────────────
+  const sellGramsPreview = useMemo(() => {
+    if (!sellAmount || isNaN(parseFloat(sellAmount)) || sellMode !== "rupees") return null;
+    return (parseFloat(sellAmount) / sellPrice).toFixed(4);
+  }, [sellAmount, sellMode, sellPrice]);
+
+  const sellRupeesPreview = useMemo(() => {
+    if (!sellAmount || isNaN(parseFloat(sellAmount)) || sellMode !== "grams") return null;
+    return (parseFloat(sellAmount) * sellPrice).toLocaleString("en-IN", {
+      maximumFractionDigits: 0,
+    });
+  }, [sellAmount, sellMode, sellPrice]);
+
+  // ── Stable callbacks ───────────────────────────────────────────────────────
+  const handleBuyModeChange = useCallback((mode) => {
+    setBuyMode(mode);
+    setAmount("");
   }, []);
 
-  const handleBuyGold = async () => {
-    console.log('========================================');
-    console.log('[DigitalGoldScreen] handleBuyGold called');
-    console.log('[DigitalGoldScreen] amount:', amount);
-    console.log('[DigitalGoldScreen] buyMode:', buyMode);
-    console.log('[DigitalGoldScreen] userId:', userId);
-    console.log('[DigitalGoldScreen] goldRate:', goldRate);
-    console.log('========================================');
-    
+  const handleAmountChange = useCallback((val) => setAmount(val), []);
+
+  const handleSellModeChange = useCallback((mode) => {
+    setSellMode(mode);
+    setSellAmount("");
+  }, []);
+
+  const handleSellAmountChange = useCallback((val) => setSellAmount(val), []);
+
+  const handleTradeModeChange = useCallback((mode) => setTradeMode(mode), []);
+
+  const handleGoToSell = useCallback(() => setTradeMode("sell"), []);
+
+  const handlePhysicalGold = useCallback(
+    () => navigation.navigate("PgHome", { accessToken, userId }),
+    [navigation, accessToken, userId]
+  );
+
+  const handleViewAllTxns = useCallback(
+    () => navigation.navigate("Transactions"),
+    [navigation]
+  );
+
+  const handleBuyGold = useCallback(async () => {
     if (!amount || parseFloat(amount) <= 0 || isNaN(parseFloat(amount))) {
       Alert.alert("Enter Amount", "Please enter a valid amount to proceed");
       return;
@@ -148,86 +623,213 @@ const DigitalGoldScreen = ({ navigation, route }) => {
       Alert.alert("Invalid Grams", "Please enter a valid gram amount");
       return;
     }
+
     setPreviewLoading(true);
     try {
-      const uid = userId;
-      if (!uid) {
-        console.log('[DigitalGoldScreen] ERROR: No userId found');
+      if (!userId) {
         Alert.alert("Session Expired", "Please login again.");
         navigation.replace("Login");
         return;
       }
+
       const purchaseType = buyMode === "rupees" ? "AMOUNT" : "GRAMS";
       let sendAmount = 0,
         sendGrams = 0;
+
       if (buyMode === "rupees") {
         const gst = Math.round(numAmount * 0.03 * 100) / 100;
         const goldValue = Math.round((numAmount - gst) * 100) / 100;
         sendAmount = Math.round(numAmount * 100) / 100;
         sendGrams = goldValue / goldRate;
       } else {
-        sendGrams = Math.round(numAmount * 1000000) / 1000000;
+        sendGrams = Math.round(numAmount * 1_000_000) / 1_000_000;
         const goldValue = Math.round(sendGrams * goldRate * 100) / 100;
         const gst = Math.round(goldValue * 0.03 * 100) / 100;
         sendAmount = Math.round((goldValue + gst) * 100) / 100;
       }
-      
-      console.log('========================================');
-      console.log('[DigitalGoldScreen] Calling previewBuy with:');
-      console.log('[DigitalGoldScreen] userId:', uid);
-      console.log('[DigitalGoldScreen] purchaseType:', purchaseType);
-      console.log('[DigitalGoldScreen] amount:', sendAmount);
-      console.log('[DigitalGoldScreen] grams:', sendGrams);
-      console.log('[DigitalGoldScreen] pergramBuyingPrice:', goldRate);
-      console.log('========================================');
-      
+
       const preview = await previewBuy({
-        userId: uid,
+        userId,
         purchaseType,
         amount: sendAmount,
         grams: sendGrams,
         pergramBuyingPrice: goldRate,
       });
-      
-      console.log('========================================');
-      console.log('[DigitalGoldScreen] previewBuy response:', JSON.stringify(preview, null, 2));
-      console.log('========================================');
-      
-      if (!preview)
-        throw new Error("Failed to get order preview. Please try again.");
+
+      if (!preview) throw new Error("Failed to get order preview. Please try again.");
       navigation.navigate("PaymentReview", { preview, buyMode, goldRate });
     } catch (e) {
-      console.log('========================================');
-      console.error('[DigitalGoldScreen] ERROR in handleBuyGold');
-      console.error('[DigitalGoldScreen] Error message:', e.message);
-      console.error('[DigitalGoldScreen] Error status:', e.status);
-      console.error('[DigitalGoldScreen] Error data:', JSON.stringify(e.data, null, 2));
-      console.error('[DigitalGoldScreen] Full error:', e);
-      console.log('========================================');
-      
-      Alert.alert(
-        "Error",
-        e.message || "Failed to preview order. Please try again.",
-      );
+      Alert.alert("Error", e.message || "Failed to preview order. Please try again.");
     } finally {
       setPreviewLoading(false);
     }
-  };
+  }, [amount, buyMode, userId, goldRate, navigation]);
 
-  const gramsPreview =
-    amount && !isNaN(parseFloat(amount)) && buyMode === "rupees"
-      ? (parseFloat(amount) / goldRate).toFixed(4)
-      : null;
-  const rupeesPreview =
-    amount && !isNaN(parseFloat(amount)) && buyMode === "grams"
-      ? (parseFloat(amount) * goldRate).toLocaleString("en-IN", {
-          maximumFractionDigits: 0,
-        })
-      : null;
+  // ── Sell submit — same validation/navigation shape as SellGoldScreen ───────
+  const handleSellSubmit = useCallback(() => {
+    if (!sellAmount || parseFloat(sellAmount) <= 0 || isNaN(parseFloat(sellAmount))) {
+      Alert.alert("Enter Amount", "Please enter a valid amount to proceed");
+      return;
+    }
+    const numAmount = parseFloat(sellAmount);
+    if (sellMode === "rupees" && numAmount < 100) {
+      Alert.alert("Minimum Amount", "Minimum sell amount is ₹100");
+      return;
+    }
+    const grams =
+      sellMode === "rupees"
+        ? (numAmount / sellPrice).toFixed(3)
+        : numAmount.toFixed(3);
+    if (parseFloat(grams) > goldBalance) {
+      Alert.alert("Insufficient Balance", "You don't have enough gold to sell this amount");
+      return;
+    }
+    navigation.navigate("SellSummary", {
+      amount: sellMode === "rupees" ? numAmount : (numAmount * sellPrice).toFixed(2),
+      grams,
+      sellRate: sellPrice,
+      availableGold: goldBalance,
+      lockedAt: new Date().toISOString(),
+    });
+  }, [sellAmount, sellMode, sellPrice, goldBalance, navigation]);
+
+  // ── FlatList data — sections rendered as list items ───────────────────────
+  const listData = useMemo(
+    () => [
+      { key: "hero" },
+      { key: "trade" },
+      { key: "banner" },
+      { key: "transactions" },
+      { key: "pan" },
+    ],
+    []
+  );
+
+  const renderItem = useCallback(
+    ({ item }) => {
+      switch (item.key) {
+        case "hero":
+          return portfolioLoading && !portfolio ? (
+            <HeroSkeleton />
+          ) : (
+            <HeroCard
+              goldRate={goldRate}
+              currentValue={currentValue}
+              goldBalance={goldBalance}
+              totalInvested={totalInvested}
+              gainPercent={gainPercent}
+              totalGain={totalGain}
+              isProfit={isProfit}
+              onSell={handleGoToSell}
+            />
+          );
+
+        case "trade":
+          return (
+            <TradeCard
+              tradeMode={tradeMode}
+              onTradeModeChange={handleTradeModeChange}
+              hasHoldings={goldBalance > 0}
+              buyMode={buyMode}
+              amount={amount}
+              gramsPreview={gramsPreview}
+              rupeesPreview={rupeesPreview}
+              onBuyModeChange={handleBuyModeChange}
+              onAmountChange={handleAmountChange}
+              onBuy={handleBuyGold}
+              buyLoading={previewLoading}
+              sellMode={sellMode}
+              sellAmount={sellAmount}
+              sellGramsPreview={sellGramsPreview}
+              sellRupeesPreview={sellRupeesPreview}
+              onSellModeChange={handleSellModeChange}
+              onSellAmountChange={handleSellAmountChange}
+              onSellSubmit={handleSellSubmit}
+              availableGold={goldBalance}
+              sellPrice={sellPrice}
+              inputRef={inputRef}
+            />
+          );
+
+        case "banner":
+          return <PhysicalGoldBanner onPress={handlePhysicalGold} />;
+
+        case "transactions":
+          return (
+            <View style={s.section}>
+              <View style={s.sectionRowHeader}>
+                <Text style={s.sectionTitle}>Recent Transactions</Text>
+                <TouchableOpacity onPress={handleViewAllTxns}>
+                  <Text style={s.viewAll}>View All ›</Text>
+                </TouchableOpacity>
+              </View>
+              {txnLoading && transactions.length === 0 ? (
+                <TxnSkeleton />
+              ) : transactions.length === 0 ? (
+                <View style={s.txnCard}>
+                  <View style={s.emptyState}>
+                    <View style={s.emptyIconWrap}>
+                      <Ionicons name="receipt-outline" size={26} color={C.navyLight} />
+                    </View>
+                    <Text style={s.emptyText}>No transactions yet</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={s.txnCard}>
+                  {transactions.slice(0, 3).map((txn, i, arr) => (
+                    <TransactionRow key={txn.id} txn={txn} isLast={i === arr.length - 1} />
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+
+        case "pan":
+          return <PANAlert />;
+
+        default:
+          return null;
+      }
+    },
+    [
+      goldRate,
+      portfolio,
+      portfolioLoading,
+      txnLoading,
+      currentValue,
+      goldBalance,
+      gainPercent,
+      totalGain,
+      isProfit,
+      totalInvested,
+      tradeMode,
+      buyMode,
+      amount,
+      previewLoading,
+      gramsPreview,
+      rupeesPreview,
+      sellMode,
+      sellAmount,
+      sellGramsPreview,
+      sellRupeesPreview,
+      sellPrice,
+      transactions,
+      handleTradeModeChange,
+      handleBuyModeChange,
+      handleAmountChange,
+      handleBuyGold,
+      handleSellModeChange,
+      handleSellAmountChange,
+      handleSellSubmit,
+      handleGoToSell,
+      handlePhysicalGold,
+      handleViewAllTxns,
+    ]
+  );
 
   return (
-    <SafeAreaView style={s.container} edges={["top"]} backgroundColor="#1C2340">
-      <StatusBar barStyle="light-content" backgroundColor="#1C2340" />
+    <SafeAreaView style={s.container} edges={["top"]} backgroundColor={C.bg}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
 
       {/* ─── Header ─────────────────────────────────────────────────── */}
       <View style={s.header}>
@@ -235,1065 +837,303 @@ const DigitalGoldScreen = ({ navigation, route }) => {
           style={s.backBtn}
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={s.backBtnText}>‹</Text>
+          <Ionicons name="chevron-back" size={22} color={C.navy} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Digital Gold</Text>
-        <View style={s.liveChip}>
-          <View style={s.liveDot} />
-          <Text style={s.liveLabel}>LIVE</Text>
-        </View>
+        <View style={s.headerRightSpace} />
       </View>
 
-      <ScrollView
-        ref={scrollViewRef}
+      <FlatList
+        ref={flatListRef}
+        data={listData}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.key}
         showsVerticalScrollIndicator={false}
         bounces={false}
-        contentContainerStyle={[
-          s.scroll,
-          { paddingBottom: keyboardOffset > 0 ? keyboardOffset + 24 : 40 },
-        ]}
         keyboardShouldPersistTaps="handled"
-      >
-        {/* ─── Hero: Price + Portfolio ──────────────────────────────── */}
-        <LinearGradient
-         colors={["#1C2340", "#2A3158", "#1C2340"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.heroCard}
-        >
-          <View style={s.heroRing1} />
-          <View style={s.heroRing2} />
-
-          {/* Top row: price + coin */}
-          <View style={s.heroPriceRow}>
-            <View>
-              <View style={s.livePriceTag}>
-                <View style={s.livePriceDot} />
-                <Text style={s.livePriceText}>BUY LIVE PRICE</Text>
-              </View>
-              {/* <Text style={s.heroPurity}>24K Gold · 999.9 Pure</Text> */}
-              <Text style={s.heroPrice}>
-                ₹
-                {goldRate.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-                
-              </Text>
- <Text style={s.heroPriceSub}>per gram </Text>
-            </View>
-            <View style={s.heroCoin}>
-              <View style={s.coinInner}>
-                <Text style={s.coinKarat}>BUY</Text>
-                <View style={s.coinLine} />
-                <Text style={s.coinPurity}>999.9</Text>
-                <Text style={s.coinPure}>PURE</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={s.heroDivider} />
-
-          {/* Bottom: portfolio */}
-          <View style={s.heroPortfolio}>
-            <View>
-              <Text style={s.heroPortLabel}>YOUR PORTFOLIO</Text>
-              {portfolioLoading ? (
-                <ActivityIndicator
-                  color={C.goldMid}
-                  size="small"
-                  style={{ marginTop: 10 }}
-                />
-              ) : (
-                <>
-                  <Text style={s.heroPortValue}>
-                    ₹
-                    {currentValue.toLocaleString("en-IN", {
-                      maximumFractionDigits: 0,
-                    })}
-                  </Text>
-                  <Text style={s.heroPortGrams}>
-                    {goldBalance.toFixed(4)} grams
-                  </Text>
-                </>
-              )}
-            </View>
-            {!portfolioLoading && (
-              <View style={[s.heroGainTag, !isProfit && s.heroGainTagRed]}>
-                <Text style={[s.heroGainPct, !isProfit && s.heroGainRed]}>
-                  {isProfit ? "▲" : "▼"} {gainPercent.toFixed(2)}%
-                </Text>
-                <Text style={[s.heroGainAmt, !isProfit && s.heroGainAmtRed]}>
-                  ₹
-                  {Math.abs(totalGain).toLocaleString("en-IN", {
-                    maximumFractionDigits: 0,
-                  })}
-                </Text>
-              </View>
-            )}
-          </View>
-        </LinearGradient>
-
-        {/* ─── Gold Savings + Sell ──────────────────────────────────── */}
-        <View style={s.savingsCard}>
-          <View style={s.savingsLeft}>
-            <Text style={s.savingsLabel}>GOLD SAVINGS</Text>
-            <Text style={s.savingsGrams}>
-              {goldBalance.toFixed(4)}
-              <Text style={s.savingsUnit}> g</Text>
-            </Text>
-            <Text style={s.savingsInvested}>
-              Invested ₹
-              {totalInvested.toLocaleString("en-IN", {
-                maximumFractionDigits: 0,
-              })}
-            </Text>
-          </View>
-          {goldBalance > 0 && (
-            <TouchableOpacity
-              onPress={() => navigation.navigate("SellGold")}
-              activeOpacity={0.85}
-              style={s.sellBtn}
-            >
-              <Text style={s.sellBtnLabel}>Sell Gold</Text>
-              <Text style={s.sellBtnRate}>
-                @ ₹
-                {sellPrice.toLocaleString("en-IN", {
-                  maximumFractionDigits: 0,
-                })}
-                /g
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* ─── Buy Gold ─────────────────────────────────────────────── */}
-        <View style={s.card}>
-          <View style={s.cardTop}>
-            <Text style={s.cardTitle}>Buy Gold</Text>
-            <View style={s.ratePill}>
-              <Text style={s.ratePillText}>
-                ₹
-                {goldRate.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                /g
-              </Text>
-            </View>
-          </View>
-
-          {/* Mode Toggle */}
-          <View style={s.toggle}>
-            {["rupees", "grams"].map((mode) => (
-              <TouchableOpacity
-                key={mode}
-                onPress={() => {
-                  setBuyMode(mode);
-                  setAmount("");
-                }}
-                style={[s.toggleTab, buyMode === mode && s.toggleTabActive]}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    s.toggleTabText,
-                    buyMode === mode && s.toggleTabTextActive,
-                  ]}
-                >
-                  {mode === "rupees" ? "₹  Rupees" : "⚖  Grams"}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Input */}
-          <View style={s.inputBox}>
-            <Text style={s.inputSymbol}>
-              {buyMode === "rupees" ? "₹" : "g"}
-            </Text>
-            <TextInput
-              ref={inputRef}
-              style={s.input}
-              placeholder={buyMode === "rupees" ? "0" : "0.0000"}
-              placeholderTextColor="#CCCAC3"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
-              returnKeyType="done"
-              onSubmitEditing={() => Keyboard.dismiss()}
-            />
-          </View>
-
-          {/* Equivalent row */}
-          {gramsPreview || rupeesPreview ? (
-            <View style={s.equivRow}>
-              <Text style={s.equivText}>
-                {gramsPreview
-                  ? `≈ ${gramsPreview} grams`
-                  : `≈ ₹${rupeesPreview}`}
-              </Text>
-              <Text style={s.equivGst}>Incl. 3% GST</Text>
-            </View>
-          ) : (
-            <Text style={s.inputHint}>
-              {buyMode === "rupees"
-                ? "Minimum purchase ₹100  ·  Incl. 3% GST"
-                : "Live rate  ·  Incl. 3% GST"}
-            </Text>
-          )}
-
-          {/* Quick chips */}
-          {buyMode === "rupees" && (
-            <View style={s.chips}>
-              {[
-                ["100", "₹100"],
-                ["500", "₹500"],
-                ["1000", "₹1K"],
-                ["10000", "₹10K"],
-              ].map(([val, label]) => (
-                <TouchableOpacity
-                  key={val}
-                  onPress={() => setAmount(val)}
-                  style={[s.chip, amount === val && s.chipActive]}
-                  activeOpacity={0.75}
-                >
-                  <Text
-                    style={[s.chipText, amount === val && s.chipTextActive]}
-                  >
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* CTA */}
-          <TouchableOpacity
-            onPress={handleBuyGold}
-            disabled={previewLoading}
-            activeOpacity={0.88}
-            style={[s.buyBtn, previewLoading && { opacity: 0.6 }]}
-          >
-            <LinearGradient
-              colors={["#D4A535", "#C8952A", "#B8841E"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={s.buyBtnGrad}
-            >
-              {previewLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={s.buyBtnText}>Proceed to Buy →</Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* ─── Physical Gold Banner ─────────────────────────────────── */}
-        <TouchableOpacity
-          style={s.physicalGoldBanner}
-          onPress={() => navigation.navigate("PgHome", { accessToken, userId })}
-          activeOpacity={0.82}
-        >
-          <View style={s.pgBannerGlow} />
-          <View style={s.pgBannerLeft}>
-            <View style={s.pgIconWrap}>
-              <Text style={s.pgIconText}>PG</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.pgTitle}>Try Physical Gold</Text>
-              <Text style={s.pgSubtitle}>BIS Hallmarked · Delivered to your door</Text>
-            </View>
-          </View>
-          <View style={s.pgCTA}>
-            <Text style={s.pgCTAText}>Explore</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* ─── Jewellery Scheme ─────────────────────────────────────── */}
-        {/* <View style={s.section}>
-          <Text style={s.sectionTitle}>Jewellery Scheme</Text>
-          <TouchableOpacity style={s.jewCard} activeOpacity={0.8}>
-            <View style={s.jewIconBox}>
-              <Text style={s.jewEmoji}>💍</Text>
-            </View>
-            <View style={s.jewContent}>
-              <Text style={s.jewTitle}>CaratLane Gold Plan</Text>
-              <Text style={s.jewSub}>Save monthly, get jewellery</Text>
-              <Text style={s.jewDetail}>11 months savings + 1 month free</Text>
-            </View>
-            <Text style={s.jewArrow}>›</Text>
-          </TouchableOpacity>
-        </View> */}
-
-        {/* ─── Recent Transactions ──────────────────────────────────── */}
-        <View style={s.section}>
-          <View style={s.sectionRowHeader}>
-            <Text style={s.sectionTitle}>Recent Transactions</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate("Transactions")}
-            >
-              <Text style={s.viewAll}>View All ›</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={s.txnCard}>
-            {txnLoading ? (
-              <ActivityIndicator
-                color={C.gold}
-                style={{ marginVertical: 28 }}
-              />
-            ) : transactions.length === 0 ? (
-              <View style={s.emptyState}>
-                <Text style={s.emptyIcon}>📭</Text>
-                <Text style={s.emptyText}>No transactions yet</Text>
-              </View>
-            ) : (
-              transactions.map((txn, i) => {
-                const isBuy = txn.type === "BUY";
-                return (
-                  <View
-                    key={txn.id}
-                    style={[
-                      s.txnRow,
-                      i < transactions.length - 1 && s.txnBorder,
-                    ]}
-                  >
-                    <View
-                      style={[s.txnDot, isBuy ? s.txnDotBuy : s.txnDotSell]}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 16,
-                          fontWeight: "700",
-                          color: isBuy ? C.green : C.red,
-                        }}
-                      >
-                        {isBuy ? "↑" : "↓"}
-                      </Text>
-                    </View>
-                    <View style={s.txnMid}>
-                      <Text style={s.txnType}>
-                        {isBuy ? "Bought Gold" : "Sold Gold"}
-                      </Text>
-                      <Text style={s.txnDate}>
-                        {new Date(txn.timestamp).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </Text>
-                    </View>
-                    <View style={s.txnRight}>
-                      <Text style={s.txnAmt}>
-                        ₹
-                        {txn.amount.toLocaleString("en-IN", {
-                          maximumFractionDigits: 0,
-                        })}
-                      </Text>
-                      <Text style={s.txnGrams}>{txn.grams.toFixed(4)} g</Text>
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </View>
-
-        {/* ─── PAN Alert ────────────────────────────────────────────── */}
-        <View style={s.panAlert}>
-          <Text style={s.panAlertIcon}>🪪</Text>
-          <View style={s.panAlertContent}>
-            <Text style={s.panAlertTitle}>Verify your PAN</Text>
-            <Text style={s.panAlertSub}>
-              Required for purchases above ₹50,000
-            </Text>
-          </View>
-          <TouchableOpacity style={s.panBtn} activeOpacity={0.8}>
-            <Text style={s.panBtnText}>Verify</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        contentContainerStyle={s.scroll}
+        windowSize={3}
+        maxToRenderPerBatch={3}
+        initialNumToRender={4}
+        removeClippedSubviews={Platform.OS === "android"}
+      />
     </SafeAreaView>
   );
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1C2340" },
+  container: { flex: 1, backgroundColor: C.bg },
 
-  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 10 : 14,
-    paddingBottom: 14,
-    backgroundColor: "#1C2340",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(212,168,67,0.22)",
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "ios" ? 6 : 10,
+    paddingBottom: 10,
+    backgroundColor: C.bg,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(212,168,67,0.12)",
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: C.card,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(212,168,67,0.28)",
   },
-  backBtnText: {
-    fontSize: 28,
-    lineHeight: 32,
-    color: "#D4A843",
-    fontWeight: "300",
-    marginTop: -2,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#E8C97A",
-    letterSpacing: 0.2,
-  },
-  liveChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(212,168,67,0.12)",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: "rgba(212,168,67,0.28)",
-  },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#D4A843" },
-  liveLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#D4A843",
-    letterSpacing: 0.8,
-  },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: C.navy, letterSpacing: 0.1 },
+  headerRightSpace: { width: 36 },
 
-  scroll: { paddingBottom: 40, backgroundColor: "#F7F6F3" },
+  scroll: { paddingBottom: 36, backgroundColor: C.bg },
 
-  // Hero card
+  skelBlock: { borderRadius: 6 },
+
+  // ── Hero — one light card: live price + your gold ─────────────────────────
   heroCard: {
+    backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 14,
-    borderRadius: 22,
-    padding: 22,
-    overflow: "hidden",
+    marginTop: 14,
+    marginBottom: 12,
+    borderRadius: 16,
+    padding: 18,
+    shadowColor: "rgba(28,35,64,0.05)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 1,
   },
-  heroRing1: {
-    position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
-    right: -60,
-    top: -70,
-  },
-  heroRing2: {
-    position: "absolute",
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.04)",
-    right: -10,
-    top: -10,
-  },
-  heroPriceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 20,
-  },
-  livePriceTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    marginBottom: 8,
-  },
-  livePriceDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#10B981",
-    shadowColor: "#10B981",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
-    elevation: 4,
-  },
+  livePriceTag: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
+  livePriceDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#2ECC71" },
   livePriceText: {
     fontSize: 10,
-    fontWeight: "800",
-    color: "#10B981",
-    letterSpacing: 1.2,
-  },
-  heroPurity: {
-    fontSize: 11,
     fontWeight: "600",
-    color: "rgba(255,255,255,0.45)",
-    letterSpacing: 1,
-    marginBottom: 8,
+    color: C.navyLight,
+    letterSpacing: 1.1,
   },
-  heroPrice: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: "#E8C97A",
-    letterSpacing: -1,
-    marginBottom: 4,
-  },
-  heroPriceSub: { fontSize: 12, color: "rgba(255,255,255,0.3)" },
-  heroCoin: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    backgroundColor: "#2A3158",
-    borderWidth: 2,
-    borderColor: "#D4A843",
-    padding: 5,
-    shadowColor: "#D4A843",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  coinInner: {
-    flex: 1,
-    borderRadius: 38,
-    backgroundColor: "#D4A843",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  coinKarat: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#1C2340",
-    lineHeight: 24,
-  },
-  coinLine: {
-    width: 32,
-    height: 1.5,
-    backgroundColor: "rgba(28,35,64,0.35)",
-    marginVertical: 3,
-  },
-  coinPurity: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#1C2340",
-    lineHeight: 13,
-  },
-  coinPure: {
-    fontSize: 7.5,
-    fontWeight: "700",
-    color: "rgba(28,35,64,0.55)",
-    letterSpacing: 1.8,
-    marginTop: 2,
-  },
-  heroDivider: {
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    marginBottom: 20,
-  },
-  heroPortfolio: {
+  heroPriceLine: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  heroPrice: { fontSize: 30, fontWeight: "700", color: C.navy, letterSpacing: -0.5 },
+  heroPriceSub: { fontSize: 13, color: C.navyLight },
+  heroPurity: { fontSize: 12, color: C.navyLight, marginTop: 4 },
+  heroDivider: { height: 1, backgroundColor: C.divider, marginVertical: 16 },
+  heroPortfolioTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-  },
-  heroPortLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.35)",
-    letterSpacing: 1.5,
     marginBottom: 8,
   },
-  heroPortValue: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
-  heroPortGrams: { fontSize: 13, color: "rgba(255,255,255,0.38)" },
+  heroPortLabel: { fontSize: 10, fontWeight: "600", color: C.navyLight, letterSpacing: 1.2 },
+  heroSellLink: { fontSize: 12.5, fontWeight: "700", color: C.red },
+  heroPortfolio: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  heroPortValue: { fontSize: 21, fontWeight: "800", color: C.gold, letterSpacing: -0.3 },
+  heroPortSub: { fontSize: 12, color: C.navyLight, marginTop: 3 },
   heroGainTag: {
-    backgroundColor: "rgba(14,159,110,0.15)",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(14,159,110,0.25)",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    alignItems: "center",
-    minWidth: 90,
+    backgroundColor: C.greenBg,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: "flex-end",
   },
-  heroGainTagRed: {
-    backgroundColor: "rgba(224,36,36,0.12)",
-    borderColor: "rgba(224,36,36,0.22)",
-  },
-  heroGainPct: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#0E9F6E",
-    marginBottom: 3,
-  },
-  heroGainRed: { color: "#E02424" },
-  heroGainAmt: { fontSize: 11, color: "rgba(14,159,110,0.75)" },
-  heroGainAmtRed: { color: "rgba(224,36,36,0.7)" },
+  heroGainTagRed: { backgroundColor: C.redBg },
+  heroGainPct: { fontSize: 12.5, fontWeight: "700", color: "#2ECC71", marginBottom: 2 },
+  heroGainRed: { color: C.red },
+  heroGainAmt: { fontSize: 10.5, color: "#2ECC71", fontWeight: "600" },
+  heroGainAmtRed: { color: C.red },
 
-  // Savings card
-  savingsCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  // ── Trade card ────────────────────────────────────────────────────────────
+  card: {
     backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
     marginBottom: 14,
     borderRadius: 18,
     padding: 18,
-    borderWidth: 1,
-    borderColor: "#EAE8E2",
-    shadowColor: "rgba(28,35,64,0.08)",
+    shadowColor: "rgba(28,35,64,0.06)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 1,
   },
-  savingsLeft: {},
-  savingsLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#8891AF",
-    letterSpacing: 1.2,
-    marginBottom: 6,
-  },
-  savingsGrams: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#C8952A",
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
-  savingsUnit: { fontSize: 15, fontWeight: "500", color: "#8891AF" },
-  savingsInvested: { fontSize: 12, color: "#8891AF" },
-  sellBtn: {
-    backgroundColor: "#FEF2F2",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#FECACA",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  sellBtnLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#E02424",
-    marginBottom: 3,
-  },
-  sellBtnRate: { fontSize: 11, color: "#F87171", fontWeight: "500" },
-
-  // Card
-  card: {
-    backgroundColor: "#FFFFFF",
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 22,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#EAE8E2",
-    shadowColor: "rgba(28,35,64,0.08)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardTop: {
+  segmented: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 18,
+    backgroundColor: "#F5F3F0",
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 14,
   },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#1C2340",
-    letterSpacing: -0.3,
-  },
-  ratePill: {
-    backgroundColor: "#F5ECD7",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: "#E8C97A",
-  },
-  ratePillText: { fontSize: 12, fontWeight: "700", color: "#C8952A" },
+  segTab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 9 },
+  segTabActiveBuy: { backgroundColor: CTA },
+  segTabActiveSell: { backgroundColor: C.red },
+  segTabText: { fontSize: 13.5, fontWeight: "600", color: C.navyLight },
+  segTabTextActive: { color: "#FFFFFF", fontWeight: "700" },
+  segTabTextDisabled: { opacity: 0.5 },
 
-  // Toggle
   toggle: {
     flexDirection: "row",
-    backgroundColor: "#F7F6F3",
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: "#EAE8E2",
+    backgroundColor: "#F5F3F0",
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 14,
   },
-  toggleTab: {
-    flex: 1,
-    paddingVertical: 11,
-    alignItems: "center",
-    borderRadius: 10,
-  },
-  toggleTabActive: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#EAE8E2",
-    shadowColor: "rgba(28,35,64,0.06)",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  toggleTabText: { fontSize: 14, fontWeight: "500", color: "#8891AF" },
-  toggleTabTextActive: { color: "#1C2340", fontWeight: "700" },
+  toggleTab: { flex: 1, paddingVertical: 9, alignItems: "center", borderRadius: 9 },
+  toggleTabActive: { backgroundColor: "#FFFFFF" },
+  toggleTabText: { fontSize: 13, fontWeight: "500", color: "#9CA3AF" },
+  toggleTabTextActive: { color: C.navy, fontWeight: "700" },
 
-  // Input
+  inputLabel: { fontSize: 12, fontWeight: "500", color: C.navyLight, marginBottom: 8 },
   inputBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F7F6F3",
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: "#EAE8E2",
-    paddingHorizontal: 18,
-    marginBottom: 12,
+    backgroundColor: "#F5F3F0",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 10,
   },
-  inputSymbol: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: "#C8952A",
-    marginRight: 6,
-  },
-  input: {
-    flex: 1,
-    fontSize: 30,
-    fontWeight: "700",
-    color: "#1C2340",
-    paddingVertical: 16,
-  },
+  inputSymbol: { fontSize: 24, fontWeight: "700", color: C.gold, marginRight: 6 },
+  input: { flex: 1, fontSize: 28, fontWeight: "700", color: C.navy, paddingVertical: 14 },
+
   equivRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#F5ECD7",
+    backgroundColor: "#F8F6F2",
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 10,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: "#E8C97A",
   },
-  equivText: { fontSize: 13, fontWeight: "600", color: "#C8952A" },
-  equivGst: { fontSize: 11, color: "#A07830", fontWeight: "500" },
-  inputHint: { fontSize: 12, color: "#8891AF", marginBottom: 16 },
+  equivLabel: { fontSize: 12, fontWeight: "500", color: "#C5A100" },
+  equivText: { fontSize: 14, fontWeight: "700", color: C.gold },
+  inputHintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  inputHint: { fontSize: 12, color: C.navyLight },
+  inputHintError: { fontSize: 12, color: C.red, fontWeight: "600", marginBottom: 16 },
 
-  // Chips
-  chips: { flexDirection: "row", gap: 8, marginBottom: 18 },
+  chips: { flexDirection: "row", gap: 8, marginBottom: 16 },
   chip: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#EAE8E2",
-    backgroundColor: "#F7F6F3",
+    backgroundColor: "#F5F3F0",
   },
-  chipActive: { borderColor: "#C8952A", backgroundColor: "#F5ECD7" },
-  chipText: { fontSize: 13, fontWeight: "600", color: "#8891AF" },
-  chipTextActive: { color: "#C8952A" },
+  chipActive: { backgroundColor: C.goldLight },
+  chipText: { fontSize: 13, fontWeight: "500", color: "#9CA3AF" },
+  chipTextActive: { color: C.gold, fontWeight: "700" },
 
-  // Buy button
-  buyBtn: {
-    borderRadius: 14,
-    overflow: "hidden",
-    shadowColor: "rgba(200,149,42,0.35)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    elevation: 6,
+  ctaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: CTA,
+    paddingVertical: 15,
+    borderRadius: 13,
   },
-  buyBtnGrad: { paddingVertical: 17, alignItems: "center", borderRadius: 14 },
-  buyBtnText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 0.2,
-  },
+  ctaBtnDisabled: { backgroundColor: "#D1D5DB" },
+  ctaBtnText: { fontSize: 15, fontWeight: "700", color: "#FFFFFF", letterSpacing: 0.1 },
 
-  // Section
+  // ── Transactions ─────────────────────────────────────────────────────────
   section: { marginBottom: 20 },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#1C2340",
-    marginHorizontal: 20,
-    marginBottom: 12,
-  },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: C.navy, marginHorizontal: 16, marginBottom: 10 },
   sectionRowHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginHorizontal: 20,
-    marginBottom: 12,
-  },
-  viewAll: { fontSize: 13, fontWeight: "600", color: "#C8952A" },
-
-  // Two col
-  twoCol: { flexDirection: "row", marginHorizontal: 16, gap: 12 },
-  featureCard: {
-    flex: 1,
-    borderRadius: 18,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#EAE8E2",
-    shadowColor: "rgba(28,35,64,0.06)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  featureCardInner: {
-    alignItems: "center",
-    paddingVertical: 22,
-    paddingHorizontal: 12,
-  },
-  featureEmojiWrap: { position: "relative", marginBottom: 2 },
-  featureEmoji: { fontSize: 34, marginBottom: 10 },
-  newTag: {
-    position: "absolute",
-    top: -4,
-    right: -14,
-    backgroundColor: "#E02424",
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-  },
-  newTagText: {
-    fontSize: 8,
-    fontWeight: "800",
-    color: "#FFF",
-    letterSpacing: 0.5,
-  },
-  featureTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1C2340",
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  featureSub: { fontSize: 12, color: "#8891AF", textAlign: "center" },
-
-  // Jewellery
-  jewCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#EAE8E2",
-    shadowColor: "rgba(28,35,64,0.06)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 2,
+    marginBottom: 10,
   },
-  jewIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: "#F5ECD7",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 14,
-    borderWidth: 1,
-    borderColor: "#E8C97A",
-  },
-  jewEmoji: { fontSize: 22 },
-  jewContent: { flex: 1 },
-  jewTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#1C2340",
-    marginBottom: 3,
-  },
-  jewSub: { fontSize: 13, color: "#8891AF", marginBottom: 3 },
-  jewDetail: { fontSize: 12, color: "#C8952A", fontWeight: "500" },
-  jewArrow: { fontSize: 24, color: "#8891AF", fontWeight: "300" },
+  viewAll: { fontSize: 13, fontWeight: "600", color: C.gold },
 
-  // Transactions
   txnCard: {
     backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#EAE8E2",
+    borderRadius: 16,
     overflow: "hidden",
-    shadowColor: "rgba(28,35,64,0.06)",
+    shadowColor: "rgba(28,35,64,0.05)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 6,
-    elevation: 2,
+    elevation: 1,
   },
-  emptyState: { alignItems: "center", paddingVertical: 32 },
-  emptyIcon: { fontSize: 32, marginBottom: 10 },
-  emptyText: { fontSize: 14, color: "#8891AF" },
-  txnRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  txnBorder: { borderBottomWidth: 1, borderBottomColor: "#F0EEE9" },
-  txnDot: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+  emptyState: { alignItems: "center", paddingVertical: 28 },
+  emptyIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#F5F3F0",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    marginBottom: 10,
   },
-  txnDotBuy: { backgroundColor: "#ECFDF5" },
-  txnDotSell: { backgroundColor: "#FEF2F2" },
+  emptyText: { fontSize: 13.5, color: "#9CA3AF" },
+  txnRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 13 },
+  txnBorder: { borderBottomWidth: 1, borderBottomColor: "#F2F0EB" },
+  txnDot: { width: 36, height: 36, borderRadius: 11, justifyContent: "center", alignItems: "center", marginRight: 12 },
+  txnDotBuy: { backgroundColor: "#E8F5E9" },
+  txnDotSell: { backgroundColor: "#FDECEA" },
   txnMid: { flex: 1 },
-  txnType: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1C2340",
-    marginBottom: 3,
-  },
-  txnDate: { fontSize: 12, color: "#8891AF" },
+  txnType: { fontSize: 13.5, fontWeight: "600", color: C.navy, marginBottom: 2 },
+  txnDate: { fontSize: 11.5, color: "#9CA3AF" },
   txnRight: { alignItems: "flex-end" },
-  txnAmt: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1C2340",
-    marginBottom: 3,
-  },
-  txnGrams: { fontSize: 12, color: "#C8952A", fontWeight: "500" },
+  txnGrams: { fontSize: 13, fontWeight: "700", marginBottom: 2 },
+  txnGramsBuy: { color: C.green },
+  txnGramsSell: { color: C.red },
+  txnAmt: { fontSize: 11.5, color: "#9CA3AF" },
 
-  // Physical Gold Banner
+  // ── Banner ────────────────────────────────────────────────────────────────
   physicalGoldBanner: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 12,
     marginHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 20,
-    backgroundColor: "#1C2340",
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "rgba(212,168,67,0.22)",
-    overflow: "hidden",
-    shadowColor: "rgba(28,35,64,0.18)",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  pgBannerGlow: {
-    position: "absolute",
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: "rgba(212,168,67,0.05)",
-    top: -60,
-    right: 0,
-  },
-  pgBannerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    flex: 1,
+    marginTop: 2,
+    marginBottom: 18,
+    backgroundColor: "#F8F6F2",
+    borderRadius: 14,
+    padding: 13,
   },
   pgIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: "rgba(212,168,67,0.12)",
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(212,168,67,0.22)",
   },
-  pgIconText: {
-    fontSize: 12,
-    fontWeight: "900",
-    color: "#E8C97A",
-    letterSpacing: 0.8,
-  },
-  pgTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#E8C97A",
-    marginBottom: 3,
-  },
-  pgSubtitle: {
-    fontSize: 11,
-    color: "rgba(255,255,255,0.35)",
-  },
-  pgCTA: {
-    backgroundColor: "#D4A843",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  pgCTAText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#1C2340",
-  },
+  pgTitle: { fontSize: 13.5, fontWeight: "700", color: C.navy, marginBottom: 2 },
+  pgSubtitle: { fontSize: 11.5, color: "#C5A100" },
 
-  // PAN Alert
+  // ── PAN alert ────────────────────────────────────────────────────────────
   panAlert: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFBEB",
+    backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
-    marginTop: 4,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#FDE68A",
+    borderRadius: 14,
+    padding: 13,
+    borderLeftWidth: 3,
+    borderLeftColor: "#D4A574",
   },
-  panAlertIcon: { fontSize: 22, marginRight: 12 },
+  panAlertIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "#FDF6ED",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 11,
+  },
   panAlertContent: { flex: 1 },
-  panAlertTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#92400E",
-    marginBottom: 3,
-  },
-  panAlertSub: { fontSize: 12, color: "#B45309" },
-  panBtn: {
-    backgroundColor: "#C8952A",
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    shadowColor: "rgba(200,149,42,0.3)",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  panBtnText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
+  panAlertTitle: { fontSize: 12.5, fontWeight: "700", color: C.navy, marginBottom: 2 },
+  panAlertSub: { fontSize: 11, color: "#9CA3AF" },
+  panBtn: { backgroundColor: C.navy, borderRadius: 9, paddingHorizontal: 14, paddingVertical: 8 },
+  panBtnText: { fontSize: 12, fontWeight: "700", color: "#FFFFFF" },
 });
 
 export default DigitalGoldScreen;
-
-
-

@@ -11,24 +11,25 @@ import {
   FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSelector } from "react-redux";
 import { selectUserId } from "../store/authSlice";
 import { fetchTransactions } from "../services/goldApi";
 
 const C = {
-  bg: "#F7F6F3",
+  bg: "#F5F3F0",
   card: "#FFFFFF",
-  gold: "#C8952A",
-  goldLight: "#F5ECD7",
-  navy: "#1C2340",
-  navyLight: "#8891AF",
-  green: "#0E9F6E",
-  greenBg: "#ECFDF5",
-  red: "#E02424",
-  redBg: "#FEF2F2",
-  border: "#EAE8E2",
-  divider: "#F0EEE9",
+  gold: "#D4AF37",
+  goldLight: "#F8F6F2",
+  navy: "#1F2933",
+  navyLight: "#9CA3AF",
+  green: "#2ECC71",
+  greenBg: "#E8F5E9",
+  red: "#C85A54",
+  redBg: "#FDECEA",
+  border: "#E5E7EB",
+  divider: "#F2F0EB",
 };
 
 const TransactionsScreen = ({ navigation }) => {
@@ -170,7 +171,9 @@ const TransactionsScreen = ({ navigation }) => {
           </View>
         ) : filteredTransactions.length === 0 ? (
           <View style={s.emptyBox}>
-            <Text style={s.emptyIcon}>📭</Text>
+            <View style={s.emptyIconWrap}>
+              <Ionicons name="receipt-outline" size={26} color={C.navyLight} />
+            </View>
             <Text style={s.emptyTitle}>No Transactions</Text>
             <Text style={s.emptySub}>
               {filter === "all"
@@ -316,7 +319,15 @@ const s = StyleSheet.create({
     paddingVertical: 60,
     paddingHorizontal: 24,
   },
-  emptyIcon: { fontSize: 48, marginBottom: 16 },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: "#F2F0EB",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
   emptyTitle: {
     fontSize: 18,
     fontWeight: "700",

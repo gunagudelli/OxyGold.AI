@@ -108,7 +108,7 @@ export const paymentService = {
       const session = new CFSession(
         cleanedSessionId,
         orderId.toString(),
-        CFEnvironment.SANDBOX
+        CFEnvironment.PRODUCTION
       );
 
       console.log('[PaymentService] CFSession created successfully');

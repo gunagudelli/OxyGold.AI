@@ -9,19 +9,26 @@
  */
 export const getAllImageUrls = (imageObj) => {
   if (!imageObj) return [];
-  
+
   const images = [];
-  const views = ['frontViewUrl', 'topViewUrl', 'leftViewUrl', 'rightViewUrl', 'backViewUrl', 'bottomViewUrl'];
-  
-  views.forEach(view => {
+  const views = [
+    "frontViewUrl",
+    "topViewUrl",
+    "leftViewUrl",
+    "rightViewUrl",
+    "backViewUrl",
+    "bottomViewUrl",
+  ];
+
+  views.forEach((view) => {
     if (imageObj[view]) {
       images.push({
         url: imageObj[view],
-        type: view.replace('Url', ''),
+        type: view.replace("Url", ""),
       });
     }
   });
-  
+
   return images;
 };
 
@@ -32,7 +39,9 @@ export const getAllImageUrls = (imageObj) => {
  */
 export const getPrimaryImage = (imageObj) => {
   if (!imageObj) return null;
-  return imageObj.frontViewUrl || imageObj.topViewUrl || imageObj.backViewUrl || null;
+  return (
+    imageObj.frontViewUrl || imageObj.topViewUrl || imageObj.backViewUrl || null
+  );
 };
 
 /**

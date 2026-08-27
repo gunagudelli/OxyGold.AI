@@ -27,12 +27,15 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-video",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {
-        "projectId": "f9eddea6-d65e-40ea-81a3-4de080f435a1"
+        "projectId": "c5c83e30-bfcc-4ff1-8d2a-256e33649ee6"
       }
-    }
+    },
+    "owner": "guna123"
   }
 }

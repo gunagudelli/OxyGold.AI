@@ -7,7 +7,9 @@ import {
   StatusBar,
   Animated,
   Alert,
+  ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 const PaymentSuccessScreen = ({ navigation, route }) => {
@@ -51,10 +53,13 @@ const PaymentSuccessScreen = ({ navigation, route }) => {
   const liveGoldRate = amount && grams ? Math.round((amount / grams) * 100) / 100 : 0;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
-      <View style={styles.content}>
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Success Animation */}
         <Animated.View
           style={[
@@ -81,7 +86,9 @@ const PaymentSuccessScreen = ({ navigation, route }) => {
         <Animated.View style={[styles.summaryCard, { opacity: fadeAnim }]}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Transaction ID</Text>
-            <Text style={styles.summaryValue}>{transactionId || '—'}</Text>
+            <Text style={styles.summaryValue} numberOfLines={1} ellipsizeMode="middle">
+              {transactionId || '—'}
+            </Text>
           </View>
           
           <View style={styles.divider} />
@@ -123,7 +130,7 @@ const PaymentSuccessScreen = ({ navigation, route }) => {
             Your gold is safely stored in secure, insured vaults
           </Text>
         </Animated.View>
-      </View>
+      </ScrollView>
 
       {/* Action Buttons */}
       <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim }]}>
@@ -144,7 +151,7 @@ const PaymentSuccessScreen = ({ navigation, route }) => {
           <Text style={styles.primaryButtonText}>Done</Text>
         </TouchableOpacity>
       </Animated.View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -154,10 +161,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
+    paddingVertical: 24,
   },
   successContainer: {
     marginBottom: 32,

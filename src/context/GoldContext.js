@@ -126,6 +126,8 @@ export const GoldProvider = ({ children, navigationRef }) => {
         dispatch({ type: 'SET_USER', payload: profile.value });
       } else if (profile.reason?.message === SESSION_EXPIRED) {
         return handleSessionExpired();
+      } else {
+        console.error('[GoldContext] Profile fetch failed:', profile.reason);
       }
 
       if (wallet.status === 'fulfilled') {
@@ -149,15 +151,41 @@ export const GoldProvider = ({ children, navigationRef }) => {
         });
       } else if (wallet.reason?.message === SESSION_EXPIRED) {
         return handleSessionExpired();
-      } else if (transactions.status === 'fulfilled') {
+      } else {
+        console.error('[GoldContext] Wallet fetch failed:', wallet.reason);
+        // Set empty portfolio on error
         dispatch({
           type: 'SET_PORTFOLIO',
-          payload: { ...state.portfolio, transactions: transactions.value },
+          payload: {
+            totalGrams: 0,
+            totalInvested: 0,
+            currentValue: 0,
+            walletBalance: 0,
+            transactions: transactions.status === 'fulfilled' ? transactions.value : [],
+          },
         });
       }
 
+      if (transactions.status === 'rejected') {
+        console.error('[GoldContext] Transactions fetch failed:', transactions.reason);
+      }
+
       dispatch({ type: 'SET_DATA_READY' });
-    } catch {}
+    } catch (err) {
+      console.error('[GoldContext] Load user data error:', err);
+      // Set empty data on error
+      dispatch({
+        type: 'SET_PORTFOLIO',
+        payload: {
+          totalGrams: 0,
+          totalInvested: 0,
+          currentValue: 0,
+          walletBalance: 0,
+          transactions: [],
+        },
+      });
+      dispatch({ type: 'SET_DATA_READY' });
+    }
   }, [reduxUserId, handleSessionExpired]);
 
   // ── Add transaction (optimistic update) ──────────────────────────────────

@@ -19,7 +19,7 @@ import { SESSION_EXPIRED, AUTH_STORAGE_KEY } from '../constants/authConstants';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const CONFIG = {
-  REQUEST_TIMEOUT: 15000,
+  REQUEST_TIMEOUT: 60000,  // 60 seconds for AI image generation
   MAX_RETRIES:     2,
   RETRY_DELAY:     1000,
 };
@@ -93,10 +93,16 @@ const refreshAccessToken = async () => {
   _refreshPromise = (async () => {
     try {
       const refreshToken = getRefreshToken();
-      if (!refreshToken) throw new Error('No refresh token available');
+      if (!refreshToken) {
+        console.log('[apiClient] No refresh token available');
+        await clearAuthTokens();
+        if (_onSessionExpired) _onSessionExpired();
+        return null;
+      }
 
+      console.log('[apiClient] Attempting token refresh...');
       const controller = new AbortController();
-      const tid = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+      const tid = setTimeout(() => controller.abort(), 15000);
 
       const res = await fetch(API_REFRESH_TOKEN, {
         method:  'POST',
@@ -106,29 +112,37 @@ const refreshAccessToken = async () => {
       });
       clearTimeout(tid);
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || 'Token refresh failed');
+      if (!res.ok) {
+        console.log('[apiClient] Token refresh failed with status:', res.status);
+        await clearAuthTokens();
+        if (_onSessionExpired) _onSessionExpired();
+        return null;
+      }
 
+      const data = await res.json();
       const newTokens = {
         accessToken:  data?.data?.accessToken  || data?.accessToken,
         refreshToken: data?.data?.refreshToken || data?.refreshToken || refreshToken,
         expiresIn:    data?.data?.expiresIn    || data?.expiresIn,
       };
 
+      if (!newTokens.accessToken) {
+        console.log('[apiClient] No access token in refresh response');
+        await clearAuthTokens();
+        if (_onSessionExpired) _onSessionExpired();
+        return null;
+      }
+
+      console.log('[apiClient] Token refresh successful');
       _store?.dispatch(setTokens(newTokens));
       await persistTokens(newTokens);
 
       return newTokens.accessToken;
     } catch (error) {
-      // Refresh failed — clear everything and redirect to Login
-      console.log('[apiClient] Token refresh failed, triggering session expired handler');
+      console.log('[apiClient] Token refresh error:', error.message);
       await clearAuthTokens();
-      if (_onSessionExpired) {
-        _onSessionExpired();
-      } else {
-        console.warn('[apiClient] No session expired handler registered!');
-      }
-      throw new ApiError(SESSION_EXPIRED, 401, null);
+      if (_onSessionExpired) _onSessionExpired();
+      return null;
     } finally {
       _refreshPromise = null;
     }
@@ -174,7 +188,13 @@ const buildError = (status, data) => {
 export const apiRequest = async (url, options = {}, retryCount = 0) => {
   // Proactive refresh: if token is about to expire, refresh before sending
   if (!options._retry && getToken() && isTokenExpiredOrExpiringSoon()) {
-    try { await refreshAccessToken(); } catch { /* handler already called */ }
+    console.log('[apiClient] Token expiring soon, attempting proactive refresh');
+    const newToken = await refreshAccessToken();
+    if (!newToken) {
+      console.log('[apiClient] Proactive refresh failed, session expired');
+      return { success: false, sessionExpired: true };
+    }
+    console.log('[apiClient] Proactive refresh successful, continuing request');
   }
 
   const token = getToken();
@@ -191,8 +211,10 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
     finalUrl = `${url}?${new URLSearchParams(options.params)}`;
   }
 
+  // Use longer timeout for AI image generation endpoints
+  const timeout = url.includes('generate-modelImage') ? 60000 : CONFIG.REQUEST_TIMEOUT;
   const controller = new AbortController();
-  const tid = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+  const tid = setTimeout(() => controller.abort(), timeout);
 
   try {
     const res = await fetch(finalUrl, {
@@ -221,7 +243,13 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
 
     // 401 → attempt refresh then retry once
     if (res.status === 401 && !options._retry) {
-      await refreshAccessToken();                                    // throws if refresh fails
+      console.log('[apiClient] Got 401, attempting reactive token refresh');
+      const newToken = await refreshAccessToken();
+      if (!newToken) {
+        console.log('[apiClient] Reactive refresh failed, session expired');
+        return { success: false, sessionExpired: true };
+      }
+      console.log('[apiClient] Reactive refresh successful, retrying request');
       return apiRequest(url, { ...options, _retry: true }, retryCount);
     }
 

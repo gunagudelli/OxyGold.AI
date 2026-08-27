@@ -233,19 +233,58 @@ export const executeSell = async (grams, pricePerGram, userId) => {
 
 // ─── Portfolio (GET request) ──────────────────────────────────────────────────
 export const fetchPortfolio = async (userId) => {
-  const data = await apiGet(`${API_PORTFOLIO}/${userId}`);
-  const d = data?.data || data;
-  return {
-    userId:              d.userId || userId,
-    totalGoldGrams:      parseFloat(d.totalGoldGrams      || d.goldBalanceGrams || 0),
-    totalInvestedAmount: parseFloat(d.totalInvestedAmount || d.invested         || 0),
-    currentValue:        parseFloat(d.currentValue        || 0),
-    totalGain:           parseFloat(d.totalGain           || d.gain             || 0),
-    gainPercentage:      parseFloat(d.gainPercentage      || d.gainPercent      || 0),
-    averageBuyPrice:     parseFloat(d.averageBuyPrice     || d.avgBuyPrice      || 0),
-    currentMarketPrice:  parseFloat(d.currentMarketPrice  || d.marketPrice      || 0),
-    lastUpdated:         d.lastUpdated || new Date().toISOString(),
-  };
+  console.log('========================================');
+  console.log('[fetchPortfolio] Called with userId:', userId);
+  console.log('[fetchPortfolio] API URL:', `${API_PORTFOLIO}/${userId}`);
+  console.log('========================================');
+  
+  try {
+    const data = await apiGet(`${API_PORTFOLIO}/${userId}`);
+    console.log('========================================');
+    console.log('[fetchPortfolio] Raw API Response:', JSON.stringify(data, null, 2));
+    console.log('========================================');
+    
+    const d = data?.data || data;
+    
+    // Parse values
+    const totalGoldGrams = parseFloat(d.totalGoldGrams || d.goldBalanceGrams || 0);
+    const totalInvestedAmount = parseFloat(d.totalInvestedAmount || d.invested || 0);
+    const currentValue = parseFloat(d.currentValue || 0);
+    
+    // Calculate gain/loss if API doesn't provide it
+    let totalGain = parseFloat(d.totalGain || d.gain || 0);
+    let gainPercentage = parseFloat(d.gainPercentage || d.gainPercent || 0);
+    
+    if (totalGain === 0 && totalInvestedAmount > 0) {
+      totalGain = currentValue - totalInvestedAmount;
+      gainPercentage = (totalGain / totalInvestedAmount) * 100;
+    }
+    
+    const result = {
+      userId:              d.userId || userId,
+      totalGoldGrams,
+      totalInvestedAmount,
+      currentValue,
+      totalGain,
+      gainPercentage,
+      averageBuyPrice:     parseFloat(d.averageBuyPrice     || d.avgBuyPrice      || 0),
+      currentMarketPrice:  parseFloat(d.currentMarketPrice  || d.marketPrice      || 0),
+      lastUpdated:         d.lastUpdated || new Date().toISOString(),
+    };
+    
+    console.log('========================================');
+    console.log('[fetchPortfolio] Parsed Result:', JSON.stringify(result, null, 2));
+    console.log('========================================');
+    
+    return result;
+  } catch (error) {
+    console.log('========================================');
+    console.error('[fetchPortfolio] ERROR:', error.message);
+    console.error('[fetchPortfolio] Error Status:', error.status);
+    console.error('[fetchPortfolio] Error Data:', JSON.stringify(error.data, null, 2));
+    console.log('========================================');
+    throw error;
+  }
 };
 
 // ─── Transactions (paginated) (GET request) ───────────────────────────────────

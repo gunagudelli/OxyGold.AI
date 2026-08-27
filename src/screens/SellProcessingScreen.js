@@ -8,20 +8,22 @@ import {
   Easing,
   BackHandler,
   Platform,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { selectAccessToken } from "../store/authSlice";
 import { BASE_URL } from "../constants/api";
 
 const C = {
-  bg: "#F7F6F3",
+  bg: "#F5F3F0",
   card: "#FFFFFF",
-  gold: "#C8952A",
-  goldLight: "#F5ECD7",
-  navy: "#1C2340",
-  border: "#EAE8E2",
+  gold: "#D4AF37",
+  goldLight: "#F8F6F2",
+  navy: "#1F2933",
+  border: "#E5E7EB",
 };
 
 const SELL_EXECUTE_API = `${BASE_URL}/digital-gold/sell/execute`;
@@ -156,17 +158,20 @@ export default function SellProcessingScreen({ navigation, route }) {
         <Text style={s.headerTitle}>Processing Transaction</Text>
       </View>
 
-      <View style={s.center}>
+      <ScrollView
+        contentContainerStyle={s.center}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Animated Spinner */}
         <View style={s.spinnerContainer}>
           <Animated.View
             style={[s.spinnerRing, { transform: [{ rotate: spin }] }]}
           />
           <LinearGradient
-            colors={["#D4A535", "#C8952A"]}
+            colors={["#D4A535", "#D4AF37"]}
             style={s.spinnerInner}
           >
-            <Text style={s.spinnerEmoji}>🪙</Text>
+            <Ionicons name="ellipse" size={26} color="#FFFFFF" />
           </LinearGradient>
         </View>
 
@@ -176,7 +181,9 @@ export default function SellProcessingScreen({ navigation, route }) {
         {/* Transaction ID Card */}
         <View style={s.txnCard}>
           <Text style={s.txnLabel}>Transaction ID</Text>
-          <Text style={s.txnId}>{transactionId}</Text>
+          <Text style={s.txnId} numberOfLines={1} ellipsizeMode="middle">
+            {transactionId}
+          </Text>
         </View>
 
         {/* Steps */}
@@ -189,12 +196,7 @@ export default function SellProcessingScreen({ navigation, route }) {
                     <Text style={s.checkmark}>✓</Text>
                   </View>
                 ) : i === currentStep ? (
-                  <Animated.View
-                    style={[
-                      s.stepDotActive,
-                      { transform: [{ scale: spinAnim }] },
-                    ]}
-                  />
+                  <View style={s.stepDotActive} />
                 ) : (
                   <View style={s.stepDotInactive} />
                 )}
@@ -212,12 +214,12 @@ export default function SellProcessingScreen({ navigation, route }) {
         </View>
 
         <View style={s.noteCard}>
-          <Text style={s.noteIcon}>⚠️</Text>
+          <Ionicons name="alert-circle-outline" size={17} color="#D4A574" style={{ marginRight: 10 }} />
           <Text style={s.note}>
             Please do not close the app or press the back button
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -236,15 +238,16 @@ const s = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#E8C97A",
+    color: "#C5A100",
     letterSpacing: 0.2,
   },
 
   center: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
+    paddingVertical: 24,
   },
 
   spinnerContainer: {
@@ -274,8 +277,6 @@ const s = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  spinnerEmoji: { fontSize: 40 },
-
   title: {
     fontSize: 24,
     fontWeight: "800",
@@ -286,7 +287,7 @@ const s = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: "#8891AF",
+    color: "#9CA3AF",
     marginBottom: 20,
     textAlign: "center",
   },
@@ -303,7 +304,7 @@ const s = StyleSheet.create({
   },
   txnLabel: {
     fontSize: 11,
-    color: "#8891AF",
+    color: "#9CA3AF",
     fontWeight: "600",
     marginBottom: 4,
     letterSpacing: 0.5,
@@ -367,16 +368,12 @@ const s = StyleSheet.create({
   noteCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFBEB",
+    backgroundColor: "#FDF6ED",
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#FDE68A",
+    borderColor: "#D4A574",
     width: "100%",
-  },
-  noteIcon: {
-    fontSize: 18,
-    marginRight: 10,
   },
   note: {
     fontSize: 12,

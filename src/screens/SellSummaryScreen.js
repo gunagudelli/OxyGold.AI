@@ -23,7 +23,13 @@ const SELL_API = `${PHYSICAL_GOLD_BASE_URL}/digital-gold/sell/initiate`;
 const Row = ({ label, value, gold }) => (
   <View style={s.row}>
     <Text style={s.rowLabel}>{label}</Text>
-    <Text style={[s.rowValue, gold && s.rowGold]}>{value}</Text>
+    <Text
+      style={[s.rowValue, gold && s.rowGold]}
+      numberOfLines={1}
+      ellipsizeMode="tail"
+    >
+      {value}
+    </Text>
   </View>
 );
 
@@ -219,7 +225,11 @@ export default function SellSummaryScreen({ navigation, route }) {
           ]}
         >
           <View style={s.timerRow}>
-            <Text style={s.timerIcon}>{isPriceLocked ? "🔒" : "⚠️"}</Text>
+            <Ionicons
+              name={isPriceLocked ? "lock-closed" : "alert-circle"}
+              size={15}
+              color={!isPriceLocked ? "#dc2626" : isUrgent ? "#d97706" : "#1a3060"}
+            />
             <Text
               style={[
                 s.timerText,
@@ -473,7 +483,6 @@ const s = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
-  timerIcon: { fontSize: 14 },
   timerText: { fontSize: 13, fontWeight: "500" },
   timerTextOk: { color: "#1a3060" },
   timerTextUrgent: { color: "#d97706" },
@@ -516,8 +525,15 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#f4f5f7",
   },
-  rowLabel: { fontSize: 13, color: "#8a96a3" },
-  rowValue: { fontSize: 13, fontWeight: "600", color: "#1c2b3a" },
+  rowLabel: { fontSize: 13, color: "#8a96a3", flexShrink: 0 },
+  rowValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1c2b3a",
+    flexShrink: 1,
+    marginLeft: 12,
+    textAlign: "right",
+  },
   rowGold: { color: "#b8720a" },
   divider: { height: 1, backgroundColor: "#f0f0f0", marginVertical: 8 },
   gstNote: { fontSize: 11, color: "#999", fontStyle: "italic", marginTop: 8 },

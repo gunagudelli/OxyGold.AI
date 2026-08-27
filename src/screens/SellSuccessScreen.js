@@ -18,16 +18,16 @@ import { selectAccessToken } from "../store/authSlice";
 import { downloadSellInvoicePDF, openInvoicePDF } from "../utils/downloadInvoice";
 
 const C = {
-  bg: "#F7F6F3",
+  bg: "#F5F3F0",
   card: "#FFFFFF",
-  gold: "#C8952A",
-  goldLight: "#F5ECD7",
-  navy: "#1C2340",
-  green: "#0E9F6E",
-  greenBg: "#ECFDF5",
-  red: "#E02424",
-  redBg: "#FEF2F2",
-  border: "#EAE8E2",
+  gold: "#D4AF37",
+  goldLight: "#F8F6F2",
+  navy: "#1F2933",
+  green: "#2ECC71",
+  greenBg: "#E8F5E9",
+  red: "#C85A54",
+  redBg: "#FDECEA",
+  border: "#E5E7EB",
 };
 
 export default function SellSuccessScreen({ navigation, route }) {
@@ -269,7 +269,7 @@ export default function SellSuccessScreen({ navigation, route }) {
         {!isFailed && (
           <TouchableOpacity
             style={s.secondaryBtn}
-            onPress={() => navigation.navigate("Dashboard")}
+            onPress={() => navigation.navigate("Dashboard", { forceRefresh: true })}
             activeOpacity={0.8}
           >
             <Text style={s.secondaryBtnText}>View Portfolio</Text>
@@ -280,12 +280,12 @@ export default function SellSuccessScreen({ navigation, route }) {
           onPress={() =>
             isFailed
               ? navigation.navigate("SellGold")
-              : navigation.navigate("Dashboard")
+              : navigation.navigate("Dashboard", { forceRefresh: true })
           }
           activeOpacity={0.88}
         >
           <LinearGradient
-            colors={isFailed ? ["#E02424", "#C81E1E"] : ["#D4A535", "#C8952A", "#B8841E"]}
+            colors={isFailed ? ["#C85A54", "#C81E1E"] : ["#D4A535", "#D4AF37", "#C5A100"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={s.primaryBtnGrad}
@@ -341,13 +341,13 @@ const s = StyleSheet.create({
   },
   backBtnText: {
     fontSize: 20,
-    color: "#D4A843",
+    color: "#D4AF37",
     fontWeight: "400",
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#E8C97A",
+    color: "#C5A100",
     letterSpacing: 0.2,
   },
 
@@ -382,7 +382,7 @@ const s = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: "#8891AF",
+    color: "#9CA3AF",
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 28,
@@ -410,7 +410,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
-  rowLabel: { fontSize: 13, color: "#8891AF", fontWeight: "500" },
+  rowLabel: { fontSize: 13, color: "#9CA3AF", fontWeight: "500" },
   rowValue: {
     fontSize: 13,
     fontWeight: "700",
@@ -460,17 +460,17 @@ const s = StyleSheet.create({
     color: C.navy,
     marginBottom: 4,
   },
-  bankInfo: { fontSize: 12, color: "#8891AF", marginTop: 2 },
+  bankInfo: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
 
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFBEB",
+    backgroundColor: "#FDF6ED",
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#FDE68A",
+    borderColor: "#D4A574",
   },
   infoText: { fontSize: 11, color: "#92400E", flex: 1, lineHeight: 16, marginLeft: 8 },
 

@@ -76,7 +76,7 @@ const ProductImageGallery = ({ imageObj, height = 300 }) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#F5F3EE',
+    backgroundColor: '#F5F3F0',
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE8E1',
+    borderBottomColor: '#E5E7EB',
   },
   mainImage: {
     width: '100%',
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#A8ABBE',
+    color: '#9CA3AF',
   },
   thumbnailContainer: {
     paddingHorizontal: 8,
@@ -111,11 +111,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#EBE8E1',
+    borderColor: '#E5E7EB',
     overflow: 'hidden',
   },
   thumbnailActive: {
-    borderColor: '#D4A843',
+    borderColor: '#D4AF37',
     borderWidth: 2,
   },
   thumbnailImage: {

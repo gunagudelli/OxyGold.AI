@@ -56,7 +56,7 @@ const withSessionHandler = (WrappedComponent, options = {}) => {
     if (isChecking) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#B8891A" />
+          <ActivityIndicator size="large" color="#D4AF37" />
         </View>
       );
     }

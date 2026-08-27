@@ -1,0 +1,1578 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  Alert,
+  Animated,
+  Modal,
+  Dimensions,
+  BackHandler,
+} from "react-native";
+import { useSelector, useDispatch } from "react-redux";
+import { Ionicons } from "@expo/vector-icons";
+import { selectUserId } from "../../store/authSlice";
+import { setCartCount } from "../../store/cartSlice";
+import PgLayout from "../components/PgLayout";
+import FadeSlideIn from "../components/FadeSlideIn";
+import {
+  getProductVariants,
+  getProductAllImages,
+  addToCart,
+  getCart,
+  generateModelImage,
+} from "./physicalGoldApi";
+import { apiPost, apiDelete } from "../../services/apiClient";
+import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
+import { performanceMonitor } from "../../utils/performanceMonitor";
+import { useApiCall } from "../../hooks/useApiCall";
+
+const { width: SW, height: SH } = Dimensions.get("window");
+
+// ─── Tokens ───────────────────────────────────────────────────────────────────
+const C = {
+  bg: "#F8F7F6",
+  card: "#FFFFFF",
+  gold: "#CF8B17",
+  goldLight: "#F7F4ED",
+  goldMid: "#E4BB67",
+  goldDim: "rgba(207,139,23,0.10)",
+  navy: "#1C1C1E",
+  navyMid: "#48484C",
+  navyLight: "#7A7A80",
+  green: "#2ECC71",
+  greenDark: "#1F8A4C",
+  greenLight: "#E8F5E9",
+  red: "#C85A54",
+  redDark: "#8B3A34",
+  redLight: "#FDECEA",
+  border: "#E7E0DA",
+  divider: "#EEEBE8",
+};
+
+const ALL_VIEWS = [
+  { key: "frontViewUrl", label: "Front" },
+  { key: "topViewUrl", label: "Top" },
+  { key: "leftViewUrl", label: "Left" },
+  { key: "rightViewUrl", label: "Right" },
+  { key: "backViewUrl", label: "Back" },
+  { key: "bottomViewUrl", label: "Bottom" },
+];
+
+const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
+
+// AI model preview card — hidden per request.
+const SHOW_AI_MODEL_PREVIEW = false;
+
+// ─── Shimmer ──────────────────────────────────────────────────────────────────
+const Shimmer = ({ w, h, r = 10 }) => {
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const shimmerLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(a, {
+          toValue: 1,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+        Animated.timing(a, {
+          toValue: 0,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    shimmerLoop.start();
+    return () => {
+      shimmerLoop.stop();
+      a.stopAnimation();
+    };
+  }, []);
+  return (
+    <Animated.View
+      style={{
+        width: w,
+        height: h,
+        borderRadius: r,
+        backgroundColor: "#E4BB67",
+        opacity: a.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.18, 0.42],
+        }),
+      }}
+    />
+  );
+};
+
+// ─── Section Header ───────────────────────────────────────────────────────────
+const SectionHeader = ({ title }) => (
+  <View style={s.secHead}>
+    <View style={s.secBar} />
+    <Text style={s.secTitle}>{title}</Text>
+  </View>
+);
+
+// ─── Spec Row ─────────────────────────────────────────────────────────────────
+const SpecRow = ({ label, value, accent, last }) => (
+  <View style={[s.specRow, last && s.specLast]}>
+    <Text style={s.specLabel}>{label}</Text>
+    <Text style={[s.specVal, accent && s.specAccent]}>{value}</Text>
+  </View>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+const PgProductDetailsScreen = ({ navigation, route }) => {
+  const { productId } = route.params;
+  const userId = useSelector(selectUserId);
+  const dispatch = useDispatch();
+
+  const [product, setProduct] = useState(null);
+  const [variants, setVariants] = useState([]);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [productImages, setProductImages] = useState({});
+  const [availableViews, setAvailableViews] = useState([]);
+  const [selectedViewIdx, setSelectedViewIdx] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [cartLoading, setCartLoading] = useState(false);
+  const [cartMsg, setCartMsg] = useState({ text: "", type: "" });
+  // Cart state for the currently selected variant — mirrors the web app's
+  // "Add to Cart" → quantity stepper + "Go to Cart" flow.
+  const [cartQuantity, setCartQuantity] = useState(0);
+  const [cartItemId, setCartItemId] = useState(null);
+  const [cartStepBusy, setCartStepBusy] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [specsExpanded, setSpecsExpanded] = useState(false);
+  const [generatingPreview, setGeneratingPreview] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  // ── Hardware back
+  useEffect(() => {
+    const h = BackHandler.addEventListener("hardwareBackPress", () => {
+      navigation.goBack();
+      return true;
+    });
+    return () => h.remove();
+  }, [navigation]);
+
+  // ── Sync cart state for the selected variant (drives the Add to Cart /
+  //    quantity-stepper switch, same as the web app)
+  useEffect(() => {
+    if (!userId || !selectedVariant?.id) {
+      setCartQuantity(0);
+      setCartItemId(null);
+      return;
+    }
+    let cancelled = false;
+    getCart(userId)
+      .then((cart) => {
+        if (cancelled) return;
+        const item = (cart?.itemsInCart || []).find(
+          (i) => String(i.productVariantId) === String(selectedVariant.id),
+        );
+        setCartQuantity(item?.quantity || 0);
+        setCartItemId(item?.cartId ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [userId, selectedVariant?.id]);
+
+  // ── Fetch data
+  useEffect(() => {
+    performanceMonitor.startMeasure('PgProductDetailsScreen');
+    (async () => {
+      const t0 = Date.now();
+      try {
+        const res = await getProductVariants(productId);
+        const inner = res?.data || res;
+        const rawList =
+          inner?.listVariantResponse ||
+          inner?.variants ||
+          (Array.isArray(inner) ? inner : []);
+        const rawProd = inner?.productResponse || inner?.product || null;
+
+        let imgs = {};
+        try {
+          imgs = (await getProductAllImages(productId)) || {};
+        } catch (_) {}
+
+        const views = ALL_VIEWS.filter((v) => !!imgs[v.key]);
+        setAvailableViews(views);
+        setProductImages(imgs);
+        setSelectedViewIdx(0);
+
+        const mapped = rawList.map((v) => ({
+          id: v.id?.toString(),
+          price: v.price || 0,
+          mrp: v.mrp || 0,
+          imageUrl: v.imageUrl || imgs.frontViewUrl || "",
+          purity: v.purity || "",
+          size: v.size || "",
+          sku: v.sku || "",
+          status: v.status || "",
+          stockQuantity: v.stockQuantity ?? 0,
+          weight: v.weight || 0,
+        }));
+        setVariants(mapped);
+        if (mapped.length) setSelectedVariant(mapped[0]);
+
+        const src = rawProd || route.params?.product || null;
+        if (src) {
+          setProduct({
+            id: src.id?.toString(),
+            name: src.name || src.productName || "",
+            imageUrl: src.imageUrl || imgs.frontViewUrl || "",
+            description: src.description || "",
+            status: src.status || "",
+            gstPercentage: parseFloat(src.gstPercentage) || 0,
+            makingPercentage: parseFloat(src.makingPercentage) || 0,
+          });
+        }
+        performanceMonitor.endMeasure('PgProductDetailsScreen');
+      } catch (_) {
+        const fb = route.params?.product;
+        if (fb) {
+          let imgUrl = fb.imageUrl || "";
+          if (!imgUrl) {
+            try {
+              const r2 = await getProductAllImages(productId);
+              imgUrl = r2?.frontViewUrl || "";
+              const views = ALL_VIEWS.filter((v) => !!r2[v.key]);
+              setAvailableViews(views);
+              setProductImages(r2 || {});
+            } catch (_) {}
+          }
+          setProduct({
+            id: fb.id?.toString(),
+            name: fb.productName || fb.name || "",
+            imageUrl: imgUrl,
+            description: fb.description || "",
+            status: fb.status || "",
+            gstPercentage: parseFloat(fb.gstPercentage) || 0,
+            makingPercentage: parseFloat(fb.makingPercentage) || 0,
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [productId]);
+
+  const switchView = (idx) => {
+    setSelectedViewIdx(idx);
+  };
+
+  // Adds the selected variant, then switches the CTA into the quantity-stepper
+  // state — no blocking alert, matching the web app's inline transition.
+  const addSelectedVariantToCart = async () => {
+    if (!selectedVariant?.id) {
+      Alert.alert("Select Variant", "Please choose a variant first.");
+      return false;
+    }
+    if (!userId) {
+      Alert.alert("Session Expired", "Please login again.", [
+        { text: "OK", onPress: () => navigation.replace("Login") },
+      ]);
+      return false;
+    }
+    const t0 = Date.now();
+    setCartLoading(true);
+    setCartMsg({ text: "", type: "" });
+    try {
+      const result = await addToCart(userId, product.id, selectedVariant.id, 1);
+      setCartQuantity((q) => q + 1);
+      if (result?.cartId ?? result?.id) setCartItemId(result.cartId ?? result.id);
+      getCart(userId)
+        .then((cart) => dispatch(setCartCount(cart?.itemsInCart?.length || 0)))
+        .catch(() => {});
+      return true;
+    } catch (e) {
+      setTimeout(
+        () => {
+          setCartMsg({
+            text: e?.message || "Could not add to cart. Try again.",
+            type: "error",
+          });
+          setTimeout(() => setCartMsg({ text: "", type: "" }), 4000);
+        },
+        Math.max(0, 700 - (Date.now() - t0)),
+      );
+      return false;
+    } finally {
+      setTimeout(
+        () => setCartLoading(false),
+        Math.max(0, 700 - (Date.now() - t0)),
+      );
+    }
+  };
+
+  const handleAddToCart = () => {
+    addSelectedVariantToCart();
+  };
+
+  const handleBuyNow = async () => {
+    const ok = cartQuantity > 0 ? true : await addSelectedVariantToCart();
+    if (ok) navigation.navigate("PgCart");
+  };
+
+  const handleCartIncrement = async () => {
+    if (!selectedVariant?.id || !userId || cartStepBusy) return;
+    setCartStepBusy(true);
+    const prevQty = cartQuantity;
+    setCartQuantity(prevQty + 1);
+    try {
+      await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/AddItemToCart`, {
+        userId, productId: product.id, productVariantId: selectedVariant.id, quantity: 1,
+      });
+      getCart(userId)
+        .then((cart) => dispatch(setCartCount(cart?.itemsInCart?.length || 0)))
+        .catch(() => {});
+    } catch {
+      setCartQuantity(prevQty);
+    } finally {
+      setCartStepBusy(false);
+    }
+  };
+
+  const handleCartDecrement = async () => {
+    if (!selectedVariant?.id || !userId || cartStepBusy) return;
+    if (cartQuantity <= 1) {
+      setCartStepBusy(true);
+      const prevQty = cartQuantity;
+      setCartQuantity(0);
+      try {
+        if (cartItemId) {
+          await apiDelete(`${PHYSICAL_GOLD_BASE_URL}/cart/${cartItemId}`, { params: { userId } });
+        }
+        getCart(userId)
+          .then((cart) => dispatch(setCartCount(cart?.itemsInCart?.length || 0)))
+          .catch(() => {});
+      } catch {
+        setCartQuantity(prevQty);
+      } finally {
+        setCartStepBusy(false);
+      }
+      return;
+    }
+    setCartStepBusy(true);
+    const prevQty = cartQuantity;
+    setCartQuantity(prevQty - 1);
+    try {
+      await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/decrementCartItems`, {
+        userId, id: cartItemId, productId: product.id, productVariantId: selectedVariant.id, quantity: 1,
+      });
+    } catch {
+      setCartQuantity(prevQty);
+    } finally {
+      setCartStepBusy(false);
+    }
+  };
+
+  const handleGenerateModelPreview = async () => {
+    if (!currentImageUrl) {
+      Alert.alert("No Image", "No product image available to generate preview.");
+      return;
+    }
+
+    setGeneratingPreview(true);
+    setPreviewImageUrl(null);
+
+    try {
+      console.log('========================================');
+      console.log('[ProductDetails] Generating AI Model Preview');
+      console.log('[ProductDetails] Image URL:', currentImageUrl);
+      console.log('[ProductDetails] Current View:', currentView?.label);
+      console.log('========================================');
+
+      const result = await generateModelImage(currentImageUrl, 'MODEL');
+      
+      console.log('========================================');
+      console.log('[ProductDetails] API Response:', result);
+      console.log('========================================');
+      
+      // API returns { success: true, message: "<url>" }
+      const imageUrl = result?.message || result?.generatedImageUrl || result;
+      
+      if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
+        setPreviewImageUrl(imageUrl);
+        setShowPreviewModal(true);
+      } else {
+        Alert.alert("Error", "Failed to generate preview. No image URL returned.");
+      }
+    } catch (error) {
+      console.error('[ProductDetails] Preview generation error:', error);
+      Alert.alert(
+        "Error",
+        error?.message || "Failed to generate preview. Please try again.",
+      );
+    } finally {
+      setGeneratingPreview(false);
+    }
+  };
+
+  // ─── Loading skeleton ─────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <PgLayout
+        title="Product Details"
+        showBack
+        onBack={() => navigation.goBack()}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
+          <View style={{ margin: 16, marginTop: 20 }}>
+            <Shimmer w="100%" h={300} r={22} />
+          </View>
+          <View style={{ paddingHorizontal: 16, gap: 10 }}>
+            <Shimmer w="70%" h={22} />
+            <Shimmer w="45%" h={14} />
+            <View style={{ height: 6 }} />
+            <Shimmer w="100%" h={88} r={16} />
+            <Shimmer w="100%" h={130} r={16} />
+            <Shimmer w="100%" h={110} r={16} />
+          </View>
+        </ScrollView>
+      </PgLayout>
+    );
+  }
+
+  // ─── Not found ────────────────────────────────────────────────────────────
+  if (!product) {
+    return (
+      <PgLayout
+        title="Product Details"
+        showBack
+        onBack={() => navigation.goBack()}
+      >
+        <View style={s.empty}>
+          <View style={s.emptyIcon}>
+            <Ionicons name="diamond-outline" size={32} color={C.gold} />
+          </View>
+          <Text style={s.emptyTitle}>Product Not Found</Text>
+          <Text style={s.emptySub}>This item may no longer be available.</Text>
+          <TouchableOpacity
+            style={s.emptyBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="arrow-back" size={15} color="#1C1C1E" style={{ marginRight: 6 }} />
+            <Text style={s.emptyBtnText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </PgLayout>
+    );
+  }
+
+  // ─── Derived values ───────────────────────────────────────────────────────
+  const price = selectedVariant?.price || 0;
+  const mrp = selectedVariant?.mrp || price;
+  const discount = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
+  const inStock = (selectedVariant?.stockQuantity ?? 0) > 0;
+
+  const currentView = availableViews[selectedViewIdx];
+  const currentImageUrl = currentView
+    ? productImages[currentView.key]
+    : selectedVariant?.imageUrl || "";
+  const hasImages = availableViews.length > 0;
+  const hasMultiple = availableViews.length > 1;
+
+  return (
+    <PgLayout
+      title={product.name || "Product Details"}
+      showBack
+      onBack={() => navigation.goBack()}
+      hideBottomBar={false}
+    >
+      <View style={s.root}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={s.scroll}
+        >
+        <FadeSlideIn key={product?.id || "product"}>
+          {/* ──────────────── HERO ──────────────── */}
+          <View style={s.hero}>
+            {/* Discount ribbon — only badge kept on the image itself */}
+            {discount > 0 && (
+              <View style={s.badgeDiscount}>
+                <Text style={s.badgeDiscountText}>{discount}% OFF</Text>
+              </View>
+            )}
+
+            {/* Image */}
+            {hasImages ? (
+              <TouchableOpacity
+                style={s.heroImageWrap}
+                onPress={() => setShowModal(true)}
+                activeOpacity={0.95}
+              >
+                <Image
+                  source={{ uri: currentImageUrl }}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            ) : (
+              <View style={s.coinFallback}>
+                <Text style={s.coinWeight}>
+                  {selectedVariant?.weight ? `${selectedVariant.weight}g` : "—"}
+                </Text>
+                <View style={s.coinLine} />
+                <Text style={s.coinSub}>
+                  {selectedVariant?.purity || product.name}
+                </Text>
+              </View>
+            )}
+
+            {/* Arrows */}
+            {hasMultiple && (
+              <TouchableOpacity
+                style={[s.arrow, s.arrowLeft]}
+                onPress={() =>
+                  switchView(
+                    (selectedViewIdx - 1 + availableViews.length) %
+                      availableViews.length,
+                  )
+                }
+                activeOpacity={0.75}
+              >
+                <Ionicons name="chevron-back" size={18} color={C.navyLight} />
+              </TouchableOpacity>
+            )}
+            {hasMultiple && (
+              <TouchableOpacity
+                style={[s.arrow, s.arrowRight]}
+                onPress={() =>
+                  switchView((selectedViewIdx + 1) % availableViews.length)
+                }
+                activeOpacity={0.75}
+              >
+                <Ionicons name="chevron-forward" size={18} color={C.navyLight} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Dot indicators — below the image, not overlaid on it */}
+          {hasMultiple && (
+            <View style={s.dotBar}>
+              {availableViews.map((v, i) => (
+                <TouchableOpacity
+                  key={v.key}
+                  onPress={() => switchView(i)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                >
+                  <View
+                    style={[s.dot, i === selectedViewIdx && s.dotActive]}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Trust row — BIS hallmark, kept as one plain line under the image */}
+          <View style={s.trustRow}>
+            <Ionicons name="checkmark-circle" size={14} color={C.green} />
+            <Text style={s.trustText}>BIS Hallmarked</Text>
+          </View>
+
+          {/* ──────────────── BODY ──────────────── */}
+          <View style={s.body}>
+            {/* Product name + desc */}
+            <Text style={s.name}>{product.name}</Text>
+            {product.description ? (
+              <Text style={s.desc}>{product.description}</Text>
+            ) : null}
+
+            {/* ── Price Summary Card ── */}
+            <View style={s.priceCard}>
+              <View style={s.priceCardBg} />
+              <View style={s.priceMain}>
+                <View style={s.priceMainLeft}>
+                  <Text style={s.priceLabelSmall}>SELLING PRICE</Text>
+                  <Text style={s.priceValue}>₹{fmt(price)}</Text>
+                  {mrp > price && (
+                    <View style={s.priceStrikeRow}>
+                      <Text style={s.priceStrike}>₹{fmt(mrp)}</Text>
+                      <View style={s.discPill}>
+                        <Text style={s.discPillText}>{discount}% OFF</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+                <View style={s.priceMainRight}>
+                  <View style={s.freeDelivery}>
+                    <Ionicons name="cube-outline" size={20} color={C.green} />
+                    <View>
+                      <Text style={s.freeLabel}>FREE</Text>
+                      <Text style={s.freeSub}>Delivery</Text>
+                      <Text style={s.freeSub2}>Pan India</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Variant Selector inside price card */}
+              {variants.length > 1 && (
+                <View style={s.variantInPrice}>
+                  <Text style={s.variantInPriceLabel}>Select Weight / Variant</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={s.chipScroll}
+                  >
+                    {variants.map((v) => {
+                      const active = selectedVariant?.id === v.id;
+                      const vStock = (v.stockQuantity ?? 0) > 0;
+                      return (
+                        <TouchableOpacity
+                          key={v.id}
+                          style={[
+                            s.chip,
+                            active && s.chipActive,
+                            !vStock && s.chipOos,
+                          ]}
+                          onPress={() => setSelectedVariant(v)}
+                          activeOpacity={0.8}
+                          disabled={!vStock}
+                        >
+                          {active && <View style={s.chipActiveBg} />}
+                          <Text
+                            style={[s.chipWeight, active && s.chipWeightActive]}
+                          >
+                            {v.weight}g
+                          </Text>
+                          {v.purity ? (
+                            <Text
+                              style={[s.chipPurity, active && s.chipPurityActive]}
+                            >
+                              {v.purity}
+                            </Text>
+                          ) : null}
+                          <Text
+                            style={[s.chipPrice, active && s.chipPriceActive]}
+                          >
+                            ₹{fmt(v.price)}
+                          </Text>
+                          {!vStock && <Text style={s.chipOosText}>Sold Out</Text>}
+                          {active && <View style={s.chipDot} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            {/* ── Variant Selector ── */}
+            {variants.length === 0 && (
+              <View style={s.card}>
+                <SectionHeader title="Availability" />
+                <Text style={s.noVariant}>
+                  No variants available yet. Please check back later.
+                </Text>
+              </View>
+            )}
+
+
+
+            {/* ── Specifications Dropdown ── */}
+            {selectedVariant && (
+              <View style={s.card}>
+                <TouchableOpacity
+                  style={s.specDropdownBtn}
+                  onPress={() => setSpecsExpanded(!specsExpanded)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={s.specDropdownTitle}>Specifications</Text>
+                  <Text style={[s.specDropdownArrow, specsExpanded && s.specDropdownArrowUp]}>
+                    ▼
+                  </Text>
+                </TouchableOpacity>
+
+                {specsExpanded && (
+                  <View style={s.specDropdownContent}>
+                    {selectedVariant.weight ? (
+                      <SpecRow
+                        label="Weight"
+                        value={`${selectedVariant.weight} grams`}
+                      />
+                    ) : null}
+                    {selectedVariant.purity ? (
+                      <SpecRow
+                        label="Purity"
+                        value={selectedVariant.purity}
+                        accent
+                      />
+                    ) : null}
+                    {selectedVariant.size ? (
+                      <SpecRow label="Size" value={selectedVariant.size} />
+                    ) : null}
+                    {selectedVariant.sku ? (
+                      <SpecRow label="SKU" value={selectedVariant.sku} />
+                    ) : null}
+                    <SpecRow
+                      label="Availability"
+                      value={
+                        inStock
+                          ? `${selectedVariant.stockQuantity} units in stock`
+                          : "Out of stock"
+                      }
+                      last
+                    />
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* ── AI Model Preview Button — hidden per request ── */}
+            {SHOW_AI_MODEL_PREVIEW && hasImages && currentImageUrl && (
+              <View style={s.card}>
+                <SectionHeader title="AI Model Preview" />
+                <Text style={s.previewDesc}>
+                  Generate an AI model preview of this product
+                </Text>
+                
+                <TouchableOpacity
+                  style={[
+                    s.previewBtn,
+                    generatingPreview && s.previewBtnLoading,
+                  ]}
+                  onPress={handleGenerateModelPreview}
+                  disabled={generatingPreview}
+                  activeOpacity={0.8}
+                >
+                  {generatingPreview ? (
+                    <>
+                      <ActivityIndicator size="small" color={C.gold} />
+                      <Text style={s.previewBtnText}>Generating Preview...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="sparkles-outline" size={16} color={C.gold} style={{ marginRight: 2 }} />
+                      <Text style={s.previewBtnText}>Generate AI Model Preview</Text>
+                      <Ionicons name="arrow-forward" size={15} color={C.gold} />
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <View style={s.previewNoteRow}>
+                  <Ionicons name="information-circle-outline" size={13} color={C.navyLight} />
+                  <Text style={s.previewNote}>Preview how this product looks on a model</Text>
+                </View>
+              </View>
+            )}
+
+
+
+            {/* Cart message */}
+            {cartMsg.text ? (
+              <View
+                style={[
+                  s.cartMsg,
+                  cartMsg.type === "error" ? s.cartMsgErr : s.cartMsgOk,
+                ]}
+              >
+                <Ionicons
+                  name={cartMsg.type === "error" ? "close-circle" : "checkmark-circle"}
+                  size={14}
+                  color={cartMsg.type === "error" ? "#8B3A34" : "#1F8A4C"}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[
+                    s.cartMsgText,
+                    cartMsg.type === "error"
+                      ? s.cartMsgErrText
+                      : s.cartMsgOkText,
+                  ]}
+                >
+                  {cartMsg.text}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </FadeSlideIn>
+        </ScrollView>
+
+        {/* ──────────────── FOOTER ──────────────── */}
+        <View style={s.footer}>
+          <View style={s.footerInner}>
+            <View style={s.footerPriceRow}>
+              <Text style={s.footerLabel}>Price</Text>
+              <Text style={s.footerPrice}>₹{fmt(price)}</Text>
+            </View>
+            {!inStock ? (
+              <View style={s.footerCartRow}>
+                <View style={[s.cartBtn, s.cartBtnDis]}>
+                  <Text style={[s.cartBtnText, s.cartBtnTextDis]}>Out of Stock</Text>
+                </View>
+              </View>
+            ) : cartQuantity > 0 ? (
+              <View style={s.footerCartRow}>
+                <View style={s.qtyStepper}>
+                  <TouchableOpacity
+                    style={s.qtyStepBtn}
+                    onPress={handleCartDecrement}
+                    disabled={cartStepBusy}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="remove" size={16} color={C.gold} />
+                  </TouchableOpacity>
+                  <Text style={s.qtyStepValue}>{cartQuantity}</Text>
+                  <TouchableOpacity
+                    style={s.qtyStepBtn}
+                    onPress={handleCartIncrement}
+                    disabled={cartStepBusy}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="add" size={16} color={C.gold} />
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={s.goToCartBtn}
+                  onPress={() => navigation.navigate("PgCart")}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.goToCartBtnText}>Go to Cart</Text>
+                  <Ionicons name="chevron-forward" size={15} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={s.footerCartRow}>
+                <TouchableOpacity
+                  style={[s.cartBtn, s.cartBtnCompact]}
+                  onPress={handleAddToCart}
+                  disabled={!selectedVariant || cartLoading}
+                  activeOpacity={0.85}
+                >
+                  {cartLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="cart-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                      <Text style={s.cartBtnText}>Add to Cart</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.buyNowBtn}
+                  onPress={handleBuyNow}
+                  disabled={!selectedVariant || cartLoading}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.buyNowBtnText}>Buy Now</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+
+      {/* ──────────────── FULLSCREEN IMAGE MODAL ──────────────── */}
+      <Modal
+        visible={showModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowModal(false)}
+      >
+        <View style={s.modal}>
+          {/* Close */}
+          <TouchableOpacity
+            style={s.modalClose}
+            onPress={() => setShowModal(false)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={22} color="#fff" />
+          </TouchableOpacity>
+
+          {/* Image with pinch-zoom via ScrollView */}
+          <ScrollView
+            maximumZoomScale={4}
+            minimumZoomScale={1}
+            contentContainerStyle={s.modalImgWrap}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+            centerContent
+          >
+            <Image
+              source={{ uri: currentImageUrl }}
+              style={s.modalImg}
+              resizeMode="contain"
+            />
+          </ScrollView>
+
+          {/* Bottom: view label + nav */}
+          <View style={s.modalBar}>
+            {hasMultiple ? (
+              <>
+                <TouchableOpacity
+                  style={s.modalNavBtn}
+                  onPress={() =>
+                    switchView(
+                      (selectedViewIdx - 1 + availableViews.length) %
+                        availableViews.length,
+                    )
+                  }
+                  activeOpacity={0.8}
+                >
+                  <Text style={s.modalNavText}>‹ Prev</Text>
+                </TouchableOpacity>
+
+                <View style={{ alignItems: "center" }}>
+                  <Text style={s.modalViewLabel}>
+                    {currentView?.label || ""} View
+                  </Text>
+                  <Text style={s.modalCounter}>
+                    {selectedViewIdx + 1} / {availableViews.length}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={s.modalNavBtn}
+                  onPress={() =>
+                    switchView((selectedViewIdx + 1) % availableViews.length)
+                  }
+                  activeOpacity={0.8}
+                >
+                  <Text style={s.modalNavText}>Next ›</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text style={s.modalViewLabel}>
+                {currentView?.label || ""} View
+              </Text>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ──────────────── AI MODEL PREVIEW MODAL ──────────────── */}
+      <Modal
+        visible={showPreviewModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPreviewModal(false)}
+      >
+        <View style={s.modal}>
+          <TouchableOpacity
+            style={s.modalClose}
+            onPress={() => setShowPreviewModal(false)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={22} color="#fff" />
+          </TouchableOpacity>
+
+          <ScrollView
+            maximumZoomScale={4}
+            minimumZoomScale={1}
+            contentContainerStyle={s.modalImgWrap}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+            centerContent
+          >
+            {previewImageUrl ? (
+              <Image
+                source={{ uri: previewImageUrl }}
+                style={s.modalImg}
+                resizeMode="contain"
+              />
+            ) : (
+              <ActivityIndicator size="large" color={C.gold} />
+            )}
+          </ScrollView>
+
+          <View style={s.modalBar}>
+            <View style={{ alignItems: "center", flex: 1 }}>
+              <Text style={s.modalViewLabel}>AI Model Preview</Text>
+              <Text style={s.modalCounter}>Generated with AI</Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </PgLayout>
+  );
+};
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.bg },
+  scroll: { paddingBottom: 40 },
+
+  // ── Hero ─────────────────────────────────────────────────────────────────
+  hero: {
+    marginHorizontal: 16,
+    marginTop: 18,
+    marginBottom: 10,
+    height: 300,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E7E0DA",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroImageWrap: {
+    position: "absolute",
+    top: 16,
+    left: 16,
+    right: 16,
+    bottom: 16,
+  },
+
+  // Discount ribbon — the only badge kept on the image
+  badgeDiscount: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    backgroundColor: C.red,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    zIndex: 4,
+  },
+  badgeDiscountText: { fontSize: 11, fontWeight: "800", color: "#fff" },
+
+  // Arrows
+  arrow: {
+    position: "absolute",
+    top: "50%",
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E7E0DA",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 5,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+  },
+  arrowLeft: { left: 10 },
+  arrowRight: { right: 10 },
+
+  // Trust row
+  trustRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    marginBottom: 14,
+  },
+  trustText: { fontSize: 11.5, fontWeight: "600", color: C.navyLight },
+
+  // Dots
+  dotBar: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 10,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "#E7E0DA",
+  },
+  dotActive: { width: 16, backgroundColor: C.gold },
+
+  // Coin fallback
+  coinFallback: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: C.goldLight,
+    borderWidth: 2,
+    borderColor: C.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  coinWeight: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: C.gold,
+    lineHeight: 30,
+  },
+  coinLine: {
+    width: 44,
+    height: 1,
+    backgroundColor: "rgba(207,139,23,0.3)",
+    marginVertical: 4,
+  },
+  coinSub: { fontSize: 10, fontWeight: "600", color: C.goldMid },
+
+  // ── Body ─────────────────────────────────────────────────────────────────
+  body: { paddingHorizontal: 16 },
+  name: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: C.navy,
+    lineHeight: 28,
+    letterSpacing: -0.4,
+    marginBottom: 4,
+  },
+  desc: { fontSize: 13, color: C.navyLight, lineHeight: 20, marginBottom: 14 },
+
+  // ── Price Card ───────────────────────────────────────────────────────────
+  priceCard: {
+    backgroundColor: "#F7F4ED",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E7E0DA",
+  },
+  priceCardBg: {
+    position: "absolute",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(207,139,23,0.07)",
+    top: -30,
+    right: -20,
+  },
+  priceMain: { flexDirection: "row", alignItems: "center" },
+  priceMainLeft: { flex: 1 },
+  priceMainRight: { alignItems: "flex-end" },
+  priceLabelSmall: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#CF8B17",
+    letterSpacing: 1.1,
+    marginBottom: 4,
+  },
+  priceValue: {
+    fontSize: 30,
+    fontWeight: "900",
+    color: "#CF8B17",
+    letterSpacing: -0.5,
+  },
+  priceStrikeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
+  priceStrike: {
+    fontSize: 13,
+    color: "#7A7A80",
+    textDecorationLine: "line-through",
+    fontWeight: "600",
+  },
+  discPill: {
+    backgroundColor: C.red,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  discPillText: { fontSize: 10, fontWeight: "800", color: "#fff" },
+  freeDelivery: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(46,204,113,0.12)",
+    borderRadius: 12,
+    padding: 10,
+  },
+  freeLabel: { fontSize: 14, fontWeight: "900", color: C.green },
+  freeSub: { fontSize: 10, fontWeight: "700", color: C.green },
+  freeSub2: { fontSize: 9, color: "#CF8B17" },
+
+  // Variant selector inside price card
+  variantInPrice: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(207,139,23,0.20)",
+  },
+  variantInPriceLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#CF8B17",
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+
+  // Total charges row in green
+  totalChargesRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(207,139,23,0.20)",
+  },
+  totalChargesLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: C.greenDark,
+  },
+  totalChargesValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: C.green,
+    letterSpacing: -0.3,
+  },
+
+  // ── Card ─────────────────────────────────────────────────────────────────
+  card: {
+    backgroundColor: C.card,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 10,
+  },
+
+  // ── Section Header ────────────────────────────────────────────────────────
+  secHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  secBar: { width: 3, height: 16, borderRadius: 2, backgroundColor: C.gold },
+  secTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: C.navyMid,
+    letterSpacing: 0.5,
+  },
+
+  // ── Specifications Dropdown ───────────────────────────────────────────────
+  specDropdownBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  specDropdownTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: C.navyMid,
+    letterSpacing: 0.5,
+  },
+  specDropdownArrow: {
+    fontSize: 10,
+    color: C.gold,
+    fontWeight: "700",
+  },
+  specDropdownArrowUp: {
+    transform: [{ rotate: "180deg" }],
+  },
+  specDropdownContent: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: C.divider,
+  },
+
+  // ── Variant Chips ─────────────────────────────────────────────────────────
+  chipScroll: { paddingRight: 4, paddingTop: 2, paddingBottom: 4 },
+  chip: {
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
+    alignItems: "center",
+    minWidth: 70,
+    backgroundColor: C.bg,
+    overflow: "hidden",
+  },
+  chipActive: { borderColor: C.gold },
+  chipOos: { opacity: 0.45 },
+  chipActiveBg: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: C.goldDim,
+  },
+  chipWeight: { fontSize: 15, fontWeight: "900", color: C.navy },
+  chipWeightActive: { color: C.gold },
+  chipPurity: { fontSize: 10, color: C.navyLight, marginTop: 1 },
+  chipPurityActive: { color: "#CF8B17" },
+  chipPrice: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: C.navyMid,
+    marginTop: 3,
+  },
+  chipPriceActive: { color: C.gold },
+  chipOosText: { fontSize: 9, color: C.red, marginTop: 3, fontWeight: "700" },
+  chipDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.gold,
+    marginTop: 5,
+  },
+
+  // ── Spec Rows ─────────────────────────────────────────────────────────────
+  specRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: C.divider,
+  },
+  specLast: { borderBottomWidth: 0, paddingBottom: 0 },
+  specLabel: { fontSize: 13, color: C.navyLight },
+  specVal: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: C.navy,
+    flex: 1,
+    textAlign: "right",
+  },
+  specAccent: { color: C.gold },
+
+  // ── Cart Message ──────────────────────────────────────────────────────────
+  cartMsg: { flexDirection: "row", alignItems: "center", borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1 },
+  cartMsgOk: { backgroundColor: "#E8F5E9", borderColor: "#E8F5E9" },
+  cartMsgErr: { backgroundColor: "#FDECEA", borderColor: "#FDECEA" },
+  cartMsgText: { fontSize: 13, fontWeight: "600" },
+  cartMsgOkText: { color: C.green },
+  cartMsgErrText: { color: C.red },
+
+  // ── AI Model Preview ──────────────────────────────────────────────────────
+  previewDesc: {
+    fontSize: 12,
+    color: C.navyLight,
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  previewBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: C.goldLight,
+    borderWidth: 1.5,
+    borderColor: C.gold,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  previewBtnLoading: {
+    opacity: 0.6,
+  },
+  previewBtnText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: C.gold,
+  },
+  previewNoteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    marginTop: 10,
+  },
+  previewNote: {
+    fontSize: 10,
+    color: C.navyLight,
+  },
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  footer: {
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#E7E0DA",
+    paddingBottom: 24,
+  },
+  footerInner: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  footerPriceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 8,
+    marginBottom: 10,
+  },
+  footerLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: C.navyLight,
+    letterSpacing: 0.3,
+  },
+  footerPrice: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: C.navy,
+    letterSpacing: -0.4,
+  },
+  footerCartRow: { flexDirection: "row", gap: 10 },
+
+  cartBtn: {
+    flexDirection: "row",
+    backgroundColor: C.gold,
+    borderRadius: 14,
+    height: 50,
+    paddingHorizontal: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cartBtnCompact: { flex: 1 },
+  cartBtnDis: { flex: 1, backgroundColor: C.border },
+  cartBtnText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 0.3,
+  },
+  cartBtnTextDis: { color: C.navyLight },
+
+  buyNowBtn: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: C.gold,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buyNowBtnText: { fontSize: 13, fontWeight: "900", color: C.gold, letterSpacing: 0.3 },
+
+  qtyStepper: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: C.gold,
+    backgroundColor: C.goldLight,
+    overflow: "hidden",
+  },
+  qtyStepBtn: { width: 42, height: "100%", justifyContent: "center", alignItems: "center" },
+  qtyStepValue: { width: 30, textAlign: "center", fontSize: 15, fontWeight: "900", color: C.navy },
+
+  goToCartBtn: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: C.navy,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  goToCartBtnText: { fontSize: 13, fontWeight: "900", color: "#fff", letterSpacing: 0.3 },
+
+  // ── Empty State ───────────────────────────────────────────────────────────
+  empty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 90,
+    paddingHorizontal: 28,
+  },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: C.goldLight,
+    borderWidth: 1,
+    borderColor: C.goldMid,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: C.navy,
+    marginBottom: 6,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: C.navyLight,
+    textAlign: "center",
+    marginBottom: 26,
+  },
+  emptyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.gold,
+    borderRadius: 14,
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+  },
+  emptyBtnText: { fontSize: 14, fontWeight: "800", color: "#1C1C1E" },
+
+  // ── Fullscreen Modal ──────────────────────────────────────────────────────
+  modal: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.96)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalClose: {
+    position: "absolute",
+    top: 52,
+    right: 18,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalCloseText: { fontSize: 22, color: "#fff", fontWeight: "300" },
+  modalImgWrap: {
+    minHeight: SH,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalImg: { width: SW, height: SH * 0.72 },
+  modalBar: {
+    position: "absolute",
+    bottom: 38,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 18,
+  },
+  modalNavBtn: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.20)",
+  },
+  modalNavText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  modalViewLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.85)",
+  },
+  modalCounter: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.55)",
+    marginTop: 2,
+    textAlign: "center",
+  },
+});
+
+export default PgProductDetailsScreen;

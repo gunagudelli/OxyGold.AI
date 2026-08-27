@@ -37,16 +37,15 @@ export const SessionProvider = ({ children, navigationRef }) => {
    */
   const handleSessionExpired = useCallback(async (options = {}) => {
     const {
-      message = 'Your session has expired. Please log in again.',
-      showAlert = true,
+      showAlert = false,  // Changed default to false - no alert by default
       autoRedirect = true,
     } = options;
 
-    // Prevent multiple alerts
+    // Prevent multiple redirects
     if (sessionExpiredShown.current) return;
     sessionExpiredShown.current = true;
 
-    console.log('[SessionContext] Session expired, clearing tokens...');
+    console.log('[SessionContext] Session expired, clearing tokens and redirecting...');
 
     // Clear Redux and AsyncStorage
     dispatch(clearTokens());
@@ -55,11 +54,11 @@ export const SessionProvider = ({ children, navigationRef }) => {
     // Update state
     setSessionExpired(true);
 
-    // Show alert or modal
+    // Show alert only if explicitly requested
     if (showAlert) {
       Alert.alert(
         'Session Expired',
-        message,
+        'Your session has expired. Please log in again.',
         [
           {
             text: 'Login Again',
@@ -78,7 +77,7 @@ export const SessionProvider = ({ children, navigationRef }) => {
         { cancelable: false }
       );
     } else if (autoRedirect && navigationRef?.current) {
-      // Auto redirect without alert
+      // Auto redirect without alert (default behavior)
       setTimeout(() => {
         sessionExpiredShown.current = false;
         setSessionExpired(false);
