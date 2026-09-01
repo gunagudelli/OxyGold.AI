@@ -50,6 +50,13 @@ import PgWishlistScreen        from '../physicalGold/screens/PgWishlistScreen';
 import PgTermsScreen           from '../physicalGold/screens/PgTermsScreen';
 import PgSearchScreen          from '../physicalGold/screens/PgSearchScreen';
 import PgWalletScreen          from '../physicalGold/screens/PgWalletScreen';
+import PgAllRatesScreen        from '../physicalGold/screens/PgAllRatesScreen';
+import PgPrivacyPolicyScreen        from '../physicalGold/screens/PgPrivacyPolicyScreen';
+import PgShippingPolicyScreen       from '../physicalGold/screens/PgShippingPolicyScreen';
+import PgReturnRefundPolicyScreen   from '../physicalGold/screens/PgReturnRefundPolicyScreen';
+import PgFAQScreen                  from '../physicalGold/screens/PgFAQScreen';
+import PgCookiePolicyScreen         from '../physicalGold/screens/PgCookiePolicyScreen';
+import PgCancellationPolicyScreen   from '../physicalGold/screens/PgCancellationPolicyScreen';
 
 const Stack = createNativeStackNavigator();
 const SCREEN = { headerShown: false, animation: 'slide_from_right' };
@@ -113,6 +120,13 @@ const AppNavigator = ({ navigationRef }) => {
         <Stack.Screen name="PgWishlist"        component={PgWishlistScreen} />
         <Stack.Screen name="PgTerms"           component={PgTermsScreen} />
         <Stack.Screen name="PgSearch"          component={PgSearchScreen} />
+        <Stack.Screen name="PgAllRates"        component={PgAllRatesScreen} />
+        <Stack.Screen name="PgPrivacyPolicy"      component={PgPrivacyPolicyScreen} />
+        <Stack.Screen name="PgShippingPolicy"     component={PgShippingPolicyScreen} />
+        <Stack.Screen name="PgReturnRefundPolicy" component={PgReturnRefundPolicyScreen} />
+        <Stack.Screen name="PgFAQ"                component={PgFAQScreen} />
+        <Stack.Screen name="PgCookiePolicy"       component={PgCookiePolicyScreen} />
+        <Stack.Screen name="PgCancellationPolicy" component={PgCancellationPolicyScreen} />
 
       </Stack.Navigator>
     </GoldProvider>

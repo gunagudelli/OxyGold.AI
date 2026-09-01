@@ -4,100 +4,66 @@ import {
   ActivityIndicator, Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSelector } from 'react-redux';
 import PgLayout from '../components/PgLayout';
+import { getOrderDetails } from './physicalGoldApi';
+import { selectUserId } from '../../store/authSlice';
 
 const PgPaymentStatusScreen = ({ navigation, route }) => {
   const [status, setStatus] = useState('LOADING'); // LOADING, SUCCESS, FAILED
   const [orderDetails, setOrderDetails] = useState(null);
+  const userId = useSelector(selectUserId);
 
   const {
-    order_id: txnId,
-    internal_id: orderId,
-    order_number: orderNumber,
-    payment_session_id: paymentSessionId,
-    total_amount: totalAmount,
-    userId,
-    accessToken,
+    orderId,
+    orderNumber,
+    txnId,
+    totalAmount,
   } = route?.params || {};
 
+  // Cash on Delivery is the only payment mode — there's no payment gateway
+  // transaction to verify, the order is placed the moment it's created.
+  // Just confirm the order exists and show success.
   useEffect(() => {
-    verifyPayment();
+    confirmOrderPlaced();
   }, []);
 
-  const verifyPayment = async () => {
+  const confirmOrderPlaced = async () => {
     try {
-      console.log('[PaymentStatus] Verifying payment for txnId:', txnId);
-      
-      // Poll payment status
-      let paymentVerified = false;
-      let attempts = 0;
-      const maxAttempts = 20;
-
-      while (!paymentVerified && attempts < maxAttempts) {
-        try {
-          const response = await fetch(
-            `http://65.0.147.157:9900/api/order/${orderId}/status`,
-            {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-              },
-            }
-          );
-          const data = await response.json();
-          console.log('[Payment Status Check]', data);
-
-          if (data?.data?.paymentStatus === 'SUCCESS' || data?.data?.orderStatus === 'CONFIRMED') {
-            paymentVerified = true;
-            setOrderDetails(data?.data);
-            setStatus('SUCCESS');
-            console.log('[Payment Verified] Order confirmed');
-          } else if (data?.data?.paymentStatus === 'FAILED') {
-            setStatus('FAILED');
-            setOrderDetails(data?.data);
-            console.log('[Payment Failed]');
-            break;
-          }
-        } catch (err) {
-          console.log('[Status Check Error]', err.message);
-        }
-
-        if (!paymentVerified) {
-          attempts++;
-          await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
-        }
+      if (orderId) {
+        const data = await getOrderDetails(orderId);
+        console.log('[PaymentStatus] Order details:', data);
+        setOrderDetails(data);
       }
-
-      if (!paymentVerified) {
-        setStatus('SUCCESS'); // Assume success after polling
-        console.log('[Payment Polling Complete] Assuming success');
-      }
+      setStatus('SUCCESS');
     } catch (error) {
-      console.error('[Verify Payment Error]', error);
-      setStatus('FAILED');
+      // Even if the details fetch fails, the order was already created
+      // successfully by Checkout before navigating here — still show success.
+      console.log('[PaymentStatus] Order details fetch failed:', error.message);
+      setStatus('SUCCESS');
     }
   };
 
   const handleTrackOrder = () => {
-    navigation.navigate('PgOrders', { userId, accessToken });
+    navigation.navigate('PgOrders', { userId });
   };
 
   const handleContinueShopping = () => {
-    navigation.navigate('PgHome', { userId, accessToken });
+    navigation.navigate('PgHome', { userId });
   };
 
   const handleRetry = () => {
-    navigation.navigate('PgCart', { userId, accessToken });
+    navigation.navigate('PgCart', { userId });
   };
 
   if (status === 'LOADING') {
     return (
-      <PgLayout title="Payment Status" showBack={false}>
+      <PgLayout title="Order Status" showBack={false}>
         <View style={styles.container}>
           <View style={styles.loadingContent}>
             <ActivityIndicator size="large" color="#1C1C1E" />
-            <Text style={styles.loadingText}>Verifying Payment...</Text>
-            <Text style={styles.loadingSubtext}>Please wait while we confirm your order</Text>
+            <Text style={styles.loadingText}>Confirming Order...</Text>
+            <Text style={styles.loadingSubtext}>Please wait a moment</Text>
           </View>
         </View>
       </PgLayout>
@@ -135,8 +101,8 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
             </View>
             <View style={styles.divider} />
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Payment Status</Text>
-              <Text style={[styles.detailValue, styles.statusSuccess]}>SUCCESS</Text>
+              <Text style={styles.detailLabel}>Payment Method</Text>
+              <Text style={[styles.detailValue, styles.statusSuccess]}>Cash on Delivery</Text>
             </View>
           </View>
 

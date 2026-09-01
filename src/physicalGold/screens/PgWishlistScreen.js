@@ -35,7 +35,8 @@ const C = {
   textSecondary: "#7A7A80",
   textMuted: "#A79C93",
   border: "#E7E0DA",
-  red: "#C85A54",
+  green: "#1F8A4C",
+  red: "#C0392B",
 };
 
 // ─── Resolve all possible field variations from API ───────────────────────────
@@ -51,6 +52,7 @@ const resolveItem = (raw) => ({
     "Gold Product",
   price: raw.productVariant?.price || raw.product?.price || raw.price || 0,
   weight: raw.productVariant?.weight || raw.product?.weight || raw.weight || null,
+  purity: raw.productVariant?.purity || raw.product?.purity || raw.purity || null,
   imageUrl: raw.product?.imageUrl || raw.productVariant?.imageUrl || raw.imageUrl || null,
 });
 
@@ -85,10 +87,12 @@ const WishlistCard = ({ raw, onRemove, onAddToCart, onViewDetails, removing, add
           </View>
         )}
 
-        {/* 24K badge — top left */}
-        <View style={s.karatBadge}>
-          <Text style={s.karatBadgeText}>24K</Text>
-        </View>
+        {/* Purity badge — top left, only when the item actually has one */}
+        {!!item.purity && (
+          <View style={s.karatBadge}>
+            <Text style={s.karatBadgeText}>{item.purity}</Text>
+          </View>
+        )}
 
         {/* heart remove — top right */}
         <TouchableOpacity
@@ -282,24 +286,6 @@ const PgWishlistScreen = ({ navigation }) => {
         />
         </FadeSlideIn>
       </View>
-
-      {/* Bottom Tab with Love Button */}
-      <View style={s.bottomTab}>
-        <View style={s.tabContent}>
-          <View style={s.tabInfo}>
-            <Text style={s.tabLabel}>Total Items</Text>
-            <Text style={s.tabCount}>{items.length}</Text>
-          </View>
-          <TouchableOpacity
-            style={s.loveBtn}
-            onPress={() => navigation.navigate("PgHome")}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="heart" size={24} color="#fff" />
-            <Text style={s.loveBtnText}>Continue Shopping</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
     </PgLayout>
   );
 };
@@ -308,7 +294,7 @@ const PgWishlistScreen = ({ navigation }) => {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  listContent: { paddingBottom: 100, backgroundColor: C.bg },
+  listContent: { paddingBottom: 24, backgroundColor: C.bg },
 
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {
@@ -364,8 +350,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  imagePlaceholderText: { fontSize: 40 },
-
   karatBadge: {
     position: "absolute",
     top: 8,
@@ -390,7 +374,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  heartIcon: { fontSize: 16, color: C.red, lineHeight: 18 },
 
   // ── Info ─────────────────────────────────────────────────────────────────────
   info: { paddingHorizontal: 10, paddingTop: 10, paddingBottom: 6 },
@@ -406,18 +389,18 @@ const s = StyleSheet.create({
     marginBottom: 5,
   },
   weightText: { fontSize: 10, fontWeight: "700", color: C.goldText },
-  price: { fontSize: 16, fontWeight: "900", color: C.gold, letterSpacing: -0.3, marginBottom: 4 },
+  price: { fontSize: 16, fontWeight: "800", color: C.green, letterSpacing: -0.3, marginBottom: 4 },
 
   // ── Cart Button ───────────────────────────────────────────────────────────────
   cartBtn: {
-    backgroundColor: C.goldBright,
+    backgroundColor: C.gold,
     marginHorizontal: 10,
     marginBottom: 10,
     borderRadius: 10,
     paddingVertical: 9,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: C.goldBright,
+    shadowColor: C.gold,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -441,72 +424,17 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: "700", color: C.textPrimary, marginBottom: 8, textAlign: "center" },
   emptySubtitle: { fontSize: 13, color: C.textMuted, textAlign: "center", marginBottom: 26, lineHeight: 19 },
   browseBtn: {
-    backgroundColor: C.goldBright,
+    backgroundColor: C.gold,
     borderRadius: 14,
     paddingHorizontal: 28,
     paddingVertical: 13,
-    shadowColor: C.goldBright,
+    shadowColor: C.gold,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 4,
   },
   browseBtnText: { fontSize: 13, fontWeight: "800", color: "#fff" },
-
-  bottomTab: {
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
-    shadowColor: "rgba(0,0,0,0.1)",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  tabContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  tabInfo: {
-    flex: 1,
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: C.textMuted,
-    letterSpacing: 0.3,
-    marginBottom: 4,
-  },
-  tabCount: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: C.gold,
-    letterSpacing: -0.5,
-  },
-  loveBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: C.goldBright,
-    borderRadius: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    shadowColor: C.goldBright,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  loveBtnText: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#fff",
-    letterSpacing: 0.2,
-  },
 });
 
 export default PgWishlistScreen;

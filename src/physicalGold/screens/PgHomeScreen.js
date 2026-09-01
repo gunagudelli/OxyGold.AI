@@ -31,7 +31,9 @@ import {
   getWishlist,
   addToWishlist,
   removeFromWishlist,
+  getOxygoldRates,
 } from "./physicalGoldApi";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { FLATLIST_OPTIMIZATIONS, keyExtractor } from "../../utils/flatListOptimizations";
 
@@ -65,11 +67,11 @@ const C = {
   shimmer:      "#F8F7F6",
 };
 
-const TRUST = [
-  { label: "BIS\nHallmarked" },
-  { label: "Free\nDelivery" },
-  { label: "Secure\nPayment" },
-  { label: "Ontime\nDelivery" },
+const WHY_SHOP = [
+  { image: require("../../../assets/Bishallmark.png"), title: "BIS Hallmarked", subtitle: "Certified purity you can trust always." },
+  { image: require("../../../assets/securedelivery.png"), title: "Secure Delivery", subtitle: "Fully insured & safe delivery." },
+  { image: require("../../../assets/securepaymntes.png"), title: "Secure Payments", subtitle: "100% safe & encrypted transactions." },
+  { image: require("../../../assets/Contact Support.png"), title: "Dedicated Support", subtitle: "We're here to help you, anytime." },
 ];
 
 // Cross-promo banner to the Digital Gold dashboard — hidden per request.
@@ -168,6 +170,32 @@ const SectionHeader = memo(({ title, count, onViewAll, onBack, showBack }) => (
   </View>
 ));
 
+// ─── Rate column — one karat/metal cell inside the live-rates card ────────────
+const RateColumn = memo(({ icon, label, rate, decimals }) => (
+  <View style={styles.rateBlock}>
+    <Image source={icon} style={styles.rateIconImg} resizeMode="contain" />
+    <View style={{ flex: 1, minWidth: 0 }}>
+      <Text style={styles.rateLabel} numberOfLines={1}>{label}</Text>
+      <Text style={styles.rateValue} numberOfLines={1}>
+        ₹{Number(rate.price || 0).toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
+        <Text style={styles.rateUnit}> /gm</Text>
+      </Text>
+      {rate.direction && (
+        <View style={styles.rateChangeRow}>
+          <Ionicons
+            name={rate.direction === "up" ? "trending-up" : "trending-down"}
+            size={11}
+            color={rate.direction === "up" ? C.green : C.red}
+          />
+          <Text style={[styles.rateChangeText, { color: rate.direction === "up" ? C.green : C.red }]}>
+            {rate.direction === "up" ? "+" : ""}{rate.changePct.toFixed(2)}%
+          </Text>
+        </View>
+      )}
+    </View>
+  </View>
+));
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PgHomeScreen = ({ navigation }) => {
   const userId      = useSelector(selectUserId);
@@ -175,20 +203,15 @@ const PgHomeScreen = ({ navigation }) => {
   const dispatch    = useDispatch();
 
   const [categories,           setCategories]           = useState([]);
-  const [subCategories,        setSubCategories]        = useState([]);
   const [products,             setProducts]             = useState([]);
-  const [loading,              setLoading]              = useState({ categories: false, subCategories: false, products: false });
+  const [loading,              setLoading]              = useState({ categories: false, products: false });
   const [viewMode,             setViewMode]             = useState("categories");
   const [activeCategory,       setActiveCategory]       = useState(null);
   const [activeCategoryName,   setActiveCategoryName]   = useState("");
-  const [activeCategoryImage,  setActiveCategoryImage]  = useState(null);
-  const [activeSubCat,         setActiveSubCat]         = useState(null);
-  const [activeSubCatName,     setActiveSubCatName]     = useState("");
   const [showAllProducts,      setShowAllProducts]      = useState(false);
 
   // ── Image maps — keyed by id → url ────────────────────────────────────────
   const [categoryImages,    setCategoryImages]    = useState({});
-  const [subCategoryImages, setSubCategoryImages] = useState({});
 
   // We track which IDs are currently being fetched so we don't double-fetch
   const fetchingRef   = useRef(new Set());
@@ -197,7 +220,7 @@ const PgHomeScreen = ({ navigation }) => {
   // Search
   const [searchQuery,    setSearchQuery]    = useState("");
   const [searchFocused,  setSearchFocused]  = useState(false);
-  const [searchResults,  setSearchResults]  = useState({ categories: [], subCategories: [], products: [] });
+  const [searchResults,  setSearchResults]  = useState({ categories: [], products: [] });
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [allProductsCache, setAllProductsCache] = useState([]);
   const searchInputRef  = useRef(null);
@@ -208,6 +231,11 @@ const PgHomeScreen = ({ navigation }) => {
   const [wishlistLoading, setWishlistLoading] = useState({});
   const [wishlistToast,   setWishlistToast]   = useState({ visible: false, text: "", added: true });
   const toastTimeoutRef = useRef(null);
+
+  // Live gold / silver rates
+  const [goldRate,     setGoldRate]     = useState({ price: null, changePct: null, direction: null });
+  const [gold22kRate,  setGold22kRate]  = useState({ price: null, changePct: null, direction: null });
+  const [silverRate,   setSilverRate]   = useState({ price: null, changePct: null, direction: null });
 
   const heroAnim   = useRef(new Animated.Value(0)).current;
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -238,6 +266,43 @@ const PgHomeScreen = ({ navigation }) => {
     performanceMonitor.startMeasure("PgHomeScreen");
     fetchCategories();
   }, [userId]);
+
+  // ── Live gold / silver rates — direction is vs. the last rate we saw ───────
+  useEffect(() => {
+    let alive = true;
+
+    const SETTERS = { gold: setGoldRate, gold22k: setGold22kRate, silver: setSilverRate };
+
+    const applyRate = async (kind, price) => {
+      if (!price) return;
+      const storageKey = `pg_last_${kind}_rate`;
+      const prevRaw = await AsyncStorage.getItem(storageKey).catch(() => null);
+      const prev = prevRaw ? Number(prevRaw) : null;
+      if (!alive) return;
+
+      let direction = null;
+      let changePct = null;
+      if (prev && prev > 0 && prev !== price) {
+        direction = price > prev ? "up" : "down";
+        changePct = ((price - prev) / prev) * 100;
+      }
+
+      SETTERS[kind]({ price, changePct, direction });
+      await AsyncStorage.setItem(storageKey, String(price)).catch(() => {});
+    };
+
+    const loadRates = async () => {
+      const rates = await getOxygoldRates();
+      if (!alive || !rates) return;
+      applyRate("gold", rates.gold24k);
+      applyRate("gold22k", rates.gold22k);
+      applyRate("silver", rates.silverPerGram);
+    };
+
+    loadRates();
+    const t = setInterval(loadRates, 60000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
 
   useFocusEffect(useCallback(() => () => {
     if (bannerIntervalRef.current) clearInterval(bannerIntervalRef.current);
@@ -278,47 +343,40 @@ const PgHomeScreen = ({ navigation }) => {
     }
   };
 
-  const fetchSubCategoriesData = async (categoryId) => {
-    const t0 = Date.now();
-    try {
-      setLoading((p) => ({ ...p, subCategories: true }));
-      setSubCategories([]);
-      const data = await getSubCategories(categoryId);
-      setSubCategories(data || []);
-    } catch (_) {}
-    finally {
-      setTimeout(() => setLoading((p) => ({ ...p, subCategories: false })), Math.max(0, 800 - (Date.now() - t0)));
-    }
-  };
-
-  const fetchProductsData = async (subCategoryId) => {
+  // Some categories have products tagged directly on them; others only have
+  // products tagged on their (hidden) sub-categories. Try the category itself
+  // first, and if that comes back empty, silently pull products from every
+  // sub-category underneath it and merge — the user never sees a sub-category screen.
+  const fetchProductsData = async (categoryId) => {
     const t0 = Date.now();
     try {
       setLoading((p) => ({ ...p, products: true }));
       setProducts([]);
-      const data  = await getProducts(subCategoryId);
-      const items = data?.items || data || [];
 
-      // A sub-category with exactly one product has nothing to browse —
-      // skip the mostly-empty grid and go straight to that product. Reset
-      // this screen back to the sub-categories view first, so pressing
-      // back from the product lands where the user actually came from
-      // instead of on the empty single-item grid.
+      const data  = await getProducts(categoryId);
+      let items = data?.items || data || [];
+
+      if (!items.length) {
+        const subs = await getSubCategories(categoryId).catch(() => []);
+        if (subs?.length) {
+          const results = await Promise.allSettled(subs.map((s) => getProducts(s.id)));
+          const merged = [];
+          const seen = new Set();
+          results.forEach((r) => {
+            if (r.status !== "fulfilled") return;
+            const subItems = r.value?.items || r.value || [];
+            subItems.forEach((p) => {
+              if (p?.id && !seen.has(p.id)) { seen.add(p.id); merged.push(p); }
+            });
+          });
+          items = merged;
+        }
+      }
+
       setAllProductsCache((prev) => {
         const ids = new Set(prev.map((p) => p.id));
         return [...prev, ...items.filter((p) => !ids.has(p.id))];
       });
-
-      if (items.length === 1) {
-        setViewMode("subcategories");
-        setActiveSubCat(null);
-        setActiveSubCatName("");
-        navigation.navigate("PgProductDetails", {
-          productId: items[0]?.id,
-          product: items[0],
-        });
-        return;
-      }
 
       setProducts(items);
     } catch (_) {}
@@ -328,24 +386,13 @@ const PgHomeScreen = ({ navigation }) => {
   };
 
   // ── Navigation helpers ─────────────────────────────────────────────────────
+  // Categories jump straight to Products now — the Sub-Categories screen is skipped.
   const handleCategoryPress = (cat) => {
     setActiveCategory(cat.id);
     setActiveCategoryName(cat.name || "");
-    setActiveCategoryImage(categoryImages[cat.id] || null);
-    setActiveSubCat(null);
-    setActiveSubCatName("");
-    setProducts([]);
-    setViewMode("subcategories");
-    fetchSubCategoriesData(cat.id);
-    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-  };
-
-  const handleSubCategoryPress = (sub) => {
-    setActiveSubCat(sub.id);
-    setActiveSubCatName(sub.name || "");
     setViewMode("products");
     setShowAllProducts(false);
-    fetchProductsData(sub.id);
+    fetchProductsData(cat.id);
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
@@ -353,15 +400,6 @@ const PgHomeScreen = ({ navigation }) => {
     setViewMode("categories");
     setActiveCategory(null);
     setActiveCategoryName("");
-    setActiveCategoryImage(null);
-    setSubCategories([]);
-    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-  };
-
-  const handleBackToSubCategories = () => {
-    setViewMode("subcategories");
-    setActiveSubCat(null);
-    setActiveSubCatName("");
     setProducts([]);
     setShowAllProducts(false);
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -371,8 +409,7 @@ const PgHomeScreen = ({ navigation }) => {
   useEffect(() => {
     const h = BackHandler.addEventListener("hardwareBackPress", () => {
       if (isSearchActive) { clearSearch(); return true; }
-      if (viewMode === "products") { handleBackToSubCategories(); return true; }
-      if (viewMode === "subcategories") { handleBackToCategories(); return true; }
+      if (viewMode === "products") { handleBackToCategories(); return true; }
       return false;
     });
     return () => h.remove();
@@ -471,10 +508,6 @@ const PgHomeScreen = ({ navigation }) => {
     loadImagesForList(categories, setCategoryImages);
   }, [categories]);
 
-  useEffect(() => {
-    loadImagesForList(subCategories, setSubCategoryImages);
-  }, [subCategories]);
-
   const heroTranslate = heroAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] });
 
   // ── Search ─────────────────────────────────────────────────────────────────
@@ -482,15 +515,14 @@ const PgHomeScreen = ({ navigation }) => {
     setSearchQuery(text);
     if (!text.trim()) {
       setIsSearchActive(false);
-      setSearchResults({ categories: [], subCategories: [], products: [] });
+      setSearchResults({ categories: [], products: [] });
       return;
     }
     setIsSearchActive(true);
     const q = text.trim().toLowerCase();
     setSearchResults({
-      categories:    categories.filter((c) => c?.name?.toLowerCase().includes(q)),
-      subCategories: subCategories.filter((s) => s?.name?.toLowerCase().includes(q)),
-      products:      allProductsCache.filter(
+      categories: categories.filter((c) => c?.name?.toLowerCase().includes(q)),
+      products:   allProductsCache.filter(
         (p) => p?.name?.toLowerCase().includes(q) || p?.description?.toLowerCase().includes(q)
       ),
     });
@@ -509,7 +541,7 @@ const PgHomeScreen = ({ navigation }) => {
   const clearSearch = () => {
     setSearchQuery("");
     setIsSearchActive(false);
-    setSearchResults({ categories: [], subCategories: [], products: [] });
+    setSearchResults({ categories: [], products: [] });
     searchInputRef.current?.blur();
   };
 
@@ -558,8 +590,8 @@ const PgHomeScreen = ({ navigation }) => {
   // ─────────────────────────────────────────────────────────────────────────
 
   const renderSearchResults = () => {
-    const { categories: rCats, subCategories: rSubs, products: rProds } = searchResults;
-    if (!rCats.length && !rSubs.length && !rProds.length) {
+    const { categories: rCats, products: rProds } = searchResults;
+    if (!rCats.length && !rProds.length) {
       return (
         <View style={styles.searchEmptyState}>
           <View style={styles.searchEmptyIconWrap}>
@@ -592,22 +624,8 @@ const PgHomeScreen = ({ navigation }) => {
             </ScrollView>
           </View>
         )}
-        {rSubs.length > 0 && (
-          <View style={{ marginTop: rCats.length ? 8 : 0 }}>
-            <Text style={styles.searchGroupLabel}>Sub-Categories</Text>
-            <View style={styles.searchSubChipRow}>
-              {rSubs.map((s) => (
-                <TouchableOpacity key={s.id} style={styles.searchSubChip}
-                  onPress={() => { clearSearch(); handleSubCategoryPress(s); }} activeOpacity={0.75}>
-                  <LazyImage uri={subCategoryImages[s.id]} style={styles.subChipImg} fallbackText={s.name} />
-                  <Text style={styles.searchSubChipText}>{s.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
         {rProds.length > 0 && (
-          <View style={{ marginTop: (rCats.length || rSubs.length) ? 12 : 0 }}>
+          <View style={{ marginTop: rCats.length ? 12 : 0 }}>
             <Text style={styles.searchGroupLabel}>Products ({rProds.length})</Text>
             <View style={styles.grid}>
               {rProds.slice(0, 6).map((item) => (
@@ -632,7 +650,7 @@ const PgHomeScreen = ({ navigation }) => {
     <TouchableOpacity style={styles.categoryGridItem} onPress={() => onPress(item)} activeOpacity={0.75}>
       <View style={styles.categoryCard}>
         <View style={styles.categoryCardImgWrap}>
-          <LazyImage uri={imageUrl} style={styles.categoryCardImg} resizeMode="cover" fallbackText={item.name} />
+          <LazyImage uri={imageUrl} style={styles.categoryCardImg} resizeMode="contain" fallbackText={item.name} />
         </View>
         <Text style={styles.categoryCardLabel} numberOfLines={2}>{item.name}</Text>
       </View>
@@ -646,7 +664,9 @@ const PgHomeScreen = ({ navigation }) => {
           {[1,2,3,4].map((i) => (
             <View key={i} style={styles.categoryGridItem}>
               <View style={styles.categoryCardShimmer}>
-                <ShimmerBox width="100%" height={140} borderRadius={0} />
+                <View style={styles.categoryCardShimmerImg}>
+                  <ShimmerBox width="100%" height="100%" borderRadius={0} />
+                </View>
                 <View style={{ padding: 12 }}>
                   <ShimmerBox width="70%" height={12} borderRadius={4} style={{ alignSelf: "center" }} />
                 </View>
@@ -664,48 +684,6 @@ const PgHomeScreen = ({ navigation }) => {
             item={cat}
             imageUrl={categoryImages[cat.id]}
             onPress={handleCategoryPress}
-          />
-        ))}
-      </View>
-    );
-  };
-
-  const renderSubCategoriesGrid = () => {
-    if (loading.subCategories) {
-      return (
-        <View style={styles.categoryGrid}>
-          {[1,2,3,4].map((i) => (
-            <View key={i} style={styles.categoryGridItem}>
-              <View style={styles.categoryCardShimmer}>
-                <ShimmerBox width="100%" height={140} borderRadius={0} />
-                <View style={{ padding: 12 }}>
-                  <ShimmerBox width="70%" height={12} borderRadius={4} style={{ alignSelf: "center" }} />
-                </View>
-              </View>
-            </View>
-          ))}
-        </View>
-      );
-    }
-    if (!subCategories.length) {
-      return (
-        <View style={styles.emptyState}>
-          <View style={styles.searchEmptyIconWrap}>
-            <Ionicons name="grid-outline" size={28} color={C.textMuted} />
-          </View>
-          <Text style={styles.emptyTitle}>No Sub-categories found</Text>
-          <Text style={styles.emptySubtitle}>Try a different category</Text>
-        </View>
-      );
-    }
-    return (
-      <View style={styles.categoryGrid}>
-        {subCategories.filter((s) => s?.id).map((sub) => (
-          <CategoryCard
-            key={sub.id}
-            item={sub}
-            imageUrl={subCategoryImages[sub.id]}
-            onPress={handleSubCategoryPress}
           />
         ))}
       </View>
@@ -762,7 +740,7 @@ const PgHomeScreen = ({ navigation }) => {
           contentContainerStyle={styles.grid}
           columnWrapperStyle={styles.gridRow}
           renderItem={({ item }) => (
-            <View style={styles.gridItem}>
+            <View style={visibleProducts.length === 1 ? styles.gridItemFull : styles.gridItem}>
               <ProductCard
                 product={item}
                 isInWishlist={!!wishlistMap[String(item?.id)]}
@@ -799,7 +777,7 @@ const PgHomeScreen = ({ navigation }) => {
         {!hasMore && totalProducts <= 2 && (
           <TouchableOpacity
             style={styles.moreCategoriesPrompt}
-            onPress={handleBackToSubCategories}
+            onPress={handleBackToCategories}
             activeOpacity={0.78}
           >
             <View style={styles.moreCategoriesIconWrap}>
@@ -807,7 +785,7 @@ const PgHomeScreen = ({ navigation }) => {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.moreCategoriesTitle}>That's everything here</Text>
-              <Text style={styles.moreCategoriesSub}>Browse other sub-categories</Text>
+              <Text style={styles.moreCategoriesSub}>Browse other categories</Text>
             </View>
             <Ionicons name="chevron-forward" size={17} color={C.textMuted} />
           </TouchableOpacity>
@@ -886,72 +864,30 @@ const PgHomeScreen = ({ navigation }) => {
                     }}
                   >
                     {/* Slide 1 — Physical Gold */}
-                    <View style={styles.bannerSlide}>
-                      <View style={styles.heroLeft}>
-                        <View style={styles.bisPill}>
-                          <Ionicons name="shield-checkmark-outline" size={12} color="#E8A530" />
-                          <Text style={styles.bisPillText}>BIS HALLMARKED</Text>
-                        </View>
-
-                        <Text style={styles.bannerHeadline}>
-                          Pure Gold,{"\n"}
-                          <Text style={styles.bannerHeadlineGold}>Delivered Home.</Text>
-                        </Text>
-
-                        <Text style={styles.bannerSub}>
-                          Certified 24K · Free shipping · Pan India
-                        </Text>
-
-                        <TouchableOpacity
-                          style={styles.bannerCTA}
-                          onPress={() => scrollViewRef.current?.scrollTo({ y: 400, animated: true })}
-                          activeOpacity={0.85}
-                        >
-                          <Text style={styles.bannerCTAText}>Shop Now</Text>
-                          <Ionicons name="arrow-forward" size={14} color="#1C1C1E" style={{ marginLeft: 6 }} />
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.heroRight}>
-                        <View style={styles.heroIconBadge}>
-                          <Ionicons name="diamond" size={30} color="#E8A530" />
-                        </View>
-                      </View>
-                    </View>
+                    <TouchableOpacity
+                      style={styles.bannerSlide}
+                      activeOpacity={0.92}
+                      onPress={() => scrollViewRef.current?.scrollTo({ y: 400, animated: true })}
+                    >
+                      <Image
+                        source={require("../../../assets/banner.png")}
+                        style={styles.bannerImage}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
 
                     {/* Slide 2 — Digital Gold */}
-                    <View style={styles.bannerSlideDigital}>
-                      <View style={styles.heroLeft}>
-                        <View style={styles.dgStartPill}>
-                          <Ionicons name="flash-outline" size={12} color="#E8A530" />
-                          <Text style={styles.dgStartText}>START FROM ₹100</Text>
-                        </View>
-
-                        <Text style={styles.bannerHeadline}>
-                          Invest Smart,{"\n"}
-                          <Text style={styles.bannerHeadlineGreen}>Buy Digital Gold.</Text>
-                        </Text>
-
-                        <Text style={styles.bannerSub}>
-                          ₹100 onwards · Sell anytime · 100% secure
-                        </Text>
-
-                        <TouchableOpacity
-                          style={styles.dgCTA}
-                          onPress={() => navigation.navigate("HowItWorks")}
-                          activeOpacity={0.85}
-                        >
-                          <Text style={styles.dgCTAText}>Explore</Text>
-                          <Ionicons name="arrow-forward" size={14} color="#3D2B1A" style={{ marginLeft: 6 }} />
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.heroRight}>
-                        <View style={styles.heroIconBadgeGreen}>
-                          <Ionicons name="trending-up" size={30} color="#E8A530" />
-                        </View>
-                      </View>
-                    </View>
+                    <TouchableOpacity
+                      style={styles.bannerSlide}
+                      activeOpacity={0.92}
+                      onPress={() => navigation.navigate("HowItWorks")}
+                    >
+                      <Image
+                        source={require("../../../assets/digitalgold banner new.png")}
+                        style={styles.bannerImage}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
                   </ScrollView>
 
                   <View style={styles.indicatorRow}>
@@ -964,20 +900,70 @@ const PgHomeScreen = ({ navigation }) => {
                   </View>
                 </Animated.View>
 
-                {/* Trust Strip */}
-                <Animated.View style={[styles.trustStrip, { opacity: fadeInAnim }]}>
-                  {TRUST.map((t, i) => (
-                    <React.Fragment key={i}>
-                      <View style={styles.trustItem}>
-                        <Text style={styles.trustLabel}>{t.label}</Text>
-                      </View>
-                      {i < TRUST.length - 1 && <View style={styles.trustDivider} />}
-                    </React.Fragment>
-                  ))}
-                </Animated.View>
+                {/* Live Gold / Silver Rates */}
+                {(goldRate.price || gold22kRate.price || silverRate.price) && (
+                  <TouchableOpacity
+                    style={styles.ratesCard}
+                    onPress={() => navigation.navigate("Dashboard")}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.ratesRow}>
+                      <RateColumn
+                        icon={require("../../../assets/Goldrateicon.png")}
+                        label="Gold 24K"
+                        rate={goldRate}
+                        decimals={0}
+                      />
+                      <View style={styles.rateDivider} />
+                      <RateColumn
+                        icon={require("../../../assets/Goldrateicon.png")}
+                        label="Gold 22K"
+                        rate={gold22kRate}
+                        decimals={0}
+                      />
+                      <View style={styles.rateDivider} />
+                      <RateColumn
+                        icon={require("../../../assets/silverrate.png")}
+                        label="Silver"
+                        rate={silverRate}
+                        decimals={2}
+                      />
+                    </View>
+
+                    <View style={styles.ratesLinkRow}>
+                      <TouchableOpacity
+                        style={styles.ratesLinkBtn}
+                        onPress={() => navigation.navigate("PgAllRates")}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Text style={styles.ratesLinkText}>Compare all gold rates</Text>
+                        <Ionicons name="chevron-forward" size={13} color={C.gold} />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                )}
 
                 <SectionHeader title="Categories" count={categories.length || null} />
                 {renderCategoriesGrid()}
+
+                {/* Why Shop With Us */}
+                <View style={styles.whyShopSection}>
+                  <Text style={styles.whyShopTitle}>Why Shop With Us?</Text>
+                  <View style={styles.whyShopRow}>
+                    {WHY_SHOP.map((w, i) => (
+                      <View key={i} style={styles.whyShopCell}>
+                        <View style={styles.whyShopCard}>
+                          <View style={styles.whyShopIconWrap}>
+                            <Image source={w.image} style={styles.whyShopIconImg} resizeMode="cover" />
+                          </View>
+                          <Text style={styles.whyShopItemTitle}>{w.title}</Text>
+                          <Text style={styles.whyShopItemSub}>{w.subtitle}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </View>
 
                 {/* Digital Gold Banner — hidden per request; SHOW_DIGITAL_GOLD_BANNER flips it back on */}
                 {SHOW_DIGITAL_GOLD_BANNER && (
@@ -996,39 +982,6 @@ const PgHomeScreen = ({ navigation }) => {
               </FadeSlideIn>
             )}
 
-            {/* ── SUBCATEGORIES VIEW ── */}
-            {viewMode === "subcategories" && (
-              <FadeSlideIn key="subcategories">
-                <View style={styles.subCategoryBanner}>
-                  <LazyImage
-                    uri={activeCategoryImage || "https://images.unsplash.com/photo-1610375461246-83df859d849d?w=800&q=80"}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover"
-                    fallbackText={activeCategoryName}
-                  />
-                  <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.45)" }]} />
-                  <View style={styles.subCategoryBannerContent}>
-                    <TouchableOpacity onPress={handleBackToCategories} style={styles.subCategoryBackBtn} activeOpacity={0.7}>
-                      <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
-                    </TouchableOpacity>
-                    <View style={styles.subCategoryBannerTextWrap}>
-                      <Text style={styles.subCategoryBannerLabel}>CATEGORY</Text>
-                      <Text style={styles.subCategoryBannerTitle}>{activeCategoryName || "Sub-Categories"}</Text>
-                      {!loading.subCategories && subCategories.length > 0 && (
-                        <Text style={styles.subCategoryBannerCount}>{subCategories.length} Sub-Categories</Text>
-                      )}
-                    </View>
-                  </View>
-                </View>
-
-                <SectionHeader
-                  title="Explore Sub-Categories"
-                  count={!loading.subCategories && subCategories.length > 0 ? subCategories.length : null}
-                />
-                {renderSubCategoriesGrid()}
-              </FadeSlideIn>
-            )}
-
             {/* ── PRODUCTS VIEW ── */}
             {viewMode === "products" && (
               <FadeSlideIn key="products">
@@ -1037,17 +990,13 @@ const PgHomeScreen = ({ navigation }) => {
                     <Text style={styles.breadcrumbLink}>Categories</Text>
                   </TouchableOpacity>
                   <Text style={styles.breadcrumbSep}>›</Text>
-                  <TouchableOpacity onPress={handleBackToSubCategories} activeOpacity={0.7}>
-                    <Text style={styles.breadcrumbLink}>{activeCategoryName}</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.breadcrumbSep}>›</Text>
-                  <Text style={styles.breadcrumbCurrent}>{activeSubCatName}</Text>
+                  <Text style={styles.breadcrumbCurrent}>{activeCategoryName}</Text>
                 </View>
                 <SectionHeader
-                  title={activeSubCatName || "Products"}
+                  title={activeCategoryName || "Products"}
                   count={!loading.products && totalProducts > 0 ? totalProducts : null}
                   showBack
-                  onBack={handleBackToSubCategories}
+                  onBack={handleBackToCategories}
                 />
                 {renderProductsGrid()}
               </FadeSlideIn>
@@ -1099,131 +1048,66 @@ const styles = StyleSheet.create({
   searchCatImgWrap:    { width: 56, height: 56, borderRadius: 28, backgroundColor: "#F7F4ED", borderWidth: 1.5, borderColor: C.goldBorder, overflow: "hidden", marginBottom: 6 },
   searchCatImg:        { width: 56, height: 56, borderRadius: 28 },
   searchCatLabel:      { fontSize: 10, fontWeight: "600", color: C.textSecondary, textAlign: "center", lineHeight: 13 },
-  searchSubChipRow:    { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, gap: 8, marginBottom: 4 },
-  searchSubChip:       { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 24, backgroundColor: C.bgCard, borderWidth: 1, borderColor: C.goldBorder, gap: 7 },
-  searchSubChipText:   { fontSize: 12, fontWeight: "600", color: C.goldText },
   searchEmptyState:    { alignItems: "center", paddingVertical: 56, paddingHorizontal: 24 },
   searchEmptyIconWrap: { width: 60, height: 60, borderRadius: 18, backgroundColor: "#E7E0DA", justifyContent: "center", alignItems: "center", marginBottom: 16 },
   searchEmptyTitle:    { fontSize: 16, fontWeight: "700", color: C.textPrimary, marginBottom: 6 },
   searchEmptySubtitle: { fontSize: 13, color: C.textMuted, textAlign: "center" },
 
   bannerCarouselWrap: { marginHorizontal: 16, marginBottom: 14, borderRadius: 18, overflow: "hidden" },
+
+  // ── Live gold / silver rates ──
+  ratesCard: {
+    marginHorizontal: 16, marginBottom: 14,
+    backgroundColor: C.bgCard, borderRadius: 14,
+    padding: 14,
+    shadowColor: C.shadowDark, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.6, shadowRadius: 4, elevation: 2,
+  },
+  ratesRow: { flexDirection: "row", alignItems: "center" },
+  rateBlock: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  rateDivider: { width: 1, alignSelf: "stretch", backgroundColor: C.border, marginHorizontal: 8 },
+  rateIconImg: { width: 30, height: 30 },
+  rateLabel: { fontSize: 10, fontWeight: "600", color: C.textSecondary, marginBottom: 2 },
+  rateValue: { fontSize: 12.5, fontWeight: "700", color: C.textPrimary },
+  rateUnit: { fontSize: 9, fontWeight: "500", color: C.textSecondary },
+  rateChangeRow: { flexDirection: "row", alignItems: "center", gap: 2, marginTop: 2 },
+  rateChangeText: { fontSize: 10.5, fontWeight: "700" },
+  ratesLinkRow: { borderTopWidth: 1, borderTopColor: C.divider, marginTop: 12, paddingTop: 10 },
+  ratesLinkBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+  ratesLinkText: { fontSize: 12.5, fontWeight: "600", color: C.gold },
   bannerSlide: {
     width: BANNER_WIDTH,
-    minHeight: 168,
+    height: BANNER_WIDTH * (929 / 1693),
+    borderRadius: 18,
+    overflow: "hidden",
     backgroundColor: "#1C1C1E",
-    borderRadius: 18,
-    padding: 22,
-    flexDirection: "row",
-    alignItems: "center",
   },
-  bannerSlideDigital: {
-    width: BANNER_WIDTH,
-    minHeight: 168,
-    backgroundColor: "#3D2B1A",
-    borderRadius: 18,
-    padding: 22,
-    flexDirection: "row",
-    alignItems: "center",
+  bannerImage: {
+    width: "100%",
+    height: "100%",
   },
-
-  heroLeft: { flex: 1 },
-  heroRight: { alignItems: "center", marginLeft: 16 },
-  heroIconBadge: {
-    width: 60, height: 60, borderRadius: 18,
-    backgroundColor: "rgba(232,165,48,0.14)",
-    justifyContent: "center", alignItems: "center",
-    borderWidth: 1, borderColor: "rgba(232,165,48,0.30)",
-  },
-  heroIconBadgeGreen: {
-    width: 60, height: 60, borderRadius: 18,
-    backgroundColor: "rgba(232,165,48,0.14)",
-    justifyContent: "center", alignItems: "center",
-    borderWidth: 1, borderColor: "rgba(232,165,48,0.30)",
-  },
-
-  // BIS Hallmarked / Start-from pills
-  bisPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 6,
-    backgroundColor: "rgba(232,165,48,0.12)",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginBottom: 12,
-  },
-  bisPillText: { fontSize: 9, fontWeight: "700", color: "#E8A530", letterSpacing: 1.2 },
-  dgStartPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 6,
-    backgroundColor: "rgba(232,165,48,0.14)",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginBottom: 12,
-  },
-  dgStartText: { fontSize: 9, fontWeight: "700", color: "#E8A530", letterSpacing: 1.1 },
-
-  // Headline
-  bannerHeadline: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    lineHeight: 28,
-    marginBottom: 8,
-    letterSpacing: -0.3,
-  },
-  bannerHeadlineGold: { color: "#E8A530" },
-  bannerHeadlineGreen: { color: "#E8A530" },
-
-  // Sub-line
-  bannerSub: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.55)",
-    marginBottom: 18,
-    lineHeight: 17,
-  },
-
-  // CTA buttons
-  bannerCTA: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: "#E8A530",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  bannerCTAText: { fontSize: 13, fontWeight: "600", color: "#1C1C1E" },
-  dgCTA: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: "#E8A530",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  dgCTAText: { fontSize: 13, fontWeight: "600", color: "#3D2B1A" },
-
   indicatorRow:    { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, paddingTop: 10, paddingBottom: 4, backgroundColor: "#F8F7F6" },
   indicator:       { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(207,139,23,0.22)" },
   indicatorActive: { width: 22, height: 6, borderRadius: 3, backgroundColor: C.goldBright },
 
-  trustStrip: {
-    flexDirection: "row", alignItems: "center",
-    marginHorizontal: 16, marginTop: 10, marginBottom: 22,
-    backgroundColor: C.bgCard, borderRadius: 12,
-    borderWidth: 1, borderColor: C.border,
-    shadowColor: C.shadowDark, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.6, shadowRadius: 4, elevation: 2,
+  // ── Why Shop With Us ──
+  whyShopSection: { paddingHorizontal: 12, marginBottom: 6 },
+  whyShopTitle: { fontSize: 17, fontWeight: "700", color: C.textPrimary, marginHorizontal: 4, marginBottom: 12 },
+  whyShopRow: { flexDirection: "row", flexWrap: "wrap" },
+  whyShopCell: { width: "50%", padding: 6 },
+  whyShopCard: {
+    alignItems: "center",
+    backgroundColor: C.bgCard, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 10,
+    shadowColor: C.shadowDark, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.7, shadowRadius: 6, elevation: 2,
   },
-  trustItem:    { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10 },
-  trustLabel:   { fontSize: 9, fontWeight: "600", color: C.textSecondary, textAlign: "center", lineHeight: 13 },
-  trustDivider: { width: 1, height: 22, backgroundColor: C.border },
+  whyShopIconWrap: {
+    width: 60, height: 60, borderRadius: 30,
+    overflow: "hidden",
+    backgroundColor: C.goldMuted,
+    marginBottom: 10,
+  },
+  whyShopIconImg: { width: "100%", height: "100%" },
+  whyShopItemTitle: { fontSize: 13, fontWeight: "700", color: C.textPrimary, textAlign: "center", marginBottom: 4 },
+  whyShopItemSub: { fontSize: 11, fontWeight: "500", color: C.textSecondary, textAlign: "center", lineHeight: 15 },
 
   sectionHeader:      { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginHorizontal: 16, marginBottom: 14, marginTop: 4 },
   sectionTitleRow:    { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -1244,15 +1128,15 @@ const styles = StyleSheet.create({
   categoryGridItem:   { width: "50%", padding: 6 },
   categoryCard:       { backgroundColor: C.bgCard, borderRadius: 18, overflow: "hidden", shadowColor: C.shadowDark, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.7, shadowRadius: 6, elevation: 2 },
   categoryCardShimmer:{ backgroundColor: C.bgCard, borderRadius: 18, overflow: "hidden" },
-  categoryCardImgWrap:{ width: "100%", height: 220, backgroundColor: C.shimmer },
+  categoryCardImgWrap:{ width: "100%", aspectRatio: 1, backgroundColor: C.shimmer },
+  categoryCardShimmerImg: { width: "100%", aspectRatio: 1 },
   categoryCardImg:    { width: "100%", height: "100%" },
   categoryCardLabel:  { fontSize: 13, fontWeight: "500", color: C.textPrimary, textAlign: "center", lineHeight: 17, paddingVertical: 12, paddingHorizontal: 8 },
-
-  subChipImg: { width: 22, height: 22, borderRadius: 11 },
 
   grid:     { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, marginBottom: 12 },
   gridRow:  { justifyContent: "flex-start" },
   gridItem: { width: "50%", padding: 6 },
+  gridItemFull: { width: "100%", padding: 6 },
 
   productShimmerCard:      { backgroundColor: C.bgCard, borderRadius: 18, overflow: "hidden", minHeight: 280 },
   productShimmerHeartWrap: { position: "absolute", top: 10, right: 10 },
@@ -1293,17 +1177,6 @@ const styles = StyleSheet.create({
   digitalIconWrap: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.greenBg, justifyContent: "center", alignItems: "center" },
   digitalTitle:    { fontSize: 14, fontWeight: "600", color: C.textPrimary, marginBottom: 2 },
   digitalSubtitle: { fontSize: 12, color: C.textMuted },
-
-  subCategoryBanner: {
-    marginHorizontal: 16, marginTop: 4, marginBottom: 20, borderRadius: 20,
-    backgroundColor: "#1C1C1E", minHeight: 140, overflow: "hidden",
-  },
-  subCategoryBannerContent:    { flexDirection: "row", alignItems: "center", padding: 20, gap: 14, zIndex: 2 },
-  subCategoryBackBtn:          { width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.12)", justifyContent: "center", alignItems: "center" },
-  subCategoryBannerTextWrap:   { flex: 1 },
-  subCategoryBannerLabel:      { fontSize: 10, fontWeight: "600", color: "rgba(232,165,48,0.70)", letterSpacing: 1.5, marginBottom: 4 },
-  subCategoryBannerTitle:      { fontSize: 22, fontWeight: "600", color: "#FFFFFF", lineHeight: 30, marginBottom: 4, textShadowColor: "rgba(0,0,0,0.3)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
-  subCategoryBannerCount:      { fontSize: 12, fontWeight: "600", color: "rgba(255,255,255,0.65)" },
 
   toast:        { position: "absolute", alignSelf: "center", flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, zIndex: 99, elevation: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.22, shadowRadius: 12 },
   toastAdded:   { backgroundColor: "#1F8A4C" },

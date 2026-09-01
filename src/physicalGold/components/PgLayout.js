@@ -40,7 +40,7 @@ const PgHeader = ({ title, showBack, onBack, hideLogo }) => {
           {/* LEFT */}
           {showBack ? (
             <TouchableOpacity style={h.backBtn} onPress={onBack}>
-              <Ionicons name="chevron-back" size={24} color={HEADER_COLORS.text} />
+              <Ionicons name="arrow-back" size={22} color={HEADER_COLORS.text} />
             </TouchableOpacity>
           ) : hideLogo ? (
             <View style={{ width: 40 }} />
@@ -236,8 +236,6 @@ const h = StyleSheet.create({
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 10,
-    backgroundColor: "rgba(207,139,23,0.08)",
     justifyContent: "center",
     alignItems: "center",
   },

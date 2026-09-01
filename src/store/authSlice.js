@@ -15,7 +15,7 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     setTokens(state, action) {
-      const { accessToken, refreshToken, userId, userEmail, tokenType, expiresIn } = action.payload;
+      const { accessToken, refreshToken, userId, userEmail, tokenType, expiresIn, tokenExpiresAt } = action.payload;
 
       state.accessToken    = accessToken    || state.accessToken;
       state.refreshToken   = refreshToken   || state.refreshToken;
@@ -24,10 +24,18 @@ const authSlice = createSlice({
       state.tokenType      = tokenType      || 'Bearer';
       state.isLoggedIn     = !!accessToken;
 
-      // Store absolute expiry timestamp (subtract 30s buffer for proactive refresh)
-      state.tokenExpiresAt = expiresIn
-        ? Date.now() + (expiresIn - 30) * 1000
-        : null;
+      // Store absolute expiry timestamp (subtract 30s buffer for proactive refresh).
+      // Callers rehydrating a persisted session (where "now" isn't when the token
+      // was issued) must pass an already-computed absolute `tokenExpiresAt` —
+      // recomputing from a stale relative `expiresIn` here would understate how
+      // old the token actually is.
+      if (tokenExpiresAt !== undefined) {
+        state.tokenExpiresAt = tokenExpiresAt;
+      } else if (expiresIn) {
+        state.tokenExpiresAt = Date.now() + (expiresIn - 30) * 1000;
+      } else {
+        state.tokenExpiresAt = null;
+      }
     },
 
     clearTokens(state) {

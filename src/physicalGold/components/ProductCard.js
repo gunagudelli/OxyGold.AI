@@ -8,13 +8,14 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getProductImages } from '../screens/physicalGoldApi';
+import { getProductImages, getProductVariants } from '../screens/physicalGoldApi';
 
 const ProductCard = ({ product, onPress, isInWishlist, onWishlistToggle }) => {
   const [imgError, setImgError]   = useState(false);
   const [imageUrl, setImageUrl]   = useState(
     product?.imageUrl || product?.image || null
   );
+  const [offer, setOffer] = useState(null); // { mrpDisplay, discountPct }
   const heartScale = useRef(new Animated.Value(1)).current;
 
   // ── Safe field reads — covers every common API shape ─────────────────────
@@ -72,6 +73,26 @@ const ProductCard = ({ product, onPress, isInWishlist, onWishlistToggle }) => {
     }
   }, [product?.id]);
 
+  // ── Offer badge — MRP vs. selling price lives on the variant, not the product ──
+  useEffect(() => {
+    if (!product?.id) return;
+    getProductVariants(product.id)
+      .then((res) => {
+        const inner = res?.data || res;
+        const list  = inner?.listVariantResponse || inner?.variants || (Array.isArray(inner) ? inner : []);
+        const v     = list?.[0];
+        const mrp   = v?.mrp || 0;
+        const price = v?.price || 0;
+        if (mrp > price && price > 0) {
+          setOffer({
+            mrpDisplay: mrp.toLocaleString('en-IN'),
+            discountPct: Math.round(((mrp - price) / mrp) * 100),
+          });
+        }
+      })
+      .catch(() => {});
+  }, [product?.id]);
+
   // ── Heart bounce ──────────────────────────────────────────────────────────
   const handleWishlist = () => {
     if (!onWishlistToggle) return;
@@ -125,7 +146,7 @@ const ProductCard = ({ product, onPress, isInWishlist, onWishlistToggle }) => {
             <Animated.View style={{ transform: [{ scale: heartScale }] }}>
               <Ionicons
                 name={isInWishlist ? 'heart' : 'heart-outline'}
-                size={19}
+                size={16}
                 color={isInWishlist ? '#C85A54' : '#7A7A80'}
               />
             </Animated.View>
@@ -158,16 +179,37 @@ const ProductCard = ({ product, onPress, isInWishlist, onWishlistToggle }) => {
           </View>
         )}
 
-        {/* price */}
-        {priceDisplay ? (
-          <View style={s.priceRow}>
-            <Text style={s.priceRupee}>₹</Text>
-            <Text style={s.priceAmount}>{priceDisplay}</Text>
+        {/* price + offer, with a compact "View Details" action on the right */}
+        <View style={s.bottomRow}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            {priceDisplay ? (
+              <View style={s.priceRow}>
+                <Text style={s.priceRupee}>₹</Text>
+                <Text style={s.priceAmount}>{priceDisplay}</Text>
+              </View>
+            ) : (
+              /* keeps card height consistent when price is missing */
+              <Text style={s.priceNA}>Price on request</Text>
+            )}
+            {offer && (
+              <View style={s.offerRow}>
+                <Text style={s.priceStrike}>₹{offer.mrpDisplay}</Text>
+                <View style={s.offerPill}>
+                  <Text style={s.offerPillText}>{offer.discountPct}% OFF</Text>
+                </View>
+              </View>
+            )}
           </View>
-        ) : (
-          /* keeps card height consistent when price is missing */
-          <Text style={s.priceNA}>Price on request</Text>
-        )}
+
+          <TouchableOpacity
+            style={s.detailsBtn}
+            onPress={onPress}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={s.detailsBtnText}>View Details</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
     </TouchableOpacity>
@@ -186,13 +228,12 @@ const s = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 6,
     elevation: 2,
-    height: 340,  // Fixed height for all cards
   },
 
-  // ── Image area — full width like category cards ────────────────────────────
+  // ── Image area — square, so it scales correctly with the card's real width ──
   imageWrap: {
     width: '100%',
-    height: 220,
+    aspectRatio: 1,
     backgroundColor: '#F7F4ED',
     position: 'relative',
     overflow: 'hidden',
@@ -256,12 +297,17 @@ const s = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 27,
+    height: 27,
+    borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.92)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: 'rgba(34,30,28,0.15)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 2,
   },
 
   // ── Info ───────────────────────────────────────────────────────────────────
@@ -318,6 +364,53 @@ const s = StyleSheet.create({
     fontSize: 11,
     color: '#A79C93',
     fontStyle: 'italic',
+  },
+  offerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 3,
+  },
+  priceStrike: {
+    fontSize: 11,
+    color: '#C0392B',
+    textDecorationLine: 'line-through',
+    fontWeight: '600',
+  },
+  offerPill: {
+    backgroundColor: 'rgba(207,139,23,0.10)',
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  offerPillText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#CF8B17',
+  },
+
+  // ── Bottom row — price on the left, a compact "View Details" action on the right ──
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 6,
+  },
+  detailsBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    height: 30,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CF8B17',
+    backgroundColor: '#fff',
+  },
+  detailsBtnText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#CF8B17',
   },
 });
 

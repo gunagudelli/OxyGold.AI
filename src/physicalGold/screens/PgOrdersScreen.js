@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   },
 
   filterChipTextActive: {
-    fontWeight: "800",
+    fontWeight: "600",
   },
 
   filterDot: {
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
 
   orderId: {
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "600",
     color: C.textPri,
   },
 
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
 
   statusLabel: {
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
 
   amount: {
     fontSize: 15,
-    fontWeight: "900",
+    fontWeight: "700",
     color: C.gold,
     marginTop: 2,
   },

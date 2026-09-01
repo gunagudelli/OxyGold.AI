@@ -1146,3 +1146,46 @@ export const searchAllProducts = async (searchParams) => {
     throw error;
   }
 };
+
+// ═════════════════════════════════════════════════════════════════════════
+// 12. MARKET RATES
+// ═════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get the live OXYGOLD.AI 24K/22K gold rates and silver rate (per gram).
+ * @returns {Promise<{gold24k: number, gold22k: number, silverPerGram: number}|null>}
+ */
+export const getOxygoldRates = async () => {
+  try {
+    const response = await apiGet(`${BASE_URL}/product-service/all-different-gold-rates`);
+    const list = extractData(response);
+    const rows = Array.isArray(list) ? list : [];
+    const oxy = rows.find((r) => r?.companyName === 'OXYGOLD.AI');
+    if (!oxy) return null;
+    return {
+      gold24k: Number(oxy.rate24kt) || 0,
+      gold22k: Number(oxy.rate22kt) || 0,
+      silverPerGram: Number(oxy.silverprice1g) || 0,
+    };
+  } catch (error) {
+    console.error('[PhysicalGoldApi] getOxygoldRates failed:', error.message);
+    return null;
+  }
+};
+
+/**
+ * Get every company's full gold/silver rate breakdown (all purities), unfiltered.
+ * Used by the "compare all gold rates" screen — returns the raw rows exactly as
+ * the backend sends them, so the UI can render whatever rate fields are present.
+ * @returns {Promise<Array<Object>>} List of company rate rows
+ */
+export const getAllGoldRates = async () => {
+  try {
+    const response = await apiGet(`${BASE_URL}/product-service/all-different-gold-rates`);
+    const list = extractData(response);
+    return Array.isArray(list) ? list : [];
+  } catch (error) {
+    console.error('[PhysicalGoldApi] getAllGoldRates failed:', error.message);
+    throw error;
+  }
+};

@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { selectUserId } from "../../store/authSlice";
 import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import PgLayout from "../components/PgLayout";
+import FadeSlideIn from "../components/FadeSlideIn";
 import {
   getUserAddresses,
   addAddress,
@@ -49,11 +50,15 @@ const C = {
   textPri: "#1C1C1E",
   textSec: "#7A7A80",
   textTer: "#A79C93",
-  error: "#C85A54",
-  success: "#2ECC71",
+  error: "#C0392B",
+  success: "#1F8A4C",
 };
 
-const CTA = "#CF8B17";
+const SectionHeader = ({ title }) => (
+  <View style={styles.sectionHeader}>
+    <Text style={styles.sectionTitle}>{title}</Text>
+  </View>
+);
 
 const AddressCard = ({ address, onEdit, onDelete, deleting }) => (
   <View style={styles.addressCard}>
@@ -81,11 +86,22 @@ const AddressCard = ({ address, onEdit, onDelete, deleting }) => (
         </TouchableOpacity>
       </View>
     </View>
-    <Text style={styles.addressText}>{address.flatNo}</Text>
-    <Text style={styles.addressText}>{address.address}</Text>
-    <Text style={styles.addressText}>{address.landMark}</Text>
-    {address.area && <Text style={styles.addressText}>{address.area}</Text>}
-    {address.city && <Text style={styles.addressText}>{address.city}</Text>}
+    <View style={styles.addressBody}>
+      <Ionicons name="location-outline" size={16} color={C.gold} style={{ marginTop: 2 }} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.addressLine1}>
+          {[address.flatNo, address.address].filter(Boolean).join(", ")}
+        </Text>
+        {address.landMark ? (
+          <Text style={styles.addressLine2}>Near {address.landMark}</Text>
+        ) : null}
+        {(address.area || address.city) ? (
+          <Text style={styles.addressLine2}>
+            {[address.area, address.city].filter(Boolean).join(", ")}
+          </Text>
+        ) : null}
+      </View>
+    </View>
     <View style={styles.addressFooter}>
       <Text style={styles.addressMeta}>
         {address.state} - {address.pinCode}
@@ -361,36 +377,41 @@ const PgAddressScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {addresses.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="location-outline" size={48} color={C.textTer} />
-            <Text style={styles.emptyText}>No addresses yet</Text>
-            <Text style={styles.emptySubtext}>
-              Add your first address to get started
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={addresses}
-            keyExtractor={keyExtractor}
-            scrollEnabled={false}
-            contentContainerStyle={styles.addressesList}
-            renderItem={({ item }) => (
-              <AddressCard
-                address={item}
-                onEdit={handleEditAddress}
-                onDelete={handleDeleteAddress}
-                deleting={deletingAddressId}
+        <FadeSlideIn>
+          {addresses.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="location-outline" size={48} color={C.textTer} />
+              <Text style={styles.emptyText}>No addresses yet</Text>
+              <Text style={styles.emptySubtext}>
+                Add your first address to get started
+              </Text>
+            </View>
+          ) : (
+            <>
+              <SectionHeader title={`${addresses.length} SAVED ADDRESS${addresses.length > 1 ? "ES" : ""}`} />
+              <FlatList
+                data={addresses}
+                keyExtractor={keyExtractor}
+                scrollEnabled={false}
+                contentContainerStyle={styles.addressesList}
+                renderItem={({ item }) => (
+                  <AddressCard
+                    address={item}
+                    onEdit={handleEditAddress}
+                    onDelete={handleDeleteAddress}
+                    deleting={deletingAddressId}
+                  />
+                )}
+                {...FLATLIST_OPTIMIZATIONS.addressList}
               />
-            )}
-            {...FLATLIST_OPTIMIZATIONS.addressList}
-          />
-        )}
+            </>
+          )}
 
-        <TouchableOpacity style={styles.addBtn} onPress={handleAddNewAddress}>
-          <Ionicons name="add-circle" size={20} color="#fff" />
-          <Text style={styles.addBtnText}>Add New Address</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.addBtn} onPress={handleAddNewAddress} activeOpacity={0.85}>
+            <Ionicons name="add-circle" size={20} color="#fff" />
+            <Text style={styles.addBtnText}>Add New Address</Text>
+          </TouchableOpacity>
+        </FadeSlideIn>
       </ScrollView>
 
       {/* Address Modal */}
@@ -422,7 +443,7 @@ const PgAddressScreen = ({ navigation, route }) => {
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>State *</Text>
                 <TouchableOpacity
-                  style={styles.dropdownBtn}
+                  style={[styles.dropdownBtn, errors.state && styles.fieldError]}
                   onPress={() => setShowStateDropdown(true)}
                 >
                   <Text style={[styles.dropdownBtnText, !addressForm.state && styles.dropdownPlaceholder]}>
@@ -440,7 +461,7 @@ const PgAddressScreen = ({ navigation, route }) => {
                 <Text style={styles.fieldLabel}>PIN Code *</Text>
                 <View style={styles.pincodeRow}>
                   <TextInput
-                    style={[styles.fieldInput, { flex: 1 }]}
+                    style={[styles.fieldInput, { flex: 1 }, errors.pinCode && styles.fieldError]}
                     placeholder="e.g., 500001"
                     value={addressForm.pinCode}
                     onChangeText={(text) => {
@@ -469,7 +490,7 @@ const PgAddressScreen = ({ navigation, route }) => {
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>City *</Text>
                 <TextInput
-                  style={[styles.fieldInput, addressForm.city && styles.fieldInputAutoFilled]}
+                  style={[styles.fieldInput, addressForm.city && styles.fieldInputAutoFilled, errors.city && styles.fieldError]}
                   placeholder="Auto-filled from pincode"
                   value={addressForm.city}
                   onChangeText={(text) =>
@@ -487,7 +508,7 @@ const PgAddressScreen = ({ navigation, route }) => {
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Area *</Text>
                 <TextInput
-                  style={[styles.fieldInput, addressForm.area && styles.fieldInputAutoFilled]}
+                  style={[styles.fieldInput, addressForm.area && styles.fieldInputAutoFilled, errors.area && styles.fieldError]}
                   placeholder="Auto-filled from pincode"
                   value={addressForm.area}
                   onChangeText={(text) =>
@@ -505,7 +526,7 @@ const PgAddressScreen = ({ navigation, route }) => {
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Flat / House Number *</Text>
                 <TextInput
-                  style={styles.fieldInput}
+                  style={[styles.fieldInput, errors.flatNo && styles.fieldError]}
                   placeholder="e.g., 4B, Flat 201"
                   value={addressForm.flatNo}
                   onChangeText={(text) =>
@@ -522,7 +543,7 @@ const PgAddressScreen = ({ navigation, route }) => {
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Building Name / Street *</Text>
                 <TextInput
-                  style={styles.fieldInput}
+                  style={[styles.fieldInput, errors.address && styles.fieldError]}
                   placeholder="e.g., Sunshine Apartments, MG Road"
                   value={addressForm.address}
                   onChangeText={(text) =>
@@ -539,7 +560,7 @@ const PgAddressScreen = ({ navigation, route }) => {
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Landmark *</Text>
                 <TextInput
-                  style={styles.fieldInput}
+                  style={[styles.fieldInput, errors.landMark && styles.fieldError]}
                   placeholder="e.g., Near City Mall, Opposite Park"
                   value={addressForm.landMark}
                   onChangeText={(text) =>
@@ -643,24 +664,34 @@ const styles = StyleSheet.create({
   center: { justifyContent: "center", alignItems: "center" },
   scroll: { padding: 16, paddingBottom: 100 },
 
+  sectionHeader: { marginBottom: 12 },
+  sectionTitle: { fontSize: 13, fontWeight: "600", color: C.textPri },
+
   addBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: CTA,
-    borderRadius: 13,
-    paddingVertical: 14,
+    backgroundColor: C.gold,
+    borderRadius: 12,
+    height: 46,
     marginTop: 20,
     marginBottom: 20,
+    shadowColor: C.gold,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  addBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", letterSpacing: 0.1 },
+  addBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", letterSpacing: 0.2 },
 
   addressesList: { gap: 12 },
   addressCard: {
     backgroundColor: C.surface,
     borderRadius: 14,
     padding: 14,
+    borderWidth: 1,
+    borderColor: C.border,
     shadowColor: "rgba(34,30,28,0.06)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
@@ -682,12 +713,15 @@ const styles = StyleSheet.create({
   addressTypeText: { fontSize: 11, fontWeight: "700", color: C.gold },
   addressActions: { flexDirection: "row", gap: 8 },
   iconBtn: { padding: 6 },
-  addressText: {
-    fontSize: 13,
+  addressBody: { flexDirection: "row", gap: 8 },
+  addressLine1: {
+    fontSize: 14,
+    fontWeight: "600",
     color: C.textPri,
-    marginBottom: 4,
-    fontWeight: "500",
+    lineHeight: 19,
+    marginBottom: 2,
   },
+  addressLine2: { fontSize: 12.5, color: C.textSec, lineHeight: 18 },
   addressFooter: {
     marginTop: 8,
     paddingTop: 8,
@@ -728,7 +762,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: C.textPri },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: C.textPri },
   closeBtn: { padding: 8, marginRight: -8 },
   modalScroll: { paddingHorizontal: 16, paddingVertical: 16, maxHeight: 600 },
 
@@ -740,7 +774,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   fieldInput: {
-    backgroundColor: C.bg,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -748,6 +784,7 @@ const styles = StyleSheet.create({
     color: C.textPri,
     minHeight: 48,
   },
+  fieldError: { borderColor: C.error },
   textArea: { minHeight: 80, textAlignVertical: "top" },
 
   errorText: { fontSize: 12, color: C.error, marginTop: 4 },
@@ -758,25 +795,30 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.surface,
     alignItems: "center",
   },
-  typeBtnActive: { backgroundColor: C.goldDim },
+  typeBtnActive: { backgroundColor: C.goldDim, borderColor: C.gold },
   typeBtnText: { fontSize: 13, fontWeight: "600", color: C.textSec },
   typeBtnTextActive: { color: C.gold, fontWeight: "700" },
 
   confirmBtn: {
-    backgroundColor: CTA,
-    borderRadius: 13,
-    paddingVertical: 15,
+    backgroundColor: C.gold,
+    borderRadius: 12,
+    height: 46,
+    justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
   },
   confirmBtnDisabled: { backgroundColor: C.border },
-  confirmBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", letterSpacing: 0.1 },
+  confirmBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", letterSpacing: 0.2 },
 
   dropdownBtn: {
-    backgroundColor: C.bg,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -809,6 +851,7 @@ const styles = StyleSheet.create({
   pincodeRow: { flexDirection: "row", alignItems: "center" },
   fieldInputAutoFilled: {
     backgroundColor: C.goldDim,
+    borderColor: C.goldDimBorder,
   },
 });
 

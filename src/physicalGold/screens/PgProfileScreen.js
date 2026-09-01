@@ -9,10 +9,13 @@ import {
   TextInput,
   Alert,
   Animated,
+  Image,
+  Linking,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   selectUserId,
   selectUserEmail,
@@ -23,6 +26,8 @@ import { apiGet, apiPost } from "../../services/apiClient";
 import { handleLogout } from "../../services/logoutService";
 import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import PgLayout from "../components/PgLayout";
+import FadeSlideIn from "../components/FadeSlideIn";
+import { getUserOrders, getWishlist, getUserAddresses } from "./physicalGoldApi";
 
 // ─── Design Tokens — premium, restrained. Gold is an accent only. ────────────
 const T = {
@@ -59,35 +64,39 @@ const ShimmerBox = ({ width, height, borderRadius = 8 }) => {
   );
 };
 
-// ─── Section Header — minimal: dark semibold title, gold text-only action ──
-const SectionHeader = ({ title, action, actionLabel }) => (
-  <View style={styles.sectionHeader}>
-    <Text style={styles.sectionTitle}>{title}</Text>
-    {action && (
+// ─── GroupHead — icon box + title + subtitle, above each grouped detail card ─
+const GroupHead = ({ icon, title, subtitle, onEdit }) => (
+  <View style={styles.groupHead}>
+    <View style={styles.groupIconBox}>
+      <Ionicons name={icon} size={16} color={T.gold} />
+    </View>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.groupTitle}>{title}</Text>
+      {subtitle ? <Text style={styles.groupSubtitle}>{subtitle}</Text> : null}
+    </View>
+    {onEdit && (
       <TouchableOpacity
-        onPress={action}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        style={styles.groupEditBtn}
+        onPress={onEdit}
+        activeOpacity={0.8}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text
-          style={[
-            styles.sectionAction,
-            actionLabel === "Cancel" && styles.sectionActionMuted,
-          ]}
-        >
-          {actionLabel}
-        </Text>
+        <Ionicons name="pencil-outline" size={12} color={T.gold} />
+        <Text style={styles.groupEditBtnText}>Edit</Text>
       </TouchableOpacity>
     )}
   </View>
 );
 
-// ─── InfoRow — one line per field: label left, value/input right ───────────
-const InfoRow = ({ label, required, value, placeholder, editing, editable = true, onChangeText, last, ...inputProps }) => (
+// ─── InfoRow — label left, value/input right ─────────────────────────────────
+const InfoRow = ({ label, required, value, placeholder, editing, editable = true, onChangeText, last, verified, ...inputProps }) => (
   <View style={[styles.infoRow, !last && styles.infoRowDivider]}>
-    <Text style={styles.infoLabel}>
-      {label}
-      {required && <Text style={styles.fieldLabelRequired}> *</Text>}
-    </Text>
+    <View style={styles.infoRowLeft}>
+      <Text style={styles.infoLabel}>
+        {label}
+        {required && <Text style={styles.fieldLabelRequired}> *</Text>}
+      </Text>
+    </View>
     {editing && editable ? (
       <TextInput
         style={styles.infoInput}
@@ -99,9 +108,17 @@ const InfoRow = ({ label, required, value, placeholder, editing, editable = true
         {...inputProps}
       />
     ) : (
-      <Text style={styles.infoValue} numberOfLines={1}>
-        {value || "—"}
-      </Text>
+      <View style={styles.infoValueRow}>
+        <Text style={[styles.infoValue, !value && styles.infoValueEmpty]} numberOfLines={1}>
+          {value || "Not provided"}
+        </Text>
+        {verified && value && (
+          <View style={styles.verifiedBadge}>
+            <Ionicons name="checkmark-circle" size={12} color={T.gold} />
+            <Text style={styles.verifiedBadgeText}>Verified</Text>
+          </View>
+        )}
+      </View>
     )}
   </View>
 );
@@ -116,6 +133,9 @@ const PgProfileScreen = ({ navigation, route }) => {
 
   const [profile, setProfile] = useState(null);
   const [wallet, setWallet] = useState(0);
+  const [ordersCount, setOrdersCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
+  const [addressesCount, setAddressesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -123,9 +143,6 @@ const PgProfileScreen = ({ navigation, route }) => {
   const [formData, setFormData] = useState({});
   const [panVerified, setPanVerified] = useState(false);
   const [verifyingPan, setVerifyingPan] = useState(false);
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     fetchProfileData();
@@ -214,6 +231,16 @@ const PgProfileScreen = ({ navigation, route }) => {
         );
         setWallet(walletData?.data?.balance || walletData?.balance || 0);
       } catch (e) {}
+
+      // Quick-stats counts for the profile header tiles — best-effort, read-only.
+      const [ordersRes, wishlistRes, addressesRes] = await Promise.allSettled([
+        getUserOrders(userId),
+        getWishlist(userId),
+        getUserAddresses(userId),
+      ]);
+      if (ordersRes.status === "fulfilled") setOrdersCount(ordersRes.value?.length || 0);
+      if (wishlistRes.status === "fulfilled") setWishlistCount(wishlistRes.value?.length || 0);
+      if (addressesRes.status === "fulfilled") setAddressesCount(addressesRes.value?.length || 0);
     } catch (e) {
       // For new users or 404, just show empty profile (no error)
       if (e?.status === 404) {
@@ -248,41 +275,29 @@ const PgProfileScreen = ({ navigation, route }) => {
       // For other errors, silently handle and show empty profile
     } finally {
       const remaining = Math.max(0, 2000 - (Date.now() - startTime));
-      setTimeout(() => {
-        setLoading(false);
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 500,
-            delay: 100,
-            useNativeDriver: true,
-          }),
-          Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 500,
-            delay: 100,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }, remaining);
+      setTimeout(() => setLoading(false), remaining);
     }
   };
 
   const handleSaveProfile = async () => {
-    // Validate name fields - only letters and spaces
+    // Validate name fields - required, only letters and spaces
     const nameRegex = /^[a-zA-Z\s]+$/;
-    if (formData.firstName && !nameRegex.test(formData.firstName)) {
+    if (!formData.firstName?.trim()) {
+      Alert.alert("First Name Required", "Please enter your first name");
+      return;
+    }
+    if (!nameRegex.test(formData.firstName)) {
       Alert.alert("Invalid Name", "First name should contain only letters");
       return;
     }
-    if (formData.lastName && !nameRegex.test(formData.lastName)) {
-      Alert.alert("Invalid Name", "Last name should contain only letters");
+
+    // Validate email — required, with domain format checking
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!formData.email?.trim()) {
+      Alert.alert("Email Required", "Please enter your email address");
       return;
     }
-
-    // Validate email format with better domain checking
-    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (formData.email && !emailRegex.test(formData.email)) {
+    if (!emailRegex.test(formData.email)) {
       Alert.alert("Invalid Email", "Please enter a valid email address\n\nExample: user@gmail.com");
       return;
     }
@@ -311,17 +326,6 @@ const PgProfileScreen = ({ navigation, route }) => {
       }
     }
 
-    // Validate phone numbers (10 digits starting with 6-9)
-    if (formData.alterMobileNumber) {
-      if (!/^\d{10}$/.test(formData.alterMobileNumber)) {
-        Alert.alert("Invalid Number", "Alternative mobile number must be exactly 10 digits");
-        return;
-      }
-      if (!/^[6-9]/.test(formData.alterMobileNumber)) {
-        Alert.alert("Invalid Number", "Alternative mobile number must start with 6, 7, 8, or 9");
-        return;
-      }
-    }
 
     if (formData.whatsappNumber) {
       if (!/^\d{10}$/.test(formData.whatsappNumber)) {
@@ -422,49 +426,6 @@ const PgProfileScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleAddressClick = async () => {
-    try {
-      const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/auth/addresses/${userId}`);
-      const addresses = response?.data || [];
-      const addressList = Array.isArray(addresses) ? addresses : [];
-      if (addressList.length === 0) {
-        Alert.alert("Addresses", "No addresses found. Add one now?", [
-          { text: "Cancel" },
-          {
-            text: "Add Address",
-            onPress: () =>
-              navigation.navigate("PgAddress", { userId }),
-          },
-        ]);
-      } else {
-        const addressText = addressList
-          .filter((addr) => addr.address || addr.flatNo)
-          .map((addr, idx) => {
-            const type = addr.type || "Home";
-            const flatNo = addr.flatNo || "N/A";
-            const address = addr.address || "N/A";
-            const pincode = addr.pincode || addr.pinCode || "N/A";
-            return `${idx + 1}. ${type}\n${flatNo}, ${address}\n${pincode}`;
-          })
-          .join("\n\n");
-        Alert.alert(
-          "Your Addresses",
-          addressText || "No complete addresses found",
-          [
-            { text: "Close" },
-            {
-              text: "Manage",
-              onPress: () =>
-                navigation.navigate("PgAddress", { userId }),
-            },
-          ],
-        );
-      }
-    } catch (e) {
-      Alert.alert("Error", e?.message || "Failed to load addresses");
-    }
-  };
-
   const handleLogoutPress = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
@@ -551,15 +512,20 @@ const PgProfileScreen = ({ navigation, route }) => {
       onBack={() => navigation.goBack()}
       hideLogo
     >
-      <Animated.ScrollView
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
-        style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
       >
         {/* ── Identity ── */}
-        <View style={styles.hero}>
+        <FadeSlideIn delay={0}>
+        <LinearGradient
+          colors={[T.ink, T.gold]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
           <View style={styles.avatar}>
-            <Ionicons name="person" size={24} color={T.gold} />
+            <Image source={require("../../../assets/profieicon.png")} style={styles.avatarImg} resizeMode="cover" />
           </View>
 
           <View style={styles.heroInfo}>
@@ -567,85 +533,117 @@ const PgProfileScreen = ({ navigation, route }) => {
             <Text style={styles.heroEmail} numberOfLines={1}>
               {formData.email || userEmail || "user@example.com"}
             </Text>
+            <View style={styles.idBadge}>
+              <Ionicons name="shield-checkmark" size={11} color="#fff" />
+              <Text style={styles.idBadgeText}>ID {userId}</Text>
+            </View>
           </View>
 
-          <View style={styles.idBadge}>
-            <View style={styles.idDot} />
-            <Text style={styles.idBadgeText}>ID {userId}</Text>
-          </View>
-        </View>
-
-        {/* ── Wallet ── */}
-        <TouchableOpacity
-          style={styles.walletRow}
-          onPress={() => navigation.navigate("PgWallet", { userId })}
-          activeOpacity={0.7}
-        >
-          <View style={styles.walletIconWrap}>
-            <Ionicons name="wallet-outline" size={18} color={T.gold} />
-          </View>
-
-          <View style={styles.walletInfo}>
-            <Text style={styles.walletLabel}>Wallet Balance</Text>
-            <Text style={styles.walletAmount}>
-              ₹{Number(wallet).toLocaleString("en-IN")}
-            </Text>
-          </View>
-
-          <Ionicons name="chevron-forward" size={18} color={T.faint} />
-        </TouchableOpacity>
-
-        {/* ── Personal Information ── */}
-        <View style={styles.card}>
-          <SectionHeader
-            title="Personal Information"
-            action={() => setEditing(!editing)}
-            actionLabel={editing ? "Cancel" : "Edit"}
-          />
-
-          <View style={styles.infoList}>
-            <InfoRow
-              label="First Name"
-              required
-              editing={editing}
-              value={formData.firstName}
-              onChangeText={(text) => setFormData({ ...formData, firstName: text })}
+          <TouchableOpacity
+            style={styles.heroEditBtn}
+            onPress={() => setEditing(!editing)}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name={editing ? "close" : "pencil-outline"}
+              size={13}
+              color="#fff"
             />
-            <InfoRow
-              label="Last Name"
-              required
-              editing={editing}
-              value={formData.lastName}
-              onChangeText={(text) => setFormData({ ...formData, lastName: text })}
-            />
-            <InfoRow label="Primary Mobile" editing={editing} editable={false} value={formData.mobileNumber} />
-            <InfoRow
-              label="Email"
-              required
-              editing={editing}
-              value={formData.email}
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
-            />
-            <InfoRow
-              label="Alternative Mobile"
-              required
-              editing={editing}
-              value={formData.alterMobileNumber}
-              onChangeText={(text) => setFormData({ ...formData, alterMobileNumber: text })}
-              keyboardType="phone-pad"
-            />
-            <InfoRow
-              label="WhatsApp Number"
-              editing={editing}
-              value={formData.whatsappNumber}
-              onChangeText={(text) => setFormData({ ...formData, whatsappNumber: text })}
-              keyboardType="phone-pad"
-            />
+            <Text style={styles.heroEditBtnText}>{editing ? "Cancel" : "Edit Profile"}</Text>
+          </TouchableOpacity>
+        </LinearGradient>
+        </FadeSlideIn>
 
-            <View style={[styles.infoRow, styles.infoRowDivider]}>
-              <Text style={styles.infoLabel}>
-                Gender<Text style={styles.fieldLabelRequired}> *</Text>
+        {/* ── Quick Stats ── */}
+        <FadeSlideIn delay={60}>
+        <View style={styles.statsRow}>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => navigation.navigate("PgWallet", { userId })}
+            activeOpacity={0.75}
+          >
+            <View style={styles.statIconWrap}>
+              <Ionicons name="wallet-outline" size={17} color={T.gold} />
+            </View>
+            <Text style={styles.statLabel}>Wallet Balance</Text>
+            <View style={styles.statValueRow}>
+              <Text style={styles.statValue} numberOfLines={1}>
+                ₹{Number(wallet).toLocaleString("en-IN")}
               </Text>
+              <Ionicons name="chevron-forward" size={12} color={T.faint} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => navigation.navigate("PgOrders", { userId })}
+            activeOpacity={0.75}
+          >
+            <View style={styles.statIconWrap}>
+              <Ionicons name="clipboard-outline" size={17} color={T.gold} />
+            </View>
+            <Text style={styles.statLabel}>My Orders</Text>
+            <View style={styles.statValueRow}>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {ordersCount} Order{ordersCount === 1 ? "" : "s"}
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color={T.faint} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => navigation.navigate("PgWishlist", { userId })}
+            activeOpacity={0.75}
+          >
+            <View style={styles.statIconWrap}>
+              <Ionicons name="heart-outline" size={17} color={T.gold} />
+            </View>
+            <Text style={styles.statLabel}>Wishlist</Text>
+            <View style={styles.statValueRow}>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {wishlistCount} Item{wishlistCount === 1 ? "" : "s"}
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color={T.faint} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => navigation.navigate("PgAddress", { userId })}
+            activeOpacity={0.75}
+          >
+            <View style={styles.statIconWrap}>
+              <Ionicons name="location-outline" size={17} color={T.gold} />
+            </View>
+            <Text style={styles.statLabel}>Addresses</Text>
+            <View style={styles.statValueRow}>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {addressesCount} Saved
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color={T.faint} />
+            </View>
+          </TouchableOpacity>
+        </View>
+        </FadeSlideIn>
+
+        {/* ── User Details ── */}
+        <FadeSlideIn delay={120}>
+        <View style={styles.card}>
+          <GroupHead
+            icon="person-outline"
+            title="User Details"
+            subtitle="Your personal, contact & KYC info"
+            onEdit={!editing ? () => setEditing(true) : null}
+          />
+          <View style={styles.infoList}>
+            <View style={[styles.infoRow, styles.infoRowDivider]}>
+              <View style={styles.infoRowLeft}>
+                <Text style={styles.infoLabel}>
+                  Gender<Text style={styles.fieldLabelRequired}> *</Text>
+                </Text>
+              </View>
               {editing ? (
                 <View style={styles.genderRow}>
                   {["male", "female"].map((g) => (
@@ -667,17 +665,34 @@ const PgProfileScreen = ({ navigation, route }) => {
                   ))}
                 </View>
               ) : (
-                <Text style={styles.infoValue}>
-                  {formData.gender ? (formData.gender === "male" ? "Male" : "Female") : "—"}
+                <Text style={[styles.infoValue, !formData.gender && styles.infoValueEmpty]}>
+                  {formData.gender ? (formData.gender === "male" ? "Male" : "Female") : "Not provided"}
                 </Text>
               )}
             </View>
 
+            <InfoRow label="Primary Mobile" editing={editing} editable={false} value={formData.mobileNumber} />
+            <InfoRow
+              label="WhatsApp Number"
+              editing={editing}
+              value={formData.whatsappNumber}
+              onChangeText={(text) => setFormData({ ...formData, whatsappNumber: text })}
+              keyboardType="phone-pad"
+            />
+            <InfoRow
+              label="Email"
+              required
+              editing={editing}
+              value={formData.email}
+              onChangeText={(text) => setFormData({ ...formData, email: text })}
+            />
             <InfoRow
               label="PAN Number"
               required
               last
               editing={editing}
+              editable={!panVerified}
+              verified={panVerified}
               value={formData.panNumber}
               onChangeText={(text) => {
                 setFormData({ ...formData, panNumber: text.toUpperCase() });
@@ -690,75 +705,104 @@ const PgProfileScreen = ({ navigation, route }) => {
           </View>
 
           {editing && (
-            <TouchableOpacity
-              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-              onPress={handleSaveProfile}
-              disabled={saving}
-              activeOpacity={0.85}
-            >
-              {saving ? (
-                <>
-                  <ActivityIndicator size="small" color="#fff" />
-                  {verifyingPan && (
-                    <Text style={[styles.saveBtnText, { marginLeft: 8 }]}>Verifying PAN…</Text>
-                  )}
-                </>
-              ) : (
-                <Text style={styles.saveBtnText}>Save Changes</Text>
-              )}
-            </TouchableOpacity>
+            <View style={styles.editActionsRow}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setEditing(false)}
+                disabled={saving}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+                onPress={handleSaveProfile}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                {saving ? (
+                  <>
+                    <ActivityIndicator size="small" color="#fff" />
+                    {verifyingPan && (
+                      <Text style={[styles.saveBtnText, { marginLeft: 8 }]}>Verifying PAN…</Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={styles.saveBtnText}>Save Changes</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           )}
         </View>
+        </FadeSlideIn>
 
         {/* ── Quick Links ── */}
+        <FadeSlideIn delay={300}>
         <View style={styles.card}>
-          <SectionHeader title="Quick Links" />
+          <GroupHead icon="grid-outline" title="Quick Links" />
 
-          {[
-            {
-              icon: "receipt-outline",
-              label: "My Orders",
-              onPress: () => navigation.navigate("PgOrders", { userId }),
-            },
-            {
-              icon: "location-outline",
-              label: "Addresses",
-              onPress: handleAddressClick,
-            },
-            {
-              icon: "wallet-outline",
-              label: "Wallet & Transactions",
-              onPress: () => navigation.navigate("PgWallet", { userId }),
-            },
-            {
-              icon: "help-circle-outline",
-              label: "Help & Support",
-              onPress: null,
-            },
-            {
-              icon: "document-text-outline",
-              label: "Terms & Conditions",
-              onPress: () => navigation.navigate("PgTerms"),
-            },
-          ].map((item, index, arr) => (
-            <React.Fragment key={item.label}>
+          <View style={styles.linkGrid}>
+            {[
+              {
+                icon: "headset-outline",
+                label: "Help & Support",
+                onPress: () => Linking.openURL("mailto:support@askoxy.ai"),
+              },
+              {
+                icon: "shield-checkmark-outline",
+                label: "Privacy Policy",
+                onPress: () => navigation.navigate("PgPrivacyPolicy"),
+              },
+              {
+                icon: "document-text-outline",
+                label: "Terms & Conditions",
+                onPress: () => navigation.navigate("PgTerms"),
+              },
+              {
+                icon: "cube-outline",
+                label: "Shipping Policy",
+                onPress: () => navigation.navigate("PgShippingPolicy"),
+              },
+              {
+                icon: "return-down-back-outline",
+                label: "Return & Refund Policy",
+                onPress: () => navigation.navigate("PgReturnRefundPolicy"),
+              },
+              {
+                icon: "close-circle-outline",
+                label: "Cancellation Policy",
+                onPress: () => navigation.navigate("PgCancellationPolicy"),
+              },
+              {
+                icon: "help-circle-outline",
+                label: "FAQs",
+                onPress: () => navigation.navigate("PgFAQ"),
+              },
+              {
+                icon: "settings-outline",
+                label: "Cookie Policy",
+                onPress: () => navigation.navigate("PgCookiePolicy"),
+              },
+            ].map((item) => (
               <TouchableOpacity
-                style={styles.linkItem}
+                key={item.label}
+                style={styles.linkTile}
                 onPress={item.onPress || undefined}
-                activeOpacity={item.onPress ? 0.7 : 1}
+                activeOpacity={item.onPress ? 0.75 : 1}
               >
                 <View style={styles.linkIconWrap}>
                   <Ionicons name={item.icon} size={17} color={T.gold} />
                 </View>
-                <Text style={styles.linkText}>{item.label}</Text>
-                <Ionicons name="chevron-forward" size={16} color={T.faint} />
+                <Text style={styles.linkText} numberOfLines={2}>{item.label}</Text>
+                <Ionicons name="chevron-forward" size={14} color={T.faint} style={styles.linkChevron} />
               </TouchableOpacity>
-              {index < arr.length - 1 && <View style={styles.linkDivider} />}
-            </React.Fragment>
-          ))}
+            ))}
+          </View>
         </View>
+        </FadeSlideIn>
 
         {/* ── Logout ── */}
+        <FadeSlideIn delay={340}>
         <TouchableOpacity
           style={[styles.logoutBtn, logoutLoading && styles.logoutBtnDisabled]}
           onPress={handleLogoutPress}
@@ -774,7 +818,8 @@ const PgProfileScreen = ({ navigation, route }) => {
             </>
           )}
         </TouchableOpacity>
-      </Animated.ScrollView>
+        </FadeSlideIn>
+      </ScrollView>
     </PgLayout>
   );
 };
@@ -798,84 +843,102 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    backgroundColor: T.surface,
-    borderRadius: 16,
+    borderRadius: 18,
     paddingHorizontal: 18,
-    paddingVertical: 18,
-    marginBottom: 10,
-    shadowColor: "rgba(28,28,30,0.05)",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 1,
+    paddingVertical: 20,
+    marginBottom: 12,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: T.goldTint,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.35)",
   },
+  avatarImg: { width: "100%", height: "100%" },
   heroInfo: { flex: 1, minWidth: 0 },
   heroName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
-    color: T.ink,
+    color: "#fff",
     marginBottom: 3,
     letterSpacing: -0.2,
   },
-  heroEmail: { fontSize: 12.5, fontWeight: "400", color: T.subtle },
+  heroEmail: { fontSize: 12.5, fontWeight: "400", color: "rgba(255,255,255,0.75)" },
   idBadge: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "flex-start",
     gap: 5,
-    backgroundColor: T.surfaceMuted,
+    backgroundColor: "rgba(255,255,255,0.16)",
     borderRadius: 20,
     paddingHorizontal: 9,
     paddingVertical: 5,
+    marginTop: 6,
   },
-  idDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: T.gold },
-  idBadgeText: { fontSize: 10.5, fontWeight: "500", color: T.subtle },
-
-  // ── Wallet ──
-  walletRow: {
+  idBadgeText: { fontSize: 10.5, fontWeight: "600", color: "#fff" },
+  heroEditBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 13,
-    backgroundColor: T.surface,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 10,
-    shadowColor: "rgba(28,28,30,0.05)",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 1,
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.45)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  walletIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+  heroEditBtnText: { fontSize: 12, fontWeight: "600", color: "#fff" },
+
+  // ── Quick stats (Wallet / Orders / Wishlist / Addresses) ──
+  statsRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 12 },
+  statCard: {
+    flexBasis: "47%",
+    flexGrow: 1,
+    backgroundColor: T.surface,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: T.divider,
+  },
+  statIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: T.goldTint,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  statLabel: { fontSize: 11.5, fontWeight: "400", color: T.subtle, marginBottom: 3 },
+  statValueRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 4 },
+  statValue: { flex: 1, fontSize: 14, fontWeight: "600", color: T.ink },
+
+  // ── Group head — icon box + title/subtitle + optional Edit pill ──
+  groupHead: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
+  groupIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
     backgroundColor: T.goldTint,
     justifyContent: "center",
     alignItems: "center",
   },
-  walletInfo: { flex: 1 },
-  walletLabel: { fontSize: 11.5, fontWeight: "400", color: T.subtle, marginBottom: 2 },
-  walletAmount: { fontSize: 19, fontWeight: "600", color: T.ink, letterSpacing: -0.3 },
-
-  // ── Section Header ──
-  sectionHeader: {
+  groupTitle: { fontSize: 14.5, fontWeight: "600", color: T.ink },
+  groupSubtitle: { fontSize: 11.5, fontWeight: "400", color: T.subtle, marginTop: 1 },
+  groupEditBtn: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
+    gap: 4,
+    backgroundColor: T.goldTint,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  sectionTitle: { fontSize: 15, fontWeight: "600", color: T.ink, letterSpacing: -0.1 },
-  sectionAction: { fontSize: 13, fontWeight: "600", color: T.gold },
-  sectionActionMuted: { color: T.subtle },
+  groupEditBtnText: { fontSize: 11.5, fontWeight: "600", color: T.gold },
 
   // ── Cards ──
   card: {
@@ -883,6 +946,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: T.divider,
     shadowColor: "rgba(28,28,30,0.05)",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 1,
@@ -900,6 +965,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   infoRowDivider: { borderBottomWidth: 1, borderBottomColor: T.divider },
+  infoRowLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 0 },
   infoLabel: {
     fontSize: 13,
     fontWeight: "400",
@@ -907,13 +973,17 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   fieldLabelRequired: { color: T.danger },
+  infoValueRow: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
   infoValue: {
-    flex: 1,
+    flexShrink: 1,
     fontSize: 13.5,
     fontWeight: "500",
     color: T.ink,
     textAlign: "right",
   },
+  infoValueEmpty: { fontWeight: "400", color: T.faint, fontStyle: "italic" },
+  verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 2, flexShrink: 0 },
+  verifiedBadgeText: { fontSize: 10.5, fontWeight: "600", color: T.gold },
   infoInput: {
     flex: 1,
     fontSize: 13.5,
@@ -939,36 +1009,55 @@ const styles = StyleSheet.create({
   genderOptionText: { fontSize: 13, fontWeight: "500", color: T.subtle },
   genderOptionTextActive: { color: T.gold, fontWeight: "600" },
 
-  // Save button
+  // Edit mode actions — Cancel (outlined) + Save (filled), side by side
+  editActionsRow: { flexDirection: "row", gap: 10, marginTop: 16 },
+  cancelBtn: {
+    flex: 1,
+    borderRadius: 12,
+    height: 48,
+    borderWidth: 1,
+    borderColor: T.divider,
+    backgroundColor: T.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelBtnText: { fontSize: 14, fontWeight: "600", color: T.subtle },
   saveBtn: {
-    backgroundColor: T.gold,
+    flex: 1,
+    backgroundColor: T.ink,
     borderRadius: 12,
     height: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
   },
   saveBtnDisabled: { backgroundColor: T.faint },
   saveBtnText: { fontSize: 14, fontWeight: "600", color: "#fff" },
 
   // ── Quick Links ──
-  linkItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 12,
+  linkGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  linkTile: {
+    flexBasis: "47%",
+    flexGrow: 1,
+    backgroundColor: T.surfaceMuted,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: T.divider,
+    padding: 12,
+    gap: 8,
   },
   linkIconWrap: {
     width: 32,
     height: 32,
     borderRadius: 9,
-    backgroundColor: T.goldTint,
+    backgroundColor: T.surface,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: T.divider,
   },
-  linkText: { flex: 1, fontSize: 13.5, fontWeight: "500", color: T.ink },
-  linkDivider: { height: 1, backgroundColor: T.divider },
+  linkText: { fontSize: 12.5, fontWeight: "500", color: T.ink, lineHeight: 16 },
+  linkChevron: { position: "absolute", top: 12, right: 12 },
 
   // ── Logout ──
   logoutBtn: {

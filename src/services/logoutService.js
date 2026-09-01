@@ -104,7 +104,10 @@ export const handleLogout = async ({
   onSuccess,
   onError,
 }) => {
-  if (!userId) {
+  // Only bail out when there's truly nothing to clear. A missing userId with a
+  // refreshToken still present (e.g. a corrupted stored session) must still be
+  // logoutable — this used to block that, trapping the user in that state.
+  if (!userId && !refreshToken) {
     console.log('[logout] No user logged in');
     onError?.('No user session found');
     return;

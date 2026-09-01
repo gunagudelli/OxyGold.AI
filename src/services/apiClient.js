@@ -53,9 +53,15 @@ const getTokenExpiresAt = () => selectTokenExpiresAt(_store?.getState());
 export const getUserId = () => _store?.getState()?.auth?.userId || null;
 
 // ─── AsyncStorage helpers (single key) ───────────────────────────────────────
+// Merges onto whatever's already stored so a partial payload (e.g. a token
+// refresh response that has no userId) can't silently erase fields — like
+// userId — that a previous login already persisted.
 export const persistTokens = async (tokens) => {
   try {
+    const raw = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+    const existing = raw ? JSON.parse(raw) : {};
     await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+      ...existing,
       ...tokens,
       storedAt: Date.now(),
     }));
@@ -124,6 +130,11 @@ const refreshAccessToken = async () => {
         accessToken:  data?.data?.accessToken  || data?.accessToken,
         refreshToken: data?.data?.refreshToken || data?.refreshToken || refreshToken,
         expiresIn:    data?.data?.expiresIn    || data?.expiresIn,
+        // The refresh endpoint doesn't return these — carry them over from the
+        // current session so persistTokens() below doesn't wipe them out of
+        // AsyncStorage (it overwrites the whole stored record, not a merge).
+        userId:       getUserId(),
+        userEmail:    _store?.getState()?.auth?.userEmail || null,
       };
 
       if (!newTokens.accessToken) {
@@ -171,7 +182,7 @@ export class ApiError extends Error {
 const buildError = (status, data) => {
   const msg = data?.message || data?.error || `Request failed (${status})`;
   switch (status) {
-    case 400: return new ApiError('Bad request. Please check your input.',          status, data);
+    case 400: return new ApiError(data?.message || data?.error || 'Bad request. Please check your input.', status, data);
     case 401: return new ApiError(SESSION_EXPIRED,                                  status, data);
     case 403: return new ApiError('Access denied.',                                 status, data);
     case 404: return new ApiError('Resource not found.',                            status, data);

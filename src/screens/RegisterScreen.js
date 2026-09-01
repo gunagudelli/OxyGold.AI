@@ -70,6 +70,9 @@ const useSlideIn = (trigger) => {
 };
 
 // ── OTP Box ───────────────────────────────────────────────────────────────────
+// maxLength is 6 (not 1) so that when iOS/Android autofill delivers the whole
+// SMS code into whichever box is focused, the field can actually hold it —
+// handleOtpChange then splits a multi-digit value across all six boxes.
 const OtpBox = ({ value, inputRef, onChange, onKeyPress, onFocus }) => (
   <TextInput
     ref={inputRef}
@@ -79,9 +82,11 @@ const OtpBox = ({ value, inputRef, onChange, onKeyPress, onFocus }) => (
     onKeyPress={onKeyPress}
     onFocus={onFocus}
     keyboardType="number-pad"
-    maxLength={1}
+    maxLength={6}
     textAlign="center"
     selectTextOnFocus
+    textContentType="oneTimeCode"
+    autoComplete="sms-otp"
   />
 );
 
@@ -213,11 +218,27 @@ const RegisterScreen = ({ navigation }) => {
 
   // ── OTP helpers ─────────────────────────────────────────────────────────────
   const handleOtpChange = (i, val) => {
-    const digit = val.replace(/\D/g, "").slice(-1);
+    const digits = val.replace(/\D/g, "");
+    setError("");
+
+    // Autofill (or a paste) delivers the whole code at once — spread it
+    // across all six boxes starting from the box that received it.
+    if (digits.length > 1) {
+      const next = [...otp];
+      for (let j = 0; j < digits.length && i + j < 6; j++) {
+        next[i + j] = digits[j];
+      }
+      setOtp(next);
+      const lastFilled = Math.min(i + digits.length, 6) - 1;
+      otpRefs.current[lastFilled]?.focus();
+      otpRefs.current[lastFilled]?.blur();
+      return;
+    }
+
+    const digit = digits.slice(-1);
     const next = [...otp];
     next[i] = digit;
     setOtp(next);
-    setError("");
     if (digit && i < 5) otpRefs.current[i + 1]?.focus();
   };
 

@@ -23,9 +23,7 @@ import PgLayout from "../components/PgLayout";
 import {
   getUserProfile,
   getUserAddresses,
-  getWalletBalance,
   createOrder,
-  confirmOrder,
   deleteAddress,
   getCart,
 } from "./physicalGoldApi";
@@ -42,10 +40,10 @@ const C = {
   navy: "#1C1C1E",
   navyMid: "#48484C",
   navyLight: "#7A7A80",
-  green: "#2ECC71",
+  green: "#1F8A4C",
   greenBg: "#E8F5E9",
   greenBorder: "#E8F5E9",
-  red: "#C85A54",
+  red: "#C0392B",
   redBg: "#FDECEA",
   redBorder: "#FDECEA",
   border: "#E7E0DA",
@@ -96,7 +94,6 @@ const ShimmerBox = ({ width, height, borderRadius = 8 }) => {
 // ─── Section Header (same as PgCartScreen) ───────────────────────────────────
 const SectionHeader = ({ title }) => (
   <View style={styles.sectionHeader}>
-    <View style={styles.sectionAccent} />
     <Text style={styles.sectionTitle}>{title}</Text>
   </View>
 );
@@ -146,17 +143,20 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [addresses, setAddresses] = useState([]);
+  const hadAddressesRef = useRef(false);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [showAllAddresses, setShowAllAddresses] = useState(false);
   const [deletingAddressId, setDeletingAddressId] = useState(null);
-  const [paymentMode, setPaymentMode] = useState("CASHFREE");
-  const [walletBalance, setWalletBalance] = useState(0);
-  const [walletExists, setWalletExists] = useState(false);
+  // Cash on Delivery is the only payment method offered right now.
+  const paymentMode = "COD";
   const [profileComplete, setProfileComplete] = useState(false);
   
   // Store cart data in state so it persists when navigating back
   const [cartTotal, setCartTotal] = useState(routeCartTotal || 0);
   const [cartItems, setCartItems] = useState(routeCartItems || []);
+  const [cartSubtotal, setCartSubtotal] = useState(0);
+  const [cartGst, setCartGst] = useState(0);
+  const [cartMaking, setCartMaking] = useState(0);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -172,10 +172,9 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     setLoading(true);
     const startTime = Date.now();
     try {
-      const [profileRes, addrRes, walletRes, cartRes] = await Promise.allSettled([
+      const [profileRes, addrRes, cartRes] = await Promise.allSettled([
         getUserProfile(userId),
         getUserAddresses(userId),
-        getWalletBalance(userId),
         getCart(userId),
       ]);
 
@@ -209,13 +208,21 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           flatNo: a.flatNo || "",
           landMark: a.landMark || "",
           address: a.address || "",
-          pinCode: a.pinCode || "",
+          city: a.city || "",
+          area: a.area || "",
+          pinCode: a.pincode || a.pinCode || "",
           state: a.state || "",
         }));
-        setAddresses(list);
+
         if (list.length > 0) {
-          setSelectedAddressId(list[0].id);
-        } else {
+          hadAddressesRef.current = true;
+          setAddresses(list);
+          setSelectedAddressId((prev) => (prev && list.some((a) => a.id === prev)) ? prev : list[0].id);
+        } else if (!hadAddressesRef.current) {
+          // Only a genuinely new user (never had addresses loaded) hits the
+          // empty-state prompt — a refetch that transiently returns empty
+          // right after checkout must not wipe an already-known-good list.
+          setAddresses([]);
           Alert.alert(
             "No Address Found",
             "Please add a delivery address to proceed with checkout.",
@@ -226,14 +233,11 @@ const PgCheckoutScreen = ({ navigation, route }) => {
               }
             ]
           );
+        } else {
+          console.log("[Checkout] Address refetch returned empty while a known list existed — keeping the existing list.");
         }
       }
 
-      if (walletRes.status === "fulfilled") {
-        setWalletBalance(walletRes.value?.balance || 0);
-        setWalletExists(true);
-      }
-      
       // Fetch cart data from API
       if (cartRes.status === "fulfilled") {
         const cart = cartRes.value;
@@ -246,6 +250,9 @@ const PgCheckoutScreen = ({ navigation, route }) => {
         
         setCartItems(cart?.itemsInCart || []);
         setCartTotal(cart?.totalPayableAmount || 0);
+        setCartSubtotal(cart?.totalCartValue || 0);
+        setCartGst(cart?.totalGstCharges || 0);
+        setCartMaking(cart?.totalMakingCharges || 0);
       } else if (routeCartTotal && routeCartItems) {
         // Fallback to route params if API fails
         console.log('[Checkout] Using cart data from route params');
@@ -355,23 +362,9 @@ const PgCheckoutScreen = ({ navigation, route }) => {
       );
       return;
     }
-    if (paymentMode === "WALLET" && walletBalance < cartTotal) {
-      Alert.alert(
-        "Insufficient Balance",
-        `Your wallet balance ₹${walletBalance} is less than ₹${cartTotal}. Please use Online Payment.`,
-        [
-          {
-            text: "Use Online Payment",
-            onPress: () => setPaymentMode("CASHFREE"),
-          },
-          { text: "Cancel", style: "cancel" },
-        ],
-      );
-      return;
-    }
     Alert.alert(
       "Confirm Order",
-      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(cartTotal || 0).toLocaleString("en-IN")}\nPayment: ${paymentMode}`,
+      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(cartTotal || 0).toLocaleString("en-IN")}\nPayment: Cash on Delivery`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Confirm Order", onPress: () => processOrder() },
@@ -387,7 +380,6 @@ const PgCheckoutScreen = ({ navigation, route }) => {
         addressId: Number(selectedAddressId),
         notes: "Physical Gold Order",
         paymentMode,
-        returnUrl: `https://app.oxygold.com/physical-gold/payment-status`,
       };
       const orderRes = await createOrder(orderPayload);
       if (!orderRes) throw new Error("Failed to create order");
@@ -395,29 +387,19 @@ const PgCheckoutScreen = ({ navigation, route }) => {
       const orderId = orderRes?.orderId || orderRes?.id;
       const orderNumber = orderRes?.orderNumber;
       const txnId = orderRes?.txnId;
-      const paymentSessionId = orderRes?.paymentSessionId;
       const totalAmount = orderRes?.totalAmount;
 
-      await confirmOrder(orderId);
+      // COD orders are auto-confirmed by the backend on creation (this app's
+      // only payment mode right now) — calling confirmOrder here is rejected
+      // with "Order already confirmed", so it's skipped entirely.
 
-      if (paymentMode === "CASHFREE") {
-        navigation.navigate("PgPaymentHandler", {
-          orderId,
-          orderNumber,
-          txnId,
-          paymentSessionId,
-          totalAmount,
-          paymentMode,
-        });
-      } else {
-        navigation.navigate("PgPaymentStatus", {
-          orderId,
-          orderNumber,
-          txnId,
-          paymentMode,
-          totalAmount,
-        });
-      }
+      navigation.navigate("PgPaymentStatus", {
+        orderId,
+        orderNumber,
+        txnId,
+        paymentMode,
+        totalAmount,
+      });
     } catch (err) {
       console.error("[Checkout Error]", err.message);
       let errorMessage = err.message || "Please try again";
@@ -565,13 +547,14 @@ const PgCheckoutScreen = ({ navigation, route }) => {
                             )}
                           </View>
                           <Text style={styles.addrMainText} numberOfLines={2}>
-                            {addr.address}
+                            {[addr.flatNo, addr.address].filter(Boolean).join(", ")}
                           </Text>
-                          {addr.landMark || addr.flatNo ? (
+                          {addr.landMark ? (
+                            <Text style={styles.addrSubText}>Near {addr.landMark}</Text>
+                          ) : null}
+                          {(addr.area || addr.city) ? (
                             <Text style={styles.addrSubText}>
-                              {[addr.landMark, addr.flatNo]
-                                .filter(Boolean)
-                                .join(", ")}
+                              {[addr.area, addr.city].filter(Boolean).join(", ")}
                             </Text>
                           ) : null}
                           <Text style={styles.addrPinText}>
@@ -627,188 +610,71 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           <View style={styles.card}>
             <SectionHeader title="PAYMENT METHOD" />
 
-            <View style={styles.paymentRow}>
-              {walletExists && (
-                <TouchableOpacity
-                  style={[
-                    styles.payCard,
-                    paymentMode === "WALLET" && styles.payCardSelected,
-                  ]}
-                  onPress={() => setPaymentMode("WALLET")}
-                  activeOpacity={0.85}
-                >
-                  <View
-                    style={[
-                      styles.payIconBox,
-                      paymentMode === "WALLET" && styles.payIconBoxSelected,
-                    ]}
-                  >
-                    <Ionicons
-                      name="wallet"
-                      size={18}
-                      color={paymentMode === "WALLET" ? "#fff" : C.navyLight}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.payLabel,
-                      paymentMode === "WALLET" && styles.payLabelSelected,
-                    ]}
-                  >
-                    Wallet
-                  </Text>
-                  <Text
-                    style={[
-                      styles.paySub,
-                      walletBalance >= cartTotal
-                        ? { color: C.green }
-                        : { color: C.red },
-                    ]}
-                  >
-                    ₹{Number(walletBalance).toLocaleString("en-IN")}
-                  </Text>
-                  <View
-                    style={[
-                      styles.radio,
-                      paymentMode === "WALLET" && styles.radioSelected,
-                    ]}
-                  >
-                    {paymentMode === "WALLET" && (
-                      <View style={styles.radioDot} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                style={[
-                  styles.payCard,
-                  paymentMode === "CASHFREE" && styles.payCardSelected,
-                ]}
-                onPress={() => setPaymentMode("CASHFREE")}
-                activeOpacity={0.85}
-              >
-                <View
-                  style={[
-                    styles.payIconBox,
-                    paymentMode === "CASHFREE" && styles.payIconBoxSelected,
-                  ]}
-                >
-                  <Ionicons
-                    name="card"
-                    size={18}
-                    color={paymentMode === "CASHFREE" ? "#fff" : C.navyLight}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.payLabel,
-                    paymentMode === "CASHFREE" && styles.payLabelSelected,
-                  ]}
-                >
-                  Online Payment
-                </Text>
-                <Text style={styles.paySub}>UPI / Cards / Net Banking</Text>
-                <View
-                  style={[
-                    styles.radio,
-                    paymentMode === "CASHFREE" && styles.radioSelected,
-                  ]}
-                >
-                  {paymentMode === "CASHFREE" && (
-                    <View style={styles.radioDot} />
-                  )}
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.payCard,
-                  paymentMode === "COD" && styles.payCardSelected,
-                ]}
-                onPress={() => setPaymentMode("COD")}
-                activeOpacity={0.85}
-              >
-                <View
-                  style={[
-                    styles.payIconBox,
-                    paymentMode === "COD" && styles.payIconBoxSelected,
-                  ]}
-                >
-                  <Ionicons
-                    name="cash-outline"
-                    size={18}
-                    color={paymentMode === "COD" ? "#fff" : C.navyLight}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.payLabel,
-                    paymentMode === "COD" && styles.payLabelSelected,
-                  ]}
-                >
-                  Cash on Delivery
-                </Text>
-                <Text style={styles.paySub}>Pay at your doorstep</Text>
-                <View
-                  style={[
-                    styles.radio,
-                    paymentMode === "COD" && styles.radioSelected,
-                  ]}
-                >
-                  {paymentMode === "COD" && (
-                    <View style={styles.radioDot} />
-                  )}
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Insufficient wallet warning */}
-            {paymentMode === "WALLET" && walletBalance < cartTotal && (
-              <View style={styles.warningBox}>
-                <Ionicons name="warning" size={14} color={C.warn} />
-                <Text style={styles.warningText}>
-                  Insufficient balance. Switch to Online Payment.
-                </Text>
+            <View style={styles.codRow}>
+              <View style={styles.payIconBoxSelected}>
+                <Ionicons name="cash-outline" size={18} color="#fff" />
               </View>
-            )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.payLabelSelected}>Cash on Delivery</Text>
+                <Text style={styles.paySub}>Pay at your doorstep</Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={20} color={C.gold} />
+            </View>
           </View>
 
           {/* ── Order Summary — gold card matching PgCartScreen summaryCard ── */}
           <View style={styles.summaryCard}>
-            <View style={styles.summaryRing1} />
-            <View style={styles.summaryRing2} />
-
             <SectionHeader title="ORDER SUMMARY" />
 
             <View style={styles.specRow}>
-              <Text style={styles.specLabel}>Items</Text>
+              <Text style={styles.specLabel}>
+                Subtotal ({cartItems?.length || 0} item{cartItems?.length !== 1 ? "s" : ""})
+              </Text>
               <Text style={styles.specValue}>
-                {cartItems?.length || 0} item
-                {cartItems?.length !== 1 ? "s" : ""}
+                ₹{Number(cartSubtotal || 0).toLocaleString("en-IN")}
+              </Text>
+            </View>
+            <View style={styles.specDivider} />
+
+            {cartMaking > 0 && (
+              <>
+                <View style={styles.specRow}>
+                  <Text style={styles.specLabel}>Making Charges</Text>
+                  <Text style={styles.specValue}>
+                    ₹{Number(cartMaking).toLocaleString("en-IN")}
+                  </Text>
+                </View>
+                <View style={styles.specDivider} />
+              </>
+            )}
+
+            <View style={styles.specRow}>
+              <Text style={styles.specLabel}>GST (3%)</Text>
+              <Text style={styles.specValue}>
+                ₹{Number(cartGst || 0).toLocaleString("en-IN")}
               </Text>
             </View>
             <View style={styles.specDivider} />
 
             <View style={styles.specRow}>
-              <Text style={styles.specLabel}>Delivery</Text>
-              <Text style={styles.specFree}>FREE</Text>
+              <Text style={styles.specLabel}>Shipping</Text>
+              <Text style={styles.specFree}>Free</Text>
+            </View>
+            <View style={styles.specDivider} />
+
+            <View style={styles.specRow}>
+              <Text style={styles.specLabel}>Insurance</Text>
+              <Text style={styles.specValue}>Included</Text>
             </View>
             <View style={styles.specDivider} />
 
             <View style={styles.specRow}>
               <Text style={styles.specLabel}>Payment Method</Text>
-              <Text style={styles.specValue}>
-                {paymentMode === "CASHFREE"
-                  ? "Online Payment"
-                  : paymentMode === "COD"
-                  ? "Cash on Delivery"
-                  : "Wallet"}
-              </Text>
+              <Text style={styles.specValue}>Cash on Delivery</Text>
             </View>
 
             <View style={styles.grandTotalRow}>
-              <Text style={styles.grandTotalLabel}>Grand Total</Text>
+              <Text style={styles.grandTotalLabel}>Total</Text>
               <Text style={styles.grandTotalValue}>
                 ₹{Number(cartTotal || 0).toLocaleString("en-IN")}
               </Text>
@@ -866,22 +732,12 @@ const styles = StyleSheet.create({
 
   // ── Section Header (same as PgCartScreen) ──
   sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
     marginBottom: 14,
-  },
-  sectionAccent: {
-    width: 3,
-    height: 18,
-    borderRadius: 2,
-    backgroundColor: C.gold,
   },
   sectionTitle: {
     fontSize: 13,
-    fontWeight: "800",
-    color: C.navyMid,
-    letterSpacing: 0.5,
+    fontWeight: "600",
+    color: C.navy,
   },
 
   // ── Cards ──
@@ -890,6 +746,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: C.border,
     shadowColor: "rgba(34,30,28,0.06)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
@@ -903,7 +761,7 @@ const styles = StyleSheet.create({
   },
   manageText: {
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.gold,
     marginBottom: 14,
   },
@@ -987,7 +845,7 @@ const styles = StyleSheet.create({
   },
   addrTypeText: {
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.gold,
     letterSpacing: 0.8,
   },
@@ -1039,101 +897,54 @@ const styles = StyleSheet.create({
     color: C.gold,
   },
 
-  // ── Payment ──
-  paymentRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  payCard: {
-    flexBasis: "47%",
-    flexGrow: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: C.surfaceAlt,
-    padding: 14,
+  // ── Payment (Cash on Delivery only) ──
+  codRow: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-  },
-  payCardSelected: {
-    borderColor: C.gold,
+    gap: 12,
+    borderRadius: 12,
     borderWidth: 1.5,
+    borderColor: C.gold,
     backgroundColor: C.goldLight,
+    padding: 14,
   },
-  payIconBox: {
+  payIconBoxSelected: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: C.card,
+    borderRadius: 18,
+    backgroundColor: C.gold,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: 2,
   },
-  payIconBoxSelected: { backgroundColor: C.gold, borderColor: C.gold },
-  payLabel: { fontSize: 12, fontWeight: "800", color: C.navy },
-  payLabelSelected: { color: C.gold },
+  payLabelSelected: { fontSize: 13, fontWeight: "700", color: C.gold, marginBottom: 2 },
   paySub: {
-    fontSize: 10,
+    fontSize: 11,
     color: C.navyLight,
     fontWeight: "500",
-    textAlign: "center",
   },
-  radio: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 2,
-  },
-  radioSelected: { borderColor: C.gold },
-  radioDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.gold },
 
   // ── Summary Card (matches PgCartScreen summaryCard) ──
   summaryCard: {
-    backgroundColor: C.goldLight,
+    backgroundColor: C.card,
     borderRadius: 18,
-    padding: 20,
+    padding: 18,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: C.goldMid,
-    overflow: "hidden",
-  },
-  summaryRing1: {
-    position: "absolute",
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(228,187,103,0.07)",
-    top: -35,
-    right: 16,
-  },
-  summaryRing2: {
-    position: "absolute",
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 1,
-    borderColor: "rgba(228,187,103,0.10)",
-    right: 90,
-    bottom: -24,
+    borderColor: C.border,
   },
   specRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 10,
-    zIndex: 1,
+    paddingVertical: 9,
   },
   specDivider: {
     height: 1,
-    backgroundColor: "rgba(207,139,23,0.15)",
-    zIndex: 1,
+    backgroundColor: C.divider,
   },
   specLabel: { fontSize: 13, color: C.navyLight },
   specValue: { fontSize: 13, fontWeight: "700", color: C.navy },
-  specFree: { fontSize: 13, fontWeight: "800", color: C.green },
+  specFree: { fontSize: 13, fontWeight: "600", color: C.green },
   grandTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1141,10 +952,10 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: C.goldMid,
+    borderTopColor: C.divider,
   },
-  grandTotalLabel: { fontSize: 15, fontWeight: "800", color: C.navy },
-  grandTotalValue: { fontSize: 22, fontWeight: "900", color: C.gold },
+  grandTotalLabel: { fontSize: 15, fontWeight: "700", color: C.navy },
+  grandTotalValue: { fontSize: 20, fontWeight: "700", color: C.green },
 
   // ── Footer (mirrors PgCartScreen footer exactly) ──
   footer: {
@@ -1171,15 +982,15 @@ const styles = StyleSheet.create({
   },
   footerPriceValue: {
     fontSize: 22,
-    fontWeight: "900",
-    color: C.navy,
+    fontWeight: "700",
+    color: C.green,
     letterSpacing: -0.5,
   },
   footerPriceSub: { fontSize: 11, color: C.navyLight, marginTop: 2 },
 
   checkoutBtn: {
     flexDirection: "row",
-    backgroundColor: "#CF8B17",
+    backgroundColor: C.navy,
     borderRadius: 14,
     height: 52,
     paddingHorizontal: 22,

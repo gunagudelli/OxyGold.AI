@@ -26,8 +26,6 @@ import {
   getCart,
   generateModelImage,
 } from "./physicalGoldApi";
-import { apiPost, apiDelete } from "../../services/apiClient";
-import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { useApiCall } from "../../hooks/useApiCall";
 
@@ -44,11 +42,11 @@ const C = {
   navy: "#1C1C1E",
   navyMid: "#48484C",
   navyLight: "#7A7A80",
-  green: "#2ECC71",
+  green: "#1F8A4C",
   greenDark: "#1F8A4C",
   greenLight: "#E8F5E9",
-  red: "#C85A54",
-  redDark: "#8B3A34",
+  red: "#C0392B",
+  redDark: "#C0392B",
   redLight: "#FDECEA",
   border: "#E7E0DA",
   divider: "#EEEBE8",
@@ -64,6 +62,13 @@ const ALL_VIEWS = [
 ];
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
+
+const TRUST_ICONS = [
+  { icon: "shield-checkmark-outline", label: "BIS\nHallmarked" },
+  { icon: "ribbon-outline", label: "Certified\nPurity" },
+  { icon: "lock-closed-outline", label: "Secure\nPayment" },
+  { icon: "checkmark-done-circle-outline", label: "100%\nAssured" },
+];
 
 // AI model preview card — hidden per request.
 const SHOW_AI_MODEL_PREVIEW = false;
@@ -111,7 +116,6 @@ const Shimmer = ({ w, h, r = 10 }) => {
 // ─── Section Header ───────────────────────────────────────────────────────────
 const SectionHeader = ({ title }) => (
   <View style={s.secHead}>
-    <View style={s.secBar} />
     <Text style={s.secTitle}>{title}</Text>
   </View>
 );
@@ -139,13 +143,8 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [cartLoading, setCartLoading] = useState(false);
   const [cartMsg, setCartMsg] = useState({ text: "", type: "" });
-  // Cart state for the currently selected variant — mirrors the web app's
-  // "Add to Cart" → quantity stepper + "Go to Cart" flow.
-  const [cartQuantity, setCartQuantity] = useState(0);
-  const [cartItemId, setCartItemId] = useState(null);
-  const [cartStepBusy, setCartStepBusy] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [specsExpanded, setSpecsExpanded] = useState(false);
+  const [specsExpanded, setSpecsExpanded] = useState(true);
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -158,28 +157,6 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     });
     return () => h.remove();
   }, [navigation]);
-
-  // ── Sync cart state for the selected variant (drives the Add to Cart /
-  //    quantity-stepper switch, same as the web app)
-  useEffect(() => {
-    if (!userId || !selectedVariant?.id) {
-      setCartQuantity(0);
-      setCartItemId(null);
-      return;
-    }
-    let cancelled = false;
-    getCart(userId)
-      .then((cart) => {
-        if (cancelled) return;
-        const item = (cart?.itemsInCart || []).find(
-          (i) => String(i.productVariantId) === String(selectedVariant.id),
-        );
-        setCartQuantity(item?.quantity || 0);
-        setCartItemId(item?.cartId ?? null);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [userId, selectedVariant?.id]);
 
   // ── Fetch data
   useEffect(() => {
@@ -283,9 +260,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     setCartLoading(true);
     setCartMsg({ text: "", type: "" });
     try {
-      const result = await addToCart(userId, product.id, selectedVariant.id, 1);
-      setCartQuantity((q) => q + 1);
-      if (result?.cartId ?? result?.id) setCartItemId(result.cartId ?? result.id);
+      await addToCart(userId, product.id, selectedVariant.id, 1);
       getCart(userId)
         .then((cart) => dispatch(setCartCount(cart?.itemsInCart?.length || 0)))
         .catch(() => {});
@@ -310,66 +285,9 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleAddToCart = () => {
-    addSelectedVariantToCart();
-  };
-
-  const handleBuyNow = async () => {
-    const ok = cartQuantity > 0 ? true : await addSelectedVariantToCart();
+  const handleAddToCart = async () => {
+    const ok = await addSelectedVariantToCart();
     if (ok) navigation.navigate("PgCart");
-  };
-
-  const handleCartIncrement = async () => {
-    if (!selectedVariant?.id || !userId || cartStepBusy) return;
-    setCartStepBusy(true);
-    const prevQty = cartQuantity;
-    setCartQuantity(prevQty + 1);
-    try {
-      await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/AddItemToCart`, {
-        userId, productId: product.id, productVariantId: selectedVariant.id, quantity: 1,
-      });
-      getCart(userId)
-        .then((cart) => dispatch(setCartCount(cart?.itemsInCart?.length || 0)))
-        .catch(() => {});
-    } catch {
-      setCartQuantity(prevQty);
-    } finally {
-      setCartStepBusy(false);
-    }
-  };
-
-  const handleCartDecrement = async () => {
-    if (!selectedVariant?.id || !userId || cartStepBusy) return;
-    if (cartQuantity <= 1) {
-      setCartStepBusy(true);
-      const prevQty = cartQuantity;
-      setCartQuantity(0);
-      try {
-        if (cartItemId) {
-          await apiDelete(`${PHYSICAL_GOLD_BASE_URL}/cart/${cartItemId}`, { params: { userId } });
-        }
-        getCart(userId)
-          .then((cart) => dispatch(setCartCount(cart?.itemsInCart?.length || 0)))
-          .catch(() => {});
-      } catch {
-        setCartQuantity(prevQty);
-      } finally {
-        setCartStepBusy(false);
-      }
-      return;
-    }
-    setCartStepBusy(true);
-    const prevQty = cartQuantity;
-    setCartQuantity(prevQty - 1);
-    try {
-      await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/decrementCartItems`, {
-        userId, id: cartItemId, productId: product.id, productVariantId: selectedVariant.id, quantity: 1,
-      });
-    } catch {
-      setCartQuantity(prevQty);
-    } finally {
-      setCartStepBusy(false);
-    }
   };
 
   const handleGenerateModelPreview = async () => {
@@ -497,10 +415,10 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
         <FadeSlideIn key={product?.id || "product"}>
           {/* ──────────────── HERO ──────────────── */}
           <View style={s.hero}>
-            {/* Discount ribbon — only badge kept on the image itself */}
+            {/* Offer badge — only shown when the API returns a real MRP vs. price discount */}
             {discount > 0 && (
-              <View style={s.badgeDiscount}>
-                <Text style={s.badgeDiscountText}>{discount}% OFF</Text>
+              <View style={s.badgeOffer}>
+                <Text style={s.badgeOfferText}>{discount}% OFF</Text>
               </View>
             )}
 
@@ -575,49 +493,55 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
             </View>
           )}
 
-          {/* Trust row — BIS hallmark, kept as one plain line under the image */}
-          <View style={s.trustRow}>
-            <Ionicons name="checkmark-circle" size={14} color={C.green} />
-            <Text style={s.trustText}>BIS Hallmarked</Text>
-          </View>
-
           {/* ──────────────── BODY ──────────────── */}
           <View style={s.body}>
-            {/* Product name + desc */}
-            <Text style={s.name}>{product.name}</Text>
+            {/* Title + price row */}
+            <View style={s.titleRow}>
+              <View style={s.titleRowLeft}>
+                <Text style={s.name}>{product.name}</Text>
+                <View style={s.trustRow}>
+                  <Ionicons name="shield-checkmark-outline" size={14} color={C.gold} />
+                  <Text style={s.trustText}>BIS Hallmarked</Text>
+                </View>
+              </View>
+              <View style={s.priceBlock}>
+                <Text style={s.priceValue}>₹{fmt(price)}</Text>
+                {mrp > price && (
+                  <View style={s.priceStrikeRow}>
+                    <Text style={s.priceStrike}>₹{fmt(mrp)}</Text>
+                    <View style={s.discPill}>
+                      <Text style={s.discPillText}>{discount}% OFF</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+
             {product.description ? (
               <Text style={s.desc}>{product.description}</Text>
             ) : null}
 
-            {/* ── Price Summary Card ── */}
-            <View style={s.priceCard}>
-              <View style={s.priceCardBg} />
-              <View style={s.priceMain}>
-                <View style={s.priceMainLeft}>
-                  <Text style={s.priceLabelSmall}>SELLING PRICE</Text>
-                  <Text style={s.priceValue}>₹{fmt(price)}</Text>
-                  {mrp > price && (
-                    <View style={s.priceStrikeRow}>
-                      <Text style={s.priceStrike}>₹{fmt(mrp)}</Text>
-                      <View style={s.discPill}>
-                        <Text style={s.discPillText}>{discount}% OFF</Text>
-                      </View>
-                    </View>
-                  )}
-                </View>
-                <View style={s.priceMainRight}>
-                  <View style={s.freeDelivery}>
-                    <Ionicons name="cube-outline" size={20} color={C.green} />
-                    <View>
-                      <Text style={s.freeLabel}>FREE</Text>
-                      <Text style={s.freeSub}>Delivery</Text>
-                      <Text style={s.freeSub2}>Pan India</Text>
-                    </View>
+            {/* ── Trust Icons Strip ── */}
+            <View style={s.trustGrid}>
+              {TRUST_ICONS.map((t, i) => (
+                <React.Fragment key={t.label}>
+                  <View style={s.trustGridItem}>
+                    <Ionicons name={t.icon} size={20} color={C.gold} />
+                    <Text style={s.trustGridLabel}>{t.label}</Text>
                   </View>
-                </View>
+                  {i < TRUST_ICONS.length - 1 && <View style={s.trustGridDivider} />}
+                </React.Fragment>
+              ))}
+            </View>
+
+            {/* ── Delivery note + Variant Selector ── */}
+            <View style={s.deliveryVariantWrap}>
+              <View style={s.freeDeliveryNoteRow}>
+                <Ionicons name="cube-outline" size={14} color={C.green} />
+                <Text style={s.freeDeliveryNote}>Free Delivery · Pan India</Text>
               </View>
 
-              {/* Variant Selector inside price card */}
+              {/* Variant Selector */}
               {variants.length > 1 && (
                 <View style={s.variantInPrice}>
                   <Text style={s.variantInPriceLabel}>Select Weight / Variant</Text>
@@ -690,9 +614,16 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                   activeOpacity={0.7}
                 >
                   <Text style={s.specDropdownTitle}>Specifications</Text>
-                  <Text style={[s.specDropdownArrow, specsExpanded && s.specDropdownArrowUp]}>
-                    ▼
-                  </Text>
+                  <View style={s.specViewMoreWrap}>
+                    <Text style={s.specViewMoreText}>
+                      {specsExpanded ? "View Less" : "View More"}
+                    </Text>
+                    <Ionicons
+                      name={specsExpanded ? "chevron-up" : "chevron-forward"}
+                      size={14}
+                      color={C.gold}
+                    />
+                  </View>
                 </TouchableOpacity>
 
                 {specsExpanded && (
@@ -803,72 +734,30 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
         {/* ──────────────── FOOTER ──────────────── */}
         <View style={s.footer}>
           <View style={s.footerInner}>
-            <View style={s.footerPriceRow}>
+            <View style={s.footerLeft}>
               <Text style={s.footerLabel}>Price</Text>
               <Text style={s.footerPrice}>₹{fmt(price)}</Text>
             </View>
             {!inStock ? (
-              <View style={s.footerCartRow}>
-                <View style={[s.cartBtn, s.cartBtnDis]}>
-                  <Text style={[s.cartBtnText, s.cartBtnTextDis]}>Out of Stock</Text>
-                </View>
-              </View>
-            ) : cartQuantity > 0 ? (
-              <View style={s.footerCartRow}>
-                <View style={s.qtyStepper}>
-                  <TouchableOpacity
-                    style={s.qtyStepBtn}
-                    onPress={handleCartDecrement}
-                    disabled={cartStepBusy}
-                    activeOpacity={0.75}
-                  >
-                    <Ionicons name="remove" size={16} color={C.gold} />
-                  </TouchableOpacity>
-                  <Text style={s.qtyStepValue}>{cartQuantity}</Text>
-                  <TouchableOpacity
-                    style={s.qtyStepBtn}
-                    onPress={handleCartIncrement}
-                    disabled={cartStepBusy}
-                    activeOpacity={0.75}
-                  >
-                    <Ionicons name="add" size={16} color={C.gold} />
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity
-                  style={s.goToCartBtn}
-                  onPress={() => navigation.navigate("PgCart")}
-                  activeOpacity={0.85}
-                >
-                  <Text style={s.goToCartBtnText}>Go to Cart</Text>
-                  <Ionicons name="chevron-forward" size={15} color="#fff" />
-                </TouchableOpacity>
+              <View style={[s.cartBtn, s.cartBtnDis]}>
+                <Text style={[s.cartBtnText, s.cartBtnTextDis]}>Out of Stock</Text>
               </View>
             ) : (
-              <View style={s.footerCartRow}>
-                <TouchableOpacity
-                  style={[s.cartBtn, s.cartBtnCompact]}
-                  onPress={handleAddToCart}
-                  disabled={!selectedVariant || cartLoading}
-                  activeOpacity={0.85}
-                >
-                  {cartLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons name="cart-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
-                      <Text style={s.cartBtnText}>Add to Cart</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={s.buyNowBtn}
-                  onPress={handleBuyNow}
-                  disabled={!selectedVariant || cartLoading}
-                  activeOpacity={0.85}
-                >
-                  <Text style={s.buyNowBtnText}>Buy Now</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={s.cartBtn}
+                onPress={handleAddToCart}
+                disabled={!selectedVariant || cartLoading}
+                activeOpacity={0.85}
+              >
+                {cartLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="cart-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={s.cartBtnText}>Add to Cart</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -1009,7 +898,7 @@ const s = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 18,
     marginBottom: 10,
-    height: 300,
+    aspectRatio: 1,
     borderRadius: 20,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
@@ -1026,18 +915,18 @@ const s = StyleSheet.create({
     bottom: 16,
   },
 
-  // Discount ribbon — the only badge kept on the image
-  badgeDiscount: {
+  // Offer badge — only shown when the API returns a real discount
+  badgeOffer: {
     position: "absolute",
     top: 12,
-    left: 12,
-    backgroundColor: C.red,
+    right: 12,
+    backgroundColor: C.redDark,
     borderRadius: 8,
     paddingHorizontal: 9,
-    paddingVertical: 4,
+    paddingVertical: 6,
     zIndex: 4,
   },
-  badgeDiscountText: { fontSize: 11, fontWeight: "800", color: "#fff" },
+  badgeOfferText: { fontSize: 11, fontWeight: "700", color: "#fff" },
 
   // Arrows
   arrow: {
@@ -1062,15 +951,14 @@ const s = StyleSheet.create({
   arrowLeft: { left: 10 },
   arrowRight: { right: 10 },
 
-  // Trust row
+  // Trust row — small BIS line under the title
   trustRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: 5,
-    marginBottom: 14,
+    marginTop: 4,
   },
-  trustText: { fontSize: 11.5, fontWeight: "600", color: C.navyLight },
+  trustText: { fontSize: 12, fontWeight: "600", color: C.gold },
 
   // Dots
   dotBar: {
@@ -1102,7 +990,7 @@ const s = StyleSheet.create({
   },
   coinWeight: {
     fontSize: 26,
-    fontWeight: "900",
+    fontWeight: "700",
     color: C.gold,
     lineHeight: 30,
   },
@@ -1118,7 +1006,7 @@ const s = StyleSheet.create({
   body: { paddingHorizontal: 16 },
   name: {
     fontSize: 22,
-    fontWeight: "900",
+    fontWeight: "700",
     color: C.navy,
     lineHeight: 28,
     letterSpacing: -0.4,
@@ -1126,38 +1014,18 @@ const s = StyleSheet.create({
   },
   desc: { fontSize: 13, color: C.navyLight, lineHeight: 20, marginBottom: 14 },
 
-  // ── Price Card ───────────────────────────────────────────────────────────
-  priceCard: {
-    backgroundColor: "#F7F4ED",
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E7E0DA",
+  // ── Title + Price row ──────────────────────────────────────────────────────
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 10,
   },
-  priceCardBg: {
-    position: "absolute",
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(207,139,23,0.07)",
-    top: -30,
-    right: -20,
-  },
-  priceMain: { flexDirection: "row", alignItems: "center" },
-  priceMainLeft: { flex: 1 },
-  priceMainRight: { alignItems: "flex-end" },
-  priceLabelSmall: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#CF8B17",
-    letterSpacing: 1.1,
-    marginBottom: 4,
-  },
+  titleRowLeft: { flex: 1, marginRight: 12 },
+  priceBlock: { alignItems: "flex-end" },
   priceValue: {
-    fontSize: 30,
-    fontWeight: "900",
-    color: "#CF8B17",
+    fontSize: 24,
+    fontWeight: "700",
+    color: C.green,
     letterSpacing: -0.5,
   },
   priceStrikeRow: {
@@ -1168,30 +1036,49 @@ const s = StyleSheet.create({
   },
   priceStrike: {
     fontSize: 13,
-    color: "#7A7A80",
+    color: C.red,
     textDecorationLine: "line-through",
     fontWeight: "600",
   },
   discPill: {
-    backgroundColor: C.red,
+    backgroundColor: C.goldLight,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  discPillText: { fontSize: 10, fontWeight: "800", color: "#fff" },
-  freeDelivery: {
+  discPillText: { fontSize: 10, fontWeight: "700", color: C.gold },
+
+  // ── Trust icons strip ──────────────────────────────────────────────────────
+  trustGrid: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(46,204,113,0.12)",
-    borderRadius: 12,
-    padding: 10,
+    backgroundColor: C.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingVertical: 14,
+    marginBottom: 12,
   },
-  freeLabel: { fontSize: 14, fontWeight: "900", color: C.green },
-  freeSub: { fontSize: 10, fontWeight: "700", color: C.green },
-  freeSub2: { fontSize: 9, color: "#CF8B17" },
+  trustGridItem: { flex: 1, alignItems: "center", gap: 6, paddingHorizontal: 4 },
+  trustGridLabel: {
+    fontSize: 10.5,
+    fontWeight: "600",
+    color: C.navyMid,
+    textAlign: "center",
+    lineHeight: 13,
+  },
+  trustGridDivider: { width: 1, height: 30, backgroundColor: C.divider },
 
-  // Variant selector inside price card
+  // ── Delivery note + variant selector ──────────────────────────────────────
+  deliveryVariantWrap: { marginBottom: 12 },
+  freeDeliveryNoteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  freeDeliveryNote: { fontSize: 12, fontWeight: "600", color: C.navyLight },
+
+  // Variant selector
   variantInPrice: {
     marginTop: 14,
     paddingTop: 14,
@@ -1200,7 +1087,7 @@ const s = StyleSheet.create({
   },
   variantInPriceLabel: {
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "600",
     color: "#CF8B17",
     letterSpacing: 0.8,
     marginBottom: 8,
@@ -1223,7 +1110,7 @@ const s = StyleSheet.create({
   },
   totalChargesValue: {
     fontSize: 18,
-    fontWeight: "900",
+    fontWeight: "700",
     color: C.green,
     letterSpacing: -0.3,
   },
@@ -1245,12 +1132,10 @@ const s = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  secBar: { width: 3, height: 16, borderRadius: 2, backgroundColor: C.gold },
   secTitle: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: C.navyMid,
-    letterSpacing: 0.5,
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.navy,
   },
 
   // ── Specifications Dropdown ───────────────────────────────────────────────
@@ -1258,22 +1143,14 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 4,
   },
   specDropdownTitle: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: C.navyMid,
-    letterSpacing: 0.5,
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.navy,
   },
-  specDropdownArrow: {
-    fontSize: 10,
-    color: C.gold,
-    fontWeight: "700",
-  },
-  specDropdownArrowUp: {
-    transform: [{ rotate: "180deg" }],
-  },
+  specViewMoreWrap: { flexDirection: "row", alignItems: "center", gap: 3 },
+  specViewMoreText: { fontSize: 12.5, fontWeight: "600", color: C.gold },
   specDropdownContent: {
     marginTop: 12,
     paddingTop: 12,
@@ -1284,7 +1161,7 @@ const s = StyleSheet.create({
   // ── Variant Chips ─────────────────────────────────────────────────────────
   chipScroll: { paddingRight: 4, paddingTop: 2, paddingBottom: 4 },
   chip: {
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: C.border,
     borderRadius: 12,
     paddingHorizontal: 12,
@@ -1301,7 +1178,7 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: C.goldDim,
   },
-  chipWeight: { fontSize: 15, fontWeight: "900", color: C.navy },
+  chipWeight: { fontSize: 15, fontWeight: "700", color: C.navy },
   chipWeightActive: { color: C.gold },
   chipPurity: { fontSize: 10, color: C.navyLight, marginTop: 1 },
   chipPurityActive: { color: "#CF8B17" },
@@ -1361,9 +1238,9 @@ const s = StyleSheet.create({
     justifyContent: "center",
     gap: 10,
     backgroundColor: C.goldLight,
-    borderWidth: 1.5,
-    borderColor: C.gold,
-    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
@@ -1372,7 +1249,7 @@ const s = StyleSheet.create({
   },
   previewBtnText: {
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "600",
     color: C.gold,
   },
   previewNoteRow: {
@@ -1395,84 +1272,44 @@ const s = StyleSheet.create({
     paddingBottom: 24,
   },
   footerInner: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 12,
+    gap: 16,
   },
-  footerPriceRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 8,
-    marginBottom: 10,
-  },
+  footerLeft: { flex: 1 },
   footerLabel: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.navyLight,
     letterSpacing: 0.3,
+    marginBottom: 1,
   },
   footerPrice: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: C.navy,
-    letterSpacing: -0.4,
+    fontSize: 22,
+    fontWeight: "700",
+    color: C.green,
+    letterSpacing: -0.5,
   },
-  footerCartRow: { flexDirection: "row", gap: 10 },
 
   cartBtn: {
+    flex: 1,
     flexDirection: "row",
-    backgroundColor: C.gold,
+    backgroundColor: C.navy,
     borderRadius: 14,
-    height: 50,
-    paddingHorizontal: 20,
+    height: 52,
     justifyContent: "center",
     alignItems: "center",
   },
-  cartBtnCompact: { flex: 1 },
-  cartBtnDis: { flex: 1, backgroundColor: C.border },
+  cartBtnDis: { backgroundColor: C.border },
   cartBtnText: {
-    fontSize: 13,
-    fontWeight: "900",
+    fontSize: 14,
+    fontWeight: "700",
     color: "#fff",
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   cartBtnTextDis: { color: C.navyLight },
-
-  buyNowBtn: {
-    flex: 1,
-    height: 50,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: C.gold,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  buyNowBtnText: { fontSize: 13, fontWeight: "900", color: C.gold, letterSpacing: 0.3 },
-
-  qtyStepper: {
-    flexDirection: "row",
-    alignItems: "center",
-    height: 50,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: C.gold,
-    backgroundColor: C.goldLight,
-    overflow: "hidden",
-  },
-  qtyStepBtn: { width: 42, height: "100%", justifyContent: "center", alignItems: "center" },
-  qtyStepValue: { width: 30, textAlign: "center", fontSize: 15, fontWeight: "900", color: C.navy },
-
-  goToCartBtn: {
-    flex: 1,
-    flexDirection: "row",
-    gap: 6,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: C.navy,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  goToCartBtnText: { fontSize: 13, fontWeight: "900", color: "#fff", letterSpacing: 0.3 },
 
   // ── Empty State ───────────────────────────────────────────────────────────
   empty: {
@@ -1495,7 +1332,7 @@ const s = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "600",
     color: C.navy,
     marginBottom: 6,
   },
@@ -1513,7 +1350,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 28,
     paddingVertical: 13,
   },
-  emptyBtnText: { fontSize: 14, fontWeight: "800", color: "#1C1C1E" },
+  emptyBtnText: { fontSize: 14, fontWeight: "600", color: "#1C1C1E" },
 
   // ── Fullscreen Modal ──────────────────────────────────────────────────────
   modal: {
