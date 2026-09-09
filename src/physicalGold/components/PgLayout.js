@@ -279,10 +279,10 @@ const h = StyleSheet.create({
 const b = StyleSheet.create({
   // ── Compact, modern footer — moderate horizontal padding, balanced
   // top/bottom padding, rounded top edge, buttons evenly distributed.
-  // Same cream as the header. ──
+  // A deeper tan than the header's pale cream so it doesn't wash out. ──
   bar: {
     flexDirection: "row",
-    backgroundColor: HEADER_COLORS.primary,
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 14,
     paddingTop: 8,
     borderTopLeftRadius: 18,

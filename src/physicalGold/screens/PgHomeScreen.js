@@ -231,42 +231,74 @@ const SectionHeader = memo(({ title, count, onViewAll, onBack, showBack }) => (
 ));
 
 // ─── Rate column — one karat/metal cell inside the live-rates card ────────────
-const RateColumn = memo(({ icon, label, rate, decimals }) => (
-  <View style={styles.rateBlock}>
-    <Image source={icon} style={styles.rateIconImg} resizeMode="contain" />
-    <View style={{ flex: 1, minWidth: 0 }}>
-      <Text style={styles.rateLabel} numberOfLines={1}>
-        {label}
-      </Text>
-      <Text style={styles.rateValue} numberOfLines={1}>
-        ₹
-        {Number(rate.price || 0).toLocaleString("en-IN", {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals,
-        })}
-        <Text style={styles.rateUnit}> /gm</Text>
-      </Text>
-      {rate.direction && (
-        <View style={styles.rateChangeRow}>
-          <Ionicons
-            name={rate.direction === "up" ? "trending-up" : "trending-down"}
-            size={11}
-            color={rate.direction === "up" ? C.green : C.red}
-          />
-          <Text
-            style={[
-              styles.rateChangeText,
-              { color: rate.direction === "up" ? C.green : C.red },
-            ]}
-          >
-            {rate.direction === "up" ? "+" : ""}
-            {rate.changePct.toFixed(2)}%
-          </Text>
-        </View>
-      )}
-    </View>
-  </View>
-));
+const RateColumn = memo(({ icon, label, rate, decimals }) => {
+  // Flash the block green/red for a moment whenever the price actually
+  // changes between polls, instead of only relying on the static up/down
+  // badge — that badge doesn't draw the eye to a value that just moved.
+  const flashAnim = useRef(new Animated.Value(0)).current;
+  const prevPriceRef = useRef(rate.price);
+  const [flashDir, setFlashDir] = useState(null); // 'up' | 'down' | null
+
+  useEffect(() => {
+    const prev = prevPriceRef.current;
+    if (prev != null && rate.price != null && rate.price !== prev) {
+      const dir = rate.price > prev ? "up" : "down";
+      setFlashDir(dir);
+      flashAnim.setValue(1);
+      Animated.timing(flashAnim, {
+        toValue: 0,
+        duration: 1500,
+        useNativeDriver: false,
+      }).start(() => setFlashDir(null));
+    }
+    prevPriceRef.current = rate.price;
+  }, [rate.price]);
+
+  const flashBg = flashAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      "rgba(0,0,0,0)",
+      flashDir === "down" ? "rgba(200,90,84,0.20)" : "rgba(46,204,113,0.20)",
+    ],
+  });
+
+  return (
+    <Animated.View style={[styles.rateBlock, { backgroundColor: flashBg }]}>
+      <Image source={icon} style={styles.rateIconImg} resizeMode="contain" />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.rateLabel} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={styles.rateValue} numberOfLines={1}>
+          ₹
+          {Number(rate.price || 0).toLocaleString("en-IN", {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
+          })}
+          <Text style={styles.rateUnit}> /gm</Text>
+        </Text>
+        {rate.direction && (
+          <View style={styles.rateChangeRow}>
+            <Ionicons
+              name={rate.direction === "up" ? "trending-up" : "trending-down"}
+              size={11}
+              color={rate.direction === "up" ? C.green : C.red}
+            />
+            <Text
+              style={[
+                styles.rateChangeText,
+                { color: rate.direction === "up" ? C.green : C.red },
+              ]}
+            >
+              {rate.direction === "up" ? "+" : ""}
+              {rate.changePct.toFixed(2)}%
+            </Text>
+          </View>
+        )}
+      </View>
+    </Animated.View>
+  );
+});
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PgHomeScreen = ({ navigation }) => {
@@ -1188,10 +1220,7 @@ const PgHomeScreen = ({ navigation }) => {
           bar instead of two separate sections. The location row reuses the
           address the delivery-fee calc treats as default so it's never out
           of sync with checkout. ── */}
-      <LinearGradient
-        colors={["rgba(207,139,23,0.20)", "#FFFFFF"]}
-        style={styles.combinedTopBar}
-      >
+      <View style={[styles.combinedTopBar, styles.goldFlatTint]}>
         <TouchableOpacity
           style={styles.locationBar}
           activeOpacity={0.7}
@@ -1249,7 +1278,7 @@ const PgHomeScreen = ({ navigation }) => {
             </TouchableOpacity>
           )}
         </Animated.View>
-      </LinearGradient>
+      </View>
 
       <ScrollView
         ref={scrollViewRef}
@@ -1274,8 +1303,9 @@ const PgHomeScreen = ({ navigation }) => {
             {/* ── CATEGORIES VIEW ── */}
             {viewMode === "categories" && (
               <FadeSlideIn key="categories">
-                {/* Banner Carousel — plain white, no color */}
-                <View style={[styles.bannerSection, styles.plainWhiteSection]}>
+                {/* Banner Carousel — same flat gold all the way through,
+                    no fade to white at the bottom either. */}
+                <View style={[styles.bannerSection, styles.goldFlatTint]}>
                   <Animated.View
                     style={[
                       styles.bannerCarouselWrap,
@@ -1306,9 +1336,14 @@ const PgHomeScreen = ({ navigation }) => {
                   </Animated.View>
                 </View>
 
-                {/* Live Gold / Silver Rates — plain white, no color */}
-                {(goldRate.price || gold22kRate.price || silverRate.price) && (
-                  <View style={[styles.ratesSection, styles.plainWhiteSection]}>
+                {/* Live Gold / Silver Rates + Categories — one continuous
+                    light-brown-to-white section, not two separate blocks
+                    that each fade to white and restart the color. */}
+                <LinearGradient
+                  colors={["rgba(139,90,43,0.14)", "#FFFFFF"]}
+                  style={styles.ratesAndCategoriesSection}
+                >
+                  {(goldRate.price || gold22kRate.price || silverRate.price) && (
                     <TouchableOpacity
                       style={styles.ratesCard}
                       onPress={() => navigation.navigate("PgAllRates")}
@@ -1355,28 +1390,20 @@ const PgHomeScreen = ({ navigation }) => {
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
-                  </View>
-                )}
+                  )}
 
-                {/* Categories — plain white, no color */}
-                <View style={[styles.categorySection, styles.plainWhiteSection]}>
+                  <View style={styles.categoriesSpacer} />
+
                   <SectionHeader
                     title="Categories"
                     count={categories.length || null}
                   />
                   {renderCategoriesGrid()}
-                </View>
+                </LinearGradient>
 
-                {/* Why Shop With Us — white top/bottom, light green middle */}
-                <LinearGradient
-                  colors={[
-                    "#FFFFFF",
-                    "rgba(46,204,113,0.14)",
-                    "#FFFFFF",
-                  ]}
-                  locations={[0, 0.5, 1]}
-                  style={styles.whyShopSection}
-                >
+                {/* Why Shop With Us — flat green, same treatment as the
+                    Delivery/Search/Banner gold block. */}
+                <View style={[styles.whyShopSection, styles.greenFlatTint]}>
                   <Text style={styles.whyShopTitle}>Why Shop With Us?</Text>
                   <View style={styles.whyShopRow}>
                     {WHY_SHOP.map((w, i) => (
@@ -1397,7 +1424,7 @@ const PgHomeScreen = ({ navigation }) => {
                       </View>
                     ))}
                   </View>
-                </LinearGradient>
+                </View>
 
                 {/* Digital Gold Banner — hidden per request; SHOW_DIGITAL_GOLD_BANNER flips it back on */}
                 {SHOW_DIGITAL_GOLD_BANNER && (
@@ -1542,6 +1569,10 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
+  // Flat, not faded to white — so the gold carries straight through into
+  // the Banner section below it instead of hitting white and restarting.
+  goldFlatTint: { backgroundColor: "rgba(207,139,23,0.08)" },
+  greenFlatTint: { backgroundColor: "rgba(46,204,113,0.05)" },
   locationBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -1663,7 +1694,8 @@ const styles = StyleSheet.create({
   },
 
   // ── Live gold / silver rates ──
-  ratesSection: { paddingTop: 22, paddingBottom: 28 },
+  ratesAndCategoriesSection: { paddingTop: 22, paddingBottom: 24 },
+  categoriesSpacer: { height: 30 },
   ratesCard: {
     marginHorizontal: 16,
     backgroundColor: C.bgCard,
@@ -1676,7 +1708,15 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   ratesRow: { flexDirection: "row", alignItems: "center" },
-  rateBlock: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  rateBlock: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 8,
+    padding: 4,
+    margin: -4,
+  },
   rateDivider: {
     width: 1,
     alignSelf: "stretch",
@@ -1827,7 +1867,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  categorySection: { paddingTop: 10, paddingBottom: 24 },
   categoryGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
