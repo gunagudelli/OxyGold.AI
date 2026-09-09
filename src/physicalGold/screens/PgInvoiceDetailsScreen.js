@@ -12,15 +12,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { selectAccessToken } from '../../store/authSlice';
 import PgLayout from '../components/PgLayout';
+import FadeSlideIn from '../components/FadeSlideIn';
 import { downloadInvoicePDF, openInvoicePDF, shareInvoicePDF } from '../../utils/downloadInvoice';
 
 const C = {
-  bg: '#F8F7F6',
+  bg: '#FFFFFF',
   surface: '#FFFFFF',
   border: '#E7E0DA',
-  gold: '#CF8B17',
-  goldDim: 'rgba(207,139,23,0.10)',
-  goldDimBorder: 'rgba(207,139,23,0.22)',
+  gold: '#0E6B57',
+  goldDim: 'rgba(14,107,87,0.10)',
+  goldDimBorder: 'rgba(14,107,87,0.22)',
   textPri: '#1C1C1E',
   textSec: '#7A7A80',
   textTer: '#A79C93',
@@ -110,6 +111,7 @@ const PgInvoiceDetailsScreen = ({ navigation, route }) => {
       hideLogo
     >
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <FadeSlideIn>
         {/* Header Card */}
         <View style={styles.headerCard}>
           <View style={styles.headerRow}>
@@ -215,6 +217,7 @@ const PgInvoiceDetailsScreen = ({ navigation, route }) => {
         </View>
 
         <View style={{ height: 40 }} />
+        </FadeSlideIn>
       </ScrollView>
     </PgLayout>
   );
@@ -322,7 +325,7 @@ const styles = StyleSheet.create({
   rowValueBold: {
     fontSize: 16,
     fontWeight: '800',
-    color: C.gold,
+    color: C.textPri,
   },
 
   divider: {
@@ -355,7 +358,7 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 14,
     fontWeight: '800',
-    color: C.gold,
+    color: C.textPri,
   },
 
   itemDetails: {

@@ -194,18 +194,18 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(200, 149, 42, 0.4)',
+    backgroundColor: 'rgba(14,107,87, 0.3)',
   },
 
   dotActive: {
     width: 24,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#CF8B17',
+    backgroundColor: '#0E6B57',
   },
 
   dotInactive: {
-    backgroundColor: 'rgba(200, 149, 42, 0.3)',
+    backgroundColor: 'rgba(14,107,87, 0.25)',
   },
 
   // Image counter

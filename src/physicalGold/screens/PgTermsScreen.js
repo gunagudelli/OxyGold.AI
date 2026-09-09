@@ -1,11 +1,12 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import PgLayout from "../components/PgLayout";
+import FadeSlideIn from "../components/FadeSlideIn";
 
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#CF8B17",
+  gold: "#0E6B57",
   goldLight: "#F7F4ED",
   navy: "#1C1C1E",
   navyMid: "#48484C",
@@ -21,11 +22,13 @@ const PgTermsScreen = ({ navigation }) => {
       showBack
       onBack={() => navigation.goBack()}
       hideLogo
+      hideCart
     >
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
+        <FadeSlideIn>
         <View style={styles.card}>
           <Text style={styles.mainTitle}>
             Terms & Conditions
@@ -107,6 +110,7 @@ const PgTermsScreen = ({ navigation }) => {
             For any queries or support, please contact our support team.
           </Section>
         </View>
+        </FadeSlideIn>
       </ScrollView>
     </PgLayout>
   );
@@ -151,7 +155,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: "800",
-    color: C.gold,
+    color: C.navy,
     marginBottom: 8,
     letterSpacing: 0.2,
   },

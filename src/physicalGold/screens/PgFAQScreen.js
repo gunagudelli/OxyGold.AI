@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import PgLayout from "../components/PgLayout";
+import FadeSlideIn from "../components/FadeSlideIn";
 
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#CF8B17",
+  gold: "#0E6B57",
   goldLight: "#F7F4ED",
   navy: "#1C1C1E",
   navyMid: "#48484C",
@@ -84,11 +85,12 @@ const PgFAQScreen = ({ navigation }) => {
   const [openIndex, setOpenIndex] = useState(0);
 
   return (
-    <PgLayout title="FAQs" showBack onBack={() => navigation.goBack()} hideLogo>
+    <PgLayout title="FAQs" showBack onBack={() => navigation.goBack()} hideLogo hideCart>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
+        <FadeSlideIn>
         <Text style={styles.mainTitle}>Frequently Asked Questions</Text>
         <Text style={styles.subtitle}>
           Find answers to common questions about our products and services
@@ -112,6 +114,7 @@ const PgFAQScreen = ({ navigation }) => {
           <Text style={styles.helpLine}><Text style={styles.helpLabel}>Phone: </Text>+91 81432 71103</Text>
           <Text style={styles.helpLine}><Text style={styles.helpLabel}>Hours: </Text>Monday - Saturday, 9:00 AM - 6:00 PM IST</Text>
         </View>
+        </FadeSlideIn>
       </ScrollView>
     </PgLayout>
   );

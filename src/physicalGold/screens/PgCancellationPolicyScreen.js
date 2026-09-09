@@ -1,11 +1,12 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import PgLayout from "../components/PgLayout";
+import FadeSlideIn from "../components/FadeSlideIn";
 
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#CF8B17",
+  gold: "#0E6B57",
   goldLight: "#F7F4ED",
   navy: "#1C1C1E",
   navyMid: "#48484C",
@@ -21,11 +22,13 @@ const PgCancellationPolicyScreen = ({ navigation }) => {
       showBack
       onBack={() => navigation.goBack()}
       hideLogo
+      hideCart
     >
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
+        <FadeSlideIn>
         <View style={styles.card}>
           <Text style={styles.mainTitle}>Cancellation Policy</Text>
           <Text style={styles.updated}>Last Updated: January 2024</Text>
@@ -103,6 +106,7 @@ const PgCancellationPolicyScreen = ({ navigation }) => {
             </View>
           </View>
         </View>
+        </FadeSlideIn>
       </ScrollView>
     </PgLayout>
   );
@@ -132,7 +136,7 @@ const styles = StyleSheet.create({
   mainTitle: { fontSize: 18, fontWeight: "900", color: C.navy, letterSpacing: -0.3 },
   updated: { fontSize: 11.5, color: C.navyLight, marginTop: 4, marginBottom: 18 },
   section: { marginBottom: 18 },
-  sectionTitle: { fontSize: 14, fontWeight: "800", color: C.gold, marginBottom: 8, letterSpacing: 0.2 },
+  sectionTitle: { fontSize: 14, fontWeight: "800", color: C.navy, marginBottom: 8, letterSpacing: 0.2 },
   sectionText: { fontSize: 13, lineHeight: 20, color: C.navyMid, fontWeight: "500" },
   contactBox: {
     marginTop: 10, padding: 12, backgroundColor: C.goldLight, borderRadius: 12,

@@ -12,15 +12,17 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Defs, LinearGradient, Stop, Path } from "react-native-svg";
 import PgLayout from "../components/PgLayout";
+import PgLoader from "../components/PgLoader";
+import FadeSlideIn from "../components/FadeSlideIn";
 import { getAllGoldRates } from "./physicalGoldApi";
 
 const C = {
-  bg:           "#F8F7F6",
+  bg:           "#FFFFFF",
   bgCard:       "#FFFFFF",
   navy:         "#15151A",
-  gold:         "#CF8B17",
-  goldBright:   "#E8A530",
-  goldMuted:    "rgba(207,139,23,0.08)",
+  gold:         "#0E6B57",
+  goldBright:   "#14876D",
+  goldMuted:    "rgba(14,107,87,0.08)",
   textPrimary:  "#1C1C1E",
   textSecondary:"#7A7A80",
   textMuted:    "#A79C93",
@@ -72,25 +74,6 @@ const minutesAgoLabel = (date) => {
   if (mins < 1) return "Prices updated just now";
   if (mins === 1) return "Prices updated 1 minute ago";
   return `Prices updated ${mins} minutes ago`;
-};
-
-// ─── Shimmer primitive ──────────────────────────────────────────────────────
-const Shimmer = ({ w, h, r = 8, style, dark }) => {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0, duration: 800, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, []);
-  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: dark ? [0.10, 0.22] : [0.5, 0.9] });
-  return (
-    <Animated.View style={[{ width: w, height: h, borderRadius: r, backgroundColor: dark ? "#FFFFFF" : C.border, opacity }, style]} />
-  );
 };
 
 // ─── Live pulse dot ─────────────────────────────────────────────────────────
@@ -168,18 +151,6 @@ const HeroRate = ({ row, updatedLabel }) => {
   );
 };
 
-const HeroSkeleton = () => (
-  <View style={styles.hero}>
-    <View style={styles.heroTopRow}>
-      <Shimmer w={90} h={12} dark />
-      <Shimmer w={50} h={20} r={20} dark />
-    </View>
-    <Shimmer w={110} h={11} style={{ marginBottom: 8 }} dark />
-    <Shimmer w={180} h={38} style={{ marginBottom: 18 }} dark />
-    <Shimmer w="100%" h={56} r={16} dark />
-  </View>
-);
-
 // ─── All 6 rate cells for one provider — nothing hidden behind a toggle ─────
 const readRates = (row) => {
   const gold22g = Number(row?.rate22kt) || 0;
@@ -256,24 +227,6 @@ const ProviderCard = ({ row, ourGold24, isUs, isLast }) => {
   );
 };
 
-const ProviderSkeleton = ({ isLast }) => (
-  <View style={[styles.card, !isLast && styles.cardDivider]}>
-    <View style={styles.cardTopRow}>
-      <View style={styles.cardNameWrap}>
-        <Shimmer w={130} h={13} />
-      </View>
-    </View>
-    <View style={styles.rateGrid}>
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <View key={i} style={styles.rateCell}>
-          <Shimmer w={70} h={9} style={{ marginBottom: 5 }} />
-          <Shimmer w={60} h={13} />
-        </View>
-      ))}
-    </View>
-  </View>
-);
-
 const PgAllRatesScreen = ({ navigation }) => {
   const [rows, setRows]             = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -330,6 +283,14 @@ const PgAllRatesScreen = ({ navigation }) => {
     );
   }
 
+  if (loading) {
+    return (
+      <PgLayout title="All Gold Rates" showBack onBack={() => navigation.goBack()}>
+        <PgLoader label="Loading gold rates..." />
+      </PgLayout>
+    );
+  }
+
   return (
     <PgLayout title="All Gold Rates" showBack onBack={() => navigation.goBack()}>
       <ScrollView
@@ -339,22 +300,19 @@ const PgAllRatesScreen = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.gold} colors={[C.gold]} />
         }
       >
-        {loading ? <HeroSkeleton /> : ourRow ? <HeroRate row={ourRow} updatedLabel={minutesAgoLabel(lastLoadAt)} /> : null}
+        <FadeSlideIn>
+        {ourRow ? <HeroRate row={ourRow} updatedLabel={minutesAgoLabel(lastLoadAt)} /> : null}
 
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>Compare with other providers</Text>
-          {!loading && (
-            <View style={styles.updatedPill}>
-              <Ionicons name="time-outline" size={11} color={C.textSecondary} />
-              <Text style={styles.sectionSubtitle}>{minutesAgoLabel(lastLoadAt)}</Text>
-            </View>
-          )}
+          <View style={styles.updatedPill}>
+            <Ionicons name="time-outline" size={11} color={C.textSecondary} />
+            <Text style={styles.sectionSubtitle}>{minutesAgoLabel(lastLoadAt)}</Text>
+          </View>
         </View>
 
         <View style={styles.list}>
-          {loading ? (
-            [0, 1, 2, 3, 4].map((i) => <ProviderSkeleton key={i} isLast={i === 4} />)
-          ) : !rows.length ? (
+          {!rows.length ? (
             <View style={styles.centerState}>
               <Ionicons name="business-outline" size={26} color={C.textMuted} />
               <Text style={styles.emptyTitle}>No rate data to show right now</Text>
@@ -376,6 +334,7 @@ const PgAllRatesScreen = ({ navigation }) => {
             </>
           )}
         </View>
+        </FadeSlideIn>
       </ScrollView>
     </PgLayout>
   );
@@ -392,7 +351,7 @@ const styles = StyleSheet.create({
   },
   trendSvg: { position: "absolute", left: 0, top: 4 },
   heroTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  heroBrand: { fontSize: 12, fontWeight: "800", color: C.goldBright, letterSpacing: 1 },
+  heroBrand: { fontSize: 12, fontWeight: "800", color: "rgba(255,255,255,0.7)", letterSpacing: 1 },
   liveBadge: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4 },
   liveDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#4ADE80" },
   liveBadgeText: { fontSize: 9, fontWeight: "800", color: "#4ADE80", letterSpacing: 0.5 },
@@ -429,8 +388,8 @@ const styles = StyleSheet.create({
   cardNameWrap: { flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 },
 
   rowName: { fontSize: 13, fontWeight: "700", color: C.textPrimary },
-  rowNameUs: { color: C.gold, fontWeight: "800" },
-  rowYours: { fontSize: 9.5, fontWeight: "800", color: C.gold, opacity: 0.8, marginTop: 1, letterSpacing: 0.3 },
+  rowNameUs: { color: C.textPrimary, fontWeight: "800" },
+  rowYours: { fontSize: 9.5, fontWeight: "800", color: C.textPrimary, opacity: 0.8, marginTop: 1, letterSpacing: 0.3 },
   rowDiff: { fontSize: 10, fontWeight: "700", marginLeft: 8 },
   rowDash: { fontSize: 13, color: C.textMuted },
 
@@ -445,7 +404,7 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
     borderTopWidth: 1, borderTopColor: C.divider, marginTop: 2, paddingTop: 10,
   },
-  visitBtnText: { fontSize: 12, fontWeight: "700", color: C.gold },
+  visitBtnText: { fontSize: 12, fontWeight: "700", color: C.textPrimary },
 
   // ── States ──
   centerState: { alignItems: "center", paddingVertical: 60, gap: 8, paddingHorizontal: 24 },

@@ -13,13 +13,14 @@ import { useSelector } from 'react-redux';
 import { selectAccessToken } from '../../store/authSlice';
 import { BASE_URL } from '../../constants/api';
 import PgLayout from '../components/PgLayout';
+import PgLoader from '../components/PgLoader';
 import { downloadInvoicePDF, openInvoicePDF } from '../../utils/downloadInvoice';
 
 const C = {
-  bg: '#F8F7F6',
+  bg: '#FFFFFF',
   surface: '#FFFFFF',
   border: '#E7E0DA',
-  gold: '#CF8B17',
+  gold: '#0E6B57',
   textPri: '#1C1C1E',
   textSec: '#7A7A80',
   textTer: '#A79C93',
@@ -163,8 +164,7 @@ const PgInvoiceViewerScreen = ({ navigation, route }) => {
               startInLoadingState
               renderLoading={() => (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={C.gold} />
-                  <Text style={styles.loadingText}>Loading invoice...</Text>
+                  <PgLoader label="Loading invoice..." fullscreen={false} />
                 </View>
               )}
               onError={handleWebViewError}
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   actionBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: C.gold,
+    color: C.textPri,
   },
 
   webViewContainer: {

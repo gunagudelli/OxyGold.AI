@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,7 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
-  Animated,
   Image,
-  Linking,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSelector, useDispatch } from "react-redux";
@@ -26,65 +24,29 @@ import { apiGet, apiPost } from "../../services/apiClient";
 import { handleLogout } from "../../services/logoutService";
 import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import PgLayout from "../components/PgLayout";
+import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
-import { getUserOrders, getWishlist, getUserAddresses } from "./physicalGoldApi";
+import { getUserOrders, getUserAddresses } from "./physicalGoldApi";
 
-// ─── Design Tokens — premium, restrained. Gold is an accent only. ────────────
+// ─── Design Tokens — premium, restrained. One accent, used sparingly. ────────
 const T = {
   ink: "#1C1C1E",
   subtle: "#7A7A80",
   faint: "#ACACB2",
-  bg: "#F7F6F4",
+  bg: "#FFFFFF",
   surface: "#FFFFFF",
-  surfaceMuted: "#F5F4F1",
-  divider: "#ECEAE6",
-  gold: "#CF8B17",
-  goldTint: "rgba(207,139,23,0.08)",
-  goldBorder: "rgba(207,139,23,0.30)",
-  danger: "#C85A54",
-  dangerTint: "rgba(200,90,84,0.06)",
+  divider: "#EDEBE7",
+  gold: "#0E6B57",
+  goldTint: "rgba(14,107,87,0.08)",
+  goldBorder: "rgba(14,107,87,0.24)",
+  danger: "#C0392B",
 };
 
-// ─── Shimmer ───────────────────────────────────────────────────────────────
-const ShimmerBox = ({ width, height, borderRadius = 8 }) => {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 900, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0, duration: 900, useNativeDriver: true }),
-      ]),
-    ).start();
-  }, []);
-  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.45] });
-  return (
-    <Animated.View
-      style={{ width, height, borderRadius, backgroundColor: T.divider, opacity }}
-    />
-  );
-};
-
-// ─── GroupHead — icon box + title + subtitle, above each grouped detail card ─
-const GroupHead = ({ icon, title, subtitle, onEdit }) => (
-  <View style={styles.groupHead}>
-    <View style={styles.groupIconBox}>
-      <Ionicons name={icon} size={16} color={T.gold} />
-    </View>
-    <View style={{ flex: 1 }}>
-      <Text style={styles.groupTitle}>{title}</Text>
-      {subtitle ? <Text style={styles.groupSubtitle}>{subtitle}</Text> : null}
-    </View>
-    {onEdit && (
-      <TouchableOpacity
-        style={styles.groupEditBtn}
-        onPress={onEdit}
-        activeOpacity={0.8}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Ionicons name="pencil-outline" size={12} color={T.gold} />
-        <Text style={styles.groupEditBtnText}>Edit</Text>
-      </TouchableOpacity>
-    )}
+// ─── SectionHead — title + optional subtitle above a group of rows ──────────
+const SectionHead = ({ title, subtitle }) => (
+  <View style={styles.sectionHead}>
+    <Text style={styles.sectionTitle}>{title}</Text>
+    {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
   </View>
 );
 
@@ -134,7 +96,6 @@ const PgProfileScreen = ({ navigation, route }) => {
   const [profile, setProfile] = useState(null);
   const [wallet, setWallet] = useState(0);
   const [ordersCount, setOrdersCount] = useState(0);
-  const [wishlistCount, setWishlistCount] = useState(0);
   const [addressesCount, setAddressesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -233,13 +194,11 @@ const PgProfileScreen = ({ navigation, route }) => {
       } catch (e) {}
 
       // Quick-stats counts for the profile header tiles — best-effort, read-only.
-      const [ordersRes, wishlistRes, addressesRes] = await Promise.allSettled([
+      const [ordersRes, addressesRes] = await Promise.allSettled([
         getUserOrders(userId),
-        getWishlist(userId),
         getUserAddresses(userId),
       ]);
       if (ordersRes.status === "fulfilled") setOrdersCount(ordersRes.value?.length || 0);
-      if (wishlistRes.status === "fulfilled") setWishlistCount(wishlistRes.value?.length || 0);
       if (addressesRes.status === "fulfilled") setAddressesCount(addressesRes.value?.length || 0);
     } catch (e) {
       // For new users or 404, just show empty profile (no error)
@@ -435,7 +394,7 @@ const PgProfileScreen = ({ navigation, route }) => {
         onPress: async () => {
           setLogoutLoading(true);
           try {
-            const store = require("../store/index").default;
+            const store = require("../../store/index").default;
             const navigationRef = {
               isReady: () => true,
               reset: navigation.reset,
@@ -478,26 +437,7 @@ const PgProfileScreen = ({ navigation, route }) => {
         onBack={() => navigation.goBack()}
         hideLogo
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scroll}
-        >
-          <View style={styles.shimmerBody}>
-            <View style={styles.shimmerHeroCard}>
-              <ShimmerBox width={56} height={56} borderRadius={28} />
-              <View style={{ flex: 1, gap: 8 }}>
-                <ShimmerBox width="55%" height={16} />
-                <ShimmerBox width="75%" height={12} />
-              </View>
-            </View>
-            <View style={{ height: 12 }} />
-            <ShimmerBox width="100%" height={76} borderRadius={16} />
-            <View style={{ height: 12 }} />
-            <ShimmerBox width="100%" height={340} borderRadius={16} />
-            <View style={{ height: 12 }} />
-            <ShimmerBox width="100%" height={200} borderRadius={16} />
-          </View>
-        </ScrollView>
+        <PgLoader label="Loading profile..." />
       </PgLayout>
     );
   }
@@ -516,29 +456,26 @@ const PgProfileScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {/* ── Identity ── */}
+        {/* ── Profile Hero — solid green, no fade. ── */}
         <FadeSlideIn delay={0}>
         <LinearGradient
-          colors={[T.ink, T.gold]}
+          colors={["#14876D", "#14876D"]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 0, y: 1 }}
           style={styles.hero}
         >
           <View style={styles.avatar}>
             <Image source={require("../../../assets/profieicon.png")} style={styles.avatarImg} resizeMode="cover" />
           </View>
-
           <View style={styles.heroInfo}>
             <Text style={styles.heroName} numberOfLines={1}>{displayName}</Text>
             <Text style={styles.heroEmail} numberOfLines={1}>
               {formData.email || userEmail || "user@example.com"}
             </Text>
             <View style={styles.idBadge}>
-              <Ionicons name="shield-checkmark" size={11} color="#fff" />
               <Text style={styles.idBadgeText}>ID {userId}</Text>
             </View>
           </View>
-
           <TouchableOpacity
             style={styles.heroEditBtn}
             onPress={() => setEditing(!editing)}
@@ -550,159 +487,120 @@ const PgProfileScreen = ({ navigation, route }) => {
               size={13}
               color="#fff"
             />
-            <Text style={styles.heroEditBtnText}>{editing ? "Cancel" : "Edit Profile"}</Text>
+            <Text style={styles.heroEditBtnText}>{editing ? "Cancel" : "Edit"}</Text>
           </TouchableOpacity>
         </LinearGradient>
         </FadeSlideIn>
 
-        {/* ── Quick Stats ── */}
+        {/* ── One cohesive panel: Summary, Info, Actions ── */}
         <FadeSlideIn delay={60}>
+        <View style={styles.panel}>
+
+        {/* ── Account Summary ── */}
         <View style={styles.statsRow}>
           <TouchableOpacity
-            style={styles.statCard}
+            style={[styles.statCol, styles.statColDivider]}
             onPress={() => navigation.navigate("PgWallet", { userId })}
-            activeOpacity={0.75}
+            activeOpacity={0.7}
           >
-            <View style={styles.statIconWrap}>
-              <Ionicons name="wallet-outline" size={17} color={T.gold} />
-            </View>
-            <Text style={styles.statLabel}>Wallet Balance</Text>
-            <View style={styles.statValueRow}>
-              <Text style={styles.statValue} numberOfLines={1}>
-                ₹{Number(wallet).toLocaleString("en-IN")}
-              </Text>
-              <Ionicons name="chevron-forward" size={12} color={T.faint} />
-            </View>
+            <Text style={styles.statValue} numberOfLines={1}>
+              ₹{Number(wallet).toLocaleString("en-IN")}
+            </Text>
+            <Text style={styles.statLabel} numberOfLines={1}>Wallet</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.statCard}
+            style={[styles.statCol, styles.statColDivider]}
             onPress={() => navigation.navigate("PgOrders", { userId })}
-            activeOpacity={0.75}
+            activeOpacity={0.7}
           >
-            <View style={styles.statIconWrap}>
-              <Ionicons name="clipboard-outline" size={17} color={T.gold} />
-            </View>
-            <Text style={styles.statLabel}>My Orders</Text>
-            <View style={styles.statValueRow}>
-              <Text style={styles.statValue} numberOfLines={1}>
-                {ordersCount} Order{ordersCount === 1 ? "" : "s"}
-              </Text>
-              <Ionicons name="chevron-forward" size={12} color={T.faint} />
-            </View>
+            <Text style={styles.statValue} numberOfLines={1}>{ordersCount}</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>Orders</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => navigation.navigate("PgWishlist", { userId })}
-            activeOpacity={0.75}
-          >
-            <View style={styles.statIconWrap}>
-              <Ionicons name="heart-outline" size={17} color={T.gold} />
-            </View>
-            <Text style={styles.statLabel}>Wishlist</Text>
-            <View style={styles.statValueRow}>
-              <Text style={styles.statValue} numberOfLines={1}>
-                {wishlistCount} Item{wishlistCount === 1 ? "" : "s"}
-              </Text>
-              <Ionicons name="chevron-forward" size={12} color={T.faint} />
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statCard}
+            style={styles.statCol}
             onPress={() => navigation.navigate("PgAddress", { userId })}
-            activeOpacity={0.75}
+            activeOpacity={0.7}
           >
-            <View style={styles.statIconWrap}>
-              <Ionicons name="location-outline" size={17} color={T.gold} />
-            </View>
-            <Text style={styles.statLabel}>Addresses</Text>
-            <View style={styles.statValueRow}>
-              <Text style={styles.statValue} numberOfLines={1}>
-                {addressesCount} Saved
-              </Text>
-              <Ionicons name="chevron-forward" size={12} color={T.faint} />
-            </View>
+            <Text style={styles.statValue} numberOfLines={1}>{addressesCount}</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>Addresses</Text>
           </TouchableOpacity>
         </View>
-        </FadeSlideIn>
 
-        {/* ── User Details ── */}
-        <FadeSlideIn delay={120}>
-        <View style={styles.card}>
-          <GroupHead
-            icon="person-outline"
-            title="User Details"
-            subtitle="Your personal, contact & KYC info"
-            onEdit={!editing ? () => setEditing(true) : null}
+        <View style={styles.hairline} />
+
+        {/* ── Personal Information ── */}
+        <View style={styles.section}>
+          <SectionHead
+            title="Personal Information"
+            subtitle="Your personal, contact & KYC information"
           />
-          <View style={styles.infoList}>
-            <View style={[styles.infoRow, styles.infoRowDivider]}>
-              <View style={styles.infoRowLeft}>
-                <Text style={styles.infoLabel}>
-                  Gender<Text style={styles.fieldLabelRequired}> *</Text>
-                </Text>
-              </View>
-              {editing ? (
-                <View style={styles.genderRow}>
-                  {["male", "female"].map((g) => (
-                    <TouchableOpacity
-                      key={g}
-                      style={[styles.genderOption, formData.gender === g && styles.genderOptionActive]}
-                      onPress={() => setFormData({ ...formData, gender: g })}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.genderOptionText,
-                          formData.gender === g && styles.genderOptionTextActive,
-                        ]}
-                      >
-                        {g === "male" ? "Male" : "Female"}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
-                <Text style={[styles.infoValue, !formData.gender && styles.infoValueEmpty]}>
-                  {formData.gender ? (formData.gender === "male" ? "Male" : "Female") : "Not provided"}
-                </Text>
-              )}
-            </View>
 
-            <InfoRow label="Primary Mobile" editing={editing} editable={false} value={formData.mobileNumber} />
-            <InfoRow
-              label="WhatsApp Number"
-              editing={editing}
-              value={formData.whatsappNumber}
-              onChangeText={(text) => setFormData({ ...formData, whatsappNumber: text })}
-              keyboardType="phone-pad"
-            />
-            <InfoRow
-              label="Email"
-              required
-              editing={editing}
-              value={formData.email}
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
-            />
-            <InfoRow
-              label="PAN Number"
-              required
-              last
-              editing={editing}
-              editable={!panVerified}
-              verified={panVerified}
-              value={formData.panNumber}
-              onChangeText={(text) => {
-                setFormData({ ...formData, panNumber: text.toUpperCase() });
-                setPanVerified(false);
-              }}
-              placeholder="ABCDE1234F"
-              autoCapitalize="characters"
-              maxLength={10}
-            />
+          <View style={[styles.infoRow, styles.infoRowDivider]}>
+            <View style={styles.infoRowLeft}>
+              <Text style={styles.infoLabel}>
+                Gender<Text style={styles.fieldLabelRequired}> *</Text>
+              </Text>
+            </View>
+            {editing ? (
+              <View style={styles.genderRow}>
+                {["male", "female"].map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[styles.genderOption, formData.gender === g && styles.genderOptionActive]}
+                    onPress={() => setFormData({ ...formData, gender: g })}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.genderOptionText,
+                        formData.gender === g && styles.genderOptionTextActive,
+                      ]}
+                    >
+                      {g === "male" ? "Male" : "Female"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <Text style={[styles.infoValue, !formData.gender && styles.infoValueEmpty]}>
+                {formData.gender ? (formData.gender === "male" ? "Male" : "Female") : "Not provided"}
+              </Text>
+            )}
           </View>
+
+          <InfoRow label="Primary Mobile" editing={editing} editable={false} value={formData.mobileNumber} />
+          <InfoRow
+            label="WhatsApp Number"
+            editing={editing}
+            value={formData.whatsappNumber}
+            onChangeText={(text) => setFormData({ ...formData, whatsappNumber: text })}
+            keyboardType="phone-pad"
+          />
+          <InfoRow
+            label="Email"
+            required
+            editing={editing}
+            value={formData.email}
+            onChangeText={(text) => setFormData({ ...formData, email: text })}
+          />
+          <InfoRow
+            label="PAN Number"
+            required
+            last
+            editing={editing}
+            editable={!panVerified}
+            verified={panVerified}
+            value={formData.panNumber}
+            onChangeText={(text) => {
+              setFormData({ ...formData, panNumber: text.toUpperCase() });
+              setPanVerified(false);
+            }}
+            placeholder="ABCDE1234F"
+            autoCapitalize="characters"
+            maxLength={10}
+          />
 
           {editing && (
             <View style={styles.editActionsRow}>
@@ -734,88 +632,84 @@ const PgProfileScreen = ({ navigation, route }) => {
             </View>
           )}
         </View>
-        </FadeSlideIn>
 
-        {/* ── Quick Links ── */}
-        <FadeSlideIn delay={300}>
-        <View style={styles.card}>
-          <GroupHead icon="grid-outline" title="Quick Links" />
+        <View style={styles.hairline} />
 
-          <View style={styles.linkGrid}>
-            {[
-              {
-                icon: "headset-outline",
-                label: "Help & Support",
-                onPress: () => Linking.openURL("mailto:support@askoxy.ai"),
-              },
-              {
-                icon: "shield-checkmark-outline",
-                label: "Privacy Policy",
-                onPress: () => navigation.navigate("PgPrivacyPolicy"),
-              },
-              {
-                icon: "document-text-outline",
-                label: "Terms & Conditions",
-                onPress: () => navigation.navigate("PgTerms"),
-              },
-              {
-                icon: "cube-outline",
-                label: "Shipping Policy",
-                onPress: () => navigation.navigate("PgShippingPolicy"),
-              },
-              {
-                icon: "return-down-back-outline",
-                label: "Return & Refund Policy",
-                onPress: () => navigation.navigate("PgReturnRefundPolicy"),
-              },
-              {
-                icon: "close-circle-outline",
-                label: "Cancellation Policy",
-                onPress: () => navigation.navigate("PgCancellationPolicy"),
-              },
-              {
-                icon: "help-circle-outline",
-                label: "FAQs",
-                onPress: () => navigation.navigate("PgFAQ"),
-              },
-              {
-                icon: "settings-outline",
-                label: "Cookie Policy",
-                onPress: () => navigation.navigate("PgCookiePolicy"),
-              },
-            ].map((item) => (
-              <TouchableOpacity
-                key={item.label}
-                style={styles.linkTile}
-                onPress={item.onPress || undefined}
-                activeOpacity={item.onPress ? 0.75 : 1}
-              >
-                <View style={styles.linkIconWrap}>
-                  <Ionicons name={item.icon} size={17} color={T.gold} />
-                </View>
-                <Text style={styles.linkText} numberOfLines={2}>{item.label}</Text>
-                <Ionicons name="chevron-forward" size={14} color={T.faint} style={styles.linkChevron} />
-              </TouchableOpacity>
-            ))}
-          </View>
+        {/* ── Quick Actions ── */}
+        <View style={[styles.section, { marginBottom: 0 }]}>
+          <SectionHead title="Quick Actions" />
+          {[
+            {
+              icon: "headset-outline",
+              label: "Help & Support",
+              onPress: () => navigation.navigate("PgSupport"),
+            },
+            {
+              icon: "shield-checkmark-outline",
+              label: "Privacy Policy",
+              onPress: () => navigation.navigate("PgPrivacyPolicy"),
+            },
+            {
+              icon: "document-text-outline",
+              label: "Terms & Conditions",
+              onPress: () => navigation.navigate("PgTerms"),
+            },
+            {
+              icon: "cube-outline",
+              label: "Shipping Policy",
+              onPress: () => navigation.navigate("PgShippingPolicy"),
+            },
+            {
+              icon: "return-down-back-outline",
+              label: "Return & Refund Policy",
+              onPress: () => navigation.navigate("PgReturnRefundPolicy"),
+            },
+            {
+              icon: "close-circle-outline",
+              label: "Cancellation Policy",
+              onPress: () => navigation.navigate("PgCancellationPolicy"),
+            },
+            {
+              icon: "help-circle-outline",
+              label: "FAQs",
+              onPress: () => navigation.navigate("PgFAQ"),
+            },
+            {
+              icon: "settings-outline",
+              label: "Cookie Policy",
+              onPress: () => navigation.navigate("PgCookiePolicy"),
+            },
+          ].map((item, idx, arr) => (
+            <TouchableOpacity
+              key={item.label}
+              style={[styles.linkRow, idx < arr.length - 1 && styles.infoRowDivider]}
+              onPress={item.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.linkIconBox}>
+                <Ionicons name={item.icon} size={15} color={T.gold} />
+              </View>
+              <Text style={styles.linkRowText} numberOfLines={1}>{item.label}</Text>
+              <Ionicons name="chevron-forward" size={16} color={T.faint} />
+            </TouchableOpacity>
+          ))}
+        </View>
+
         </View>
         </FadeSlideIn>
 
-        {/* ── Logout ── */}
-        <FadeSlideIn delay={340}>
+        {/* ── Logout — clean outlined pill, outside the panel ── */}
+        <FadeSlideIn delay={80}>
         <TouchableOpacity
           style={[styles.logoutBtn, logoutLoading && styles.logoutBtnDisabled]}
           onPress={handleLogoutPress}
           disabled={logoutLoading}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           {logoutLoading ? (
             <ActivityIndicator size="small" color={T.danger} />
           ) : (
-            <>
-              <Ionicons name="log-out-outline" size={17} color={T.danger} />
-              <Text style={styles.logoutBtnText}>Logout</Text>
-            </>
+            <Text style={styles.logoutBtnText}>Logout</Text>
           )}
         </TouchableOpacity>
         </FadeSlideIn>
@@ -826,148 +720,123 @@ const PgProfileScreen = ({ navigation, route }) => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 48, backgroundColor: T.bg },
 
-  shimmerBody: { padding: 0 },
-  shimmerHeroCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
+  // ── The one cohesive surface — Summary through Quick Actions live here ──
+  panel: {
     backgroundColor: T.surface,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 18,
+    marginTop: 12,
+    shadowColor: "rgba(28,28,30,0.06)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 1,
   },
 
-  // ── Identity ──
+  // ── Hairline between sections inside the panel ──
+  hairline: { height: 1, backgroundColor: T.divider, marginVertical: 18 },
+
+  // ── Profile hero — a full-bleed banner flush with the header, not a
+  // rounded container floating inside the page's side padding ──
   hero: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 20,
-    marginBottom: 12,
+    alignItems: "flex-start",
+    gap: 12,
+    marginHorizontal: -16,
+    marginTop: -8,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    padding: 18,
+    paddingHorizontal: 16 + 18,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.35)",
+    borderColor: "rgba(28,28,30,0.18)",
   },
   avatarImg: { width: "100%", height: "100%" },
   heroInfo: { flex: 1, minWidth: 0 },
   heroName: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 15.5,
+    fontWeight: "700",
     color: "#fff",
-    marginBottom: 3,
+    marginBottom: 2,
     letterSpacing: -0.2,
   },
-  heroEmail: { fontSize: 12.5, fontWeight: "400", color: "rgba(255,255,255,0.75)" },
+  heroEmail: { fontSize: 11.5, fontWeight: "400", color: "rgba(255,255,255,0.78)" },
   idBadge: {
-    flexDirection: "row",
-    alignItems: "center",
     alignSelf: "flex-start",
-    gap: 5,
-    backgroundColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(255,255,255,0.18)",
     borderRadius: 20,
     paddingHorizontal: 9,
-    paddingVertical: 5,
+    paddingVertical: 3,
     marginTop: 6,
   },
-  idBadgeText: { fontSize: 10.5, fontWeight: "600", color: "#fff" },
+  idBadgeText: { fontSize: 10.5, fontWeight: "700", color: "#fff", letterSpacing: 0.2 },
   heroEditBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(255,255,255,0.16)",
+    gap: 4,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.45)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderColor: "rgba(28,28,30,0.2)",
+    paddingHorizontal: 11,
+    paddingVertical: 7,
   },
   heroEditBtnText: { fontSize: 12, fontWeight: "600", color: "#fff" },
 
-  // ── Quick stats (Wallet / Orders / Wishlist / Addresses) ──
-  statsRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 12 },
-  statCard: {
-    flexBasis: "47%",
-    flexGrow: 1,
-    backgroundColor: T.surface,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: T.divider,
+  // ── Account summary — three plain columns, small icon chips ──
+  statsRow: { flexDirection: "row" },
+  statCol: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 2,
   },
-  statIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+  statColDivider: { borderRightWidth: 1, borderRightColor: T.divider },
+  statIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     backgroundColor: T.goldTint,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 2,
   },
-  statLabel: { fontSize: 11.5, fontWeight: "400", color: T.subtle, marginBottom: 3 },
-  statValueRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 4 },
-  statValue: { flex: 1, fontSize: 14, fontWeight: "600", color: T.ink },
+  // ── Same lavender / burgundy / plum family used on Home, each on a light
+  // grey-tinted box — so the three stats read as distinct, not one flat green ──
+  statIconBoxWallet:    { backgroundColor: "rgba(150,140,210,0.16)" },
+  statIconBoxOrders:    { backgroundColor: "rgba(140,47,59,0.14)" },
+  statIconBoxAddresses: { backgroundColor: "rgba(106,44,110,0.14)" },
+  statLabel: { fontSize: 10.5, fontWeight: "400", color: T.subtle },
+  statValue: { fontSize: 14, fontWeight: "700", color: T.ink },
 
-  // ── Group head — icon box + title/subtitle + optional Edit pill ──
-  groupHead: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
-  groupIconBox: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    backgroundColor: T.goldTint,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  groupTitle: { fontSize: 14.5, fontWeight: "600", color: T.ink },
-  groupSubtitle: { fontSize: 11.5, fontWeight: "400", color: T.subtle, marginTop: 1 },
-  groupEditBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: T.goldTint,
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  groupEditBtnText: { fontSize: 11.5, fontWeight: "600", color: T.gold },
-
-  // ── Cards ──
-  card: {
-    backgroundColor: T.surface,
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: T.divider,
-    shadowColor: "rgba(28,28,30,0.05)",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 1,
-  },
+  // ── Section — no extra card, lives inside the shared panel ──
+  section: { marginBottom: 4 },
+  sectionHead: { marginBottom: 14 },
+  sectionTitle: { fontSize: 13.5, fontWeight: "700", color: T.ink },
+  sectionSubtitle: { fontSize: 11, fontWeight: "400", color: T.subtle, marginTop: 2 },
 
   // ── Info list — one row per field ──
-  infoList: { marginTop: 2 },
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
   },
   infoRowDivider: { borderBottomWidth: 1, borderBottomColor: T.divider },
   infoRowLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 0 },
   infoLabel: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "400",
     color: T.subtle,
     flexShrink: 0,
@@ -976,105 +845,95 @@ const styles = StyleSheet.create({
   infoValueRow: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
   infoValue: {
     flexShrink: 1,
-    fontSize: 13.5,
-    fontWeight: "500",
+    fontSize: 13,
+    fontWeight: "600",
     color: T.ink,
     textAlign: "right",
   },
   infoValueEmpty: { fontWeight: "400", color: T.faint, fontStyle: "italic" },
-  verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 2, flexShrink: 0 },
-  verifiedBadgeText: { fontSize: 10.5, fontWeight: "600", color: T.gold },
+  verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 0 },
+  verifiedBadgeText: { fontSize: 10, fontWeight: "700", color: T.gold },
   infoInput: {
     flex: 1,
-    fontSize: 13.5,
-    fontWeight: "500",
+    fontSize: 13,
+    fontWeight: "600",
     color: T.ink,
     paddingVertical: 0,
   },
   genderRow: { flexDirection: "row", gap: 8 },
   genderOption: {
-    backgroundColor: T.surfaceMuted,
+    backgroundColor: T.bg,
     borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 13,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: T.divider,
     justifyContent: "center",
   },
   genderOptionActive: {
     backgroundColor: T.goldTint,
     borderColor: T.goldBorder,
   },
-  genderOptionText: { fontSize: 13, fontWeight: "500", color: T.subtle },
-  genderOptionTextActive: { color: T.gold, fontWeight: "600" },
+  genderOptionText: { fontSize: 12, fontWeight: "500", color: T.subtle },
+  genderOptionTextActive: { color: T.gold, fontWeight: "700" },
 
   // Edit mode actions — Cancel (outlined) + Save (filled), side by side
-  editActionsRow: { flexDirection: "row", gap: 10, marginTop: 16 },
+  editActionsRow: { flexDirection: "row", gap: 10, marginTop: 18 },
   cancelBtn: {
     flex: 1,
     borderRadius: 12,
-    height: 48,
+    height: 44,
     borderWidth: 1,
     borderColor: T.divider,
     backgroundColor: T.surface,
     alignItems: "center",
     justifyContent: "center",
   },
-  cancelBtnText: { fontSize: 14, fontWeight: "600", color: T.subtle },
+  cancelBtnText: { fontSize: 13, fontWeight: "600", color: T.subtle },
   saveBtn: {
     flex: 1,
-    backgroundColor: T.ink,
+    backgroundColor: T.gold,
     borderRadius: 12,
-    height: 48,
+    height: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
   saveBtnDisabled: { backgroundColor: T.faint },
-  saveBtnText: { fontSize: 14, fontWeight: "600", color: "#fff" },
+  saveBtnText: { fontSize: 13, fontWeight: "600", color: "#fff" },
 
-  // ── Quick Links ──
-  linkGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  linkTile: {
-    flexBasis: "47%",
-    flexGrow: 1,
-    backgroundColor: T.surfaceMuted,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: T.divider,
-    padding: 12,
-    gap: 8,
-  },
-  linkIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: T.surface,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: T.divider,
-  },
-  linkText: { fontSize: 12.5, fontWeight: "500", color: T.ink, lineHeight: 16 },
-  linkChevron: { position: "absolute", top: 12, right: 12 },
-
-  // ── Logout ──
-  logoutBtn: {
+  // ── Quick Actions — plain list rows, small rounded icon container ──
+  linkRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
+    paddingVertical: 13,
+  },
+  linkIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: T.goldTint,
     justifyContent: "center",
-    gap: 7,
-    backgroundColor: T.surface,
+    alignItems: "center",
+  },
+  linkRowText: { flex: 1, fontSize: 13, fontWeight: "500", color: T.ink },
+
+  // ── Logout — clean outlined secondary button, not visually dominant ──
+  logoutBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: T.divider,
-    borderRadius: 12,
-    paddingVertical: 13,
-    marginTop: 2,
-    marginBottom: 20,
+    backgroundColor: T.surface,
+    paddingVertical: 14,
+    marginTop: 16,
+    marginBottom: 8,
   },
   logoutBtnDisabled: { opacity: 0.6 },
-  logoutBtnText: { fontSize: 13.5, fontWeight: "600", color: T.danger },
+  logoutBtnText: { fontSize: 13, fontWeight: "600", color: T.danger },
 });
 
 export default PgProfileScreen;

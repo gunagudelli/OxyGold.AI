@@ -6,17 +6,33 @@ import {
   StyleSheet,
   Image,
   Animated,
+  InteractionManager,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImages, getProductVariants } from '../screens/physicalGoldApi';
 
-const ProductCard = ({ product, onPress, isInWishlist, onWishlistToggle }) => {
+const ProductCard = ({
+  product,
+  onPress,
+  isInWishlist,
+  onWishlistToggle,
+  onAddToCart,
+  addingCart,
+  cartVariantIds, // Set<string> of variant ids currently in the cart
+}) => {
   const [imgError, setImgError]   = useState(false);
   const [imageUrl, setImageUrl]   = useState(
     product?.imageUrl || product?.image || null
   );
   const [offer, setOffer] = useState(null); // { mrpDisplay, discountPct }
+  // The product itself can have several variants (different weights), each
+  // its own price — "Add to Cart" here always adds this one, the cheapest/
+  // first variant, and shows its weight so it's never a silent guess.
+  const [defaultVariant, setDefaultVariant] = useState(null); // { id, weight }
   const heartScale = useRef(new Animated.Value(1)).current;
+
+  const inCart = !!(defaultVariant && cartVariantIds?.has(String(defaultVariant.id)));
 
   // ── Safe field reads — covers every common API shape ─────────────────────
   const name   = product?.productName
@@ -59,38 +75,51 @@ const ProductCard = ({ product, onPress, isInWishlist, onWishlistToggle }) => {
   }
 
   // ── Fetch image from API if not on the product object ─────────────────────
+  // Deferred with InteractionManager so a whole grid of cards mounting at once
+  // (the products list isn't truly virtualized — see PgHomeScreen) doesn't
+  // fire dozens of concurrent requests on the same tick and stall the JS
+  // thread mid-scroll.
   useEffect(() => {
     if (!imageUrl && product?.id) {
-      getProductImages(product.id)
-        .then(imgObj => {
-          const url = imgObj?.frontViewUrl
-                   || imgObj?.imageUrl
-                   || imgObj?.url
-                   || null;
-          if (url) setImageUrl(url);
-        })
-        .catch(() => {});
+      const task = InteractionManager.runAfterInteractions(() => {
+        getProductImages(product.id)
+          .then(imgObj => {
+            const url = imgObj?.frontViewUrl
+                     || imgObj?.imageUrl
+                     || imgObj?.url
+                     || null;
+            if (url) setImageUrl(url);
+          })
+          .catch(() => {});
+      });
+      return () => task.cancel();
     }
   }, [product?.id]);
 
   // ── Offer badge — MRP vs. selling price lives on the variant, not the product ──
   useEffect(() => {
     if (!product?.id) return;
-    getProductVariants(product.id)
-      .then((res) => {
-        const inner = res?.data || res;
-        const list  = inner?.listVariantResponse || inner?.variants || (Array.isArray(inner) ? inner : []);
-        const v     = list?.[0];
-        const mrp   = v?.mrp || 0;
-        const price = v?.price || 0;
-        if (mrp > price && price > 0) {
-          setOffer({
-            mrpDisplay: mrp.toLocaleString('en-IN'),
-            discountPct: Math.round(((mrp - price) / mrp) * 100),
-          });
-        }
-      })
-      .catch(() => {});
+    const task = InteractionManager.runAfterInteractions(() => {
+      getProductVariants(product.id)
+        .then((res) => {
+          const inner = res?.data || res;
+          const list  = inner?.listVariantResponse || inner?.variants || (Array.isArray(inner) ? inner : []);
+          const v     = list?.[0];
+          const mrp   = v?.mrp || 0;
+          const price = v?.price || 0;
+          if (mrp > price && price > 0) {
+            setOffer({
+              mrpDisplay: mrp.toLocaleString('en-IN'),
+              discountPct: Math.round(((mrp - price) / mrp) * 100),
+            });
+          }
+          if (v?.id) {
+            setDefaultVariant({ id: v.id, weight: v?.weight || v?.weightInGrams || null });
+          }
+        })
+        .catch(() => {});
+    });
+    return () => task.cancel();
   }, [product?.id]);
 
   // ── Heart bounce ──────────────────────────────────────────────────────────
@@ -166,7 +195,7 @@ const ProductCard = ({ product, onPress, isInWishlist, onWishlistToggle }) => {
           <View style={s.metaRow}>
             {weight && (
               <View style={s.metaBadge}>
-                <Ionicons name="scale-outline" size={10} color="#CF8B17" style={{ marginRight: 3 }} />
+                <Ionicons name="scale-outline" size={10} color="#0E6B57" style={{ marginRight: 3 }} />
                 <Text style={s.metaText}>{weight}g</Text>
               </View>
             )}
@@ -179,13 +208,13 @@ const ProductCard = ({ product, onPress, isInWishlist, onWishlistToggle }) => {
           </View>
         )}
 
-        {/* price + offer, with a compact "View Details" action on the right */}
+        {/* price + offer, with a compact cart action on the right */}
         <View style={s.bottomRow}>
           <View style={{ flex: 1, minWidth: 0 }}>
             {priceDisplay ? (
               <View style={s.priceRow}>
                 <Text style={s.priceRupee}>₹</Text>
-                <Text style={s.priceAmount}>{priceDisplay}</Text>
+                <Text style={s.priceAmount} numberOfLines={1}>{priceDisplay}</Text>
               </View>
             ) : (
               /* keeps card height consistent when price is missing */
@@ -201,14 +230,38 @@ const ProductCard = ({ product, onPress, isInWishlist, onWishlistToggle }) => {
             )}
           </View>
 
-          <TouchableOpacity
-            style={s.detailsBtn}
-            onPress={onPress}
-            activeOpacity={0.8}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={s.detailsBtnText}>View Details</Text>
-          </TouchableOpacity>
+          {onAddToCart ? (
+            <TouchableOpacity
+              style={[s.cartBtn, inCart && s.cartBtnInCart]}
+              onPress={() => onAddToCart(product, defaultVariant)}
+              disabled={addingCart || (!inCart && !defaultVariant)}
+              activeOpacity={0.82}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {addingCart ? (
+                <ActivityIndicator size="small" color={inCart ? '#0E6B57' : '#fff'} />
+              ) : inCart ? (
+                <>
+                  <Ionicons name="checkmark-circle" size={13} color="#0E6B57" />
+                  <Text style={[s.cartBtnText, s.cartBtnTextInCart]}>In Cart</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="cart-outline" size={13} color="#fff" />
+                  <Text style={s.cartBtnText}>Add</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={s.detailsBtn}
+              onPress={onPress}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={s.detailsBtnText}>View Details</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -378,7 +431,7 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
   offerPill: {
-    backgroundColor: 'rgba(207,139,23,0.10)',
+    backgroundColor: 'rgba(14,107,87,0.10)',
     borderRadius: 5,
     paddingHorizontal: 5,
     paddingVertical: 2,
@@ -386,7 +439,7 @@ const s = StyleSheet.create({
   offerPillText: {
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#CF8B17',
+    color: '#1C1C1E',
   },
 
   // ── Bottom row — price on the left, a compact "View Details" action on the right ──
@@ -404,14 +457,34 @@ const s = StyleSheet.create({
     height: 30,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#CF8B17',
+    borderColor: '#0E6B57',
     backgroundColor: '#fff',
   },
   detailsBtnText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#CF8B17',
+    color: '#1C1C1E',
   },
+
+  // ── Add to Cart chip — same footprint as detailsBtn, same pattern used
+  // on the Wishlist screen's cards ──
+  cartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    height: 30,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#0E6B57',
+  },
+  cartBtnText: { fontSize: 11.5, fontWeight: '700', color: '#fff' },
+  cartBtnInCart: {
+    backgroundColor: 'rgba(14,107,87,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(14,107,87,0.20)',
+  },
+  cartBtnTextInCart: { color: '#0E6B57' },
 });
 
 export default React.memo(ProductCard);

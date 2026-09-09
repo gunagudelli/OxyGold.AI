@@ -57,6 +57,8 @@ import PgReturnRefundPolicyScreen   from '../physicalGold/screens/PgReturnRefund
 import PgFAQScreen                  from '../physicalGold/screens/PgFAQScreen';
 import PgCookiePolicyScreen         from '../physicalGold/screens/PgCookiePolicyScreen';
 import PgCancellationPolicyScreen   from '../physicalGold/screens/PgCancellationPolicyScreen';
+import PgLegalScreen                from '../physicalGold/screens/PgLegalScreen';
+import PgSupportScreen              from '../physicalGold/screens/PgSupportScreen';
 
 const Stack = createNativeStackNavigator();
 const SCREEN = { headerShown: false, animation: 'slide_from_right' };
@@ -127,6 +129,8 @@ const AppNavigator = ({ navigationRef }) => {
         <Stack.Screen name="PgFAQ"                component={PgFAQScreen} />
         <Stack.Screen name="PgCookiePolicy"       component={PgCookiePolicyScreen} />
         <Stack.Screen name="PgCancellationPolicy" component={PgCancellationPolicyScreen} />
+        <Stack.Screen name="PgLegal"               component={PgLegalScreen} />
+        <Stack.Screen name="PgSupport"              component={PgSupportScreen} />
 
       </Stack.Navigator>
     </GoldProvider>

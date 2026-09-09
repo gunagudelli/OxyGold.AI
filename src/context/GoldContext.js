@@ -127,7 +127,12 @@ export const GoldProvider = ({ children, navigationRef }) => {
       } else if (profile.reason?.message === SESSION_EXPIRED) {
         return handleSessionExpired();
       } else {
-        console.error('[GoldContext] Profile fetch failed:', profile.reason);
+        // Background prefetch for the Digital Gold module — not the current
+        // screen's data, so a failure here shouldn't surface as a red-box
+        // overlay to whoever happens to be testing. console.error/warn both
+        // trigger LogBox in dev; console.log doesn't, but still shows up in
+        // the Metro log for debugging.
+        console.log('[GoldContext] Profile fetch failed:', profile.reason?.message || profile.reason);
       }
 
       if (wallet.status === 'fulfilled') {

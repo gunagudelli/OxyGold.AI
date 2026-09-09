@@ -6,6 +6,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import PgLayout from '../components/PgLayout';
+import PgLoader from '../components/PgLoader';
+import FadeSlideIn from '../components/FadeSlideIn';
 import { getOrderDetails } from './physicalGoldApi';
 import { selectUserId } from '../../store/authSlice';
 
@@ -61,8 +63,7 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
       <PgLayout title="Order Status" showBack={false}>
         <View style={styles.container}>
           <View style={styles.loadingContent}>
-            <ActivityIndicator size="large" color="#1C1C1E" />
-            <Text style={styles.loadingText}>Confirming Order...</Text>
+            <PgLoader label="Confirming Order..." fullscreen={false} />
             <Text style={styles.loadingSubtext}>Please wait a moment</Text>
           </View>
         </View>
@@ -74,6 +75,7 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
     return (
       <PgLayout title="Order Confirmed" showBack={false}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <FadeSlideIn>
           {/* Success Icon */}
           <View style={styles.successContainer}>
             <View style={styles.successIcon}>
@@ -122,6 +124,7 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
           >
             <Text style={styles.secondaryBtnText}>Continue Shopping</Text>
           </TouchableOpacity>
+          </FadeSlideIn>
         </ScrollView>
       </PgLayout>
     );
@@ -131,6 +134,7 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
     return (
       <PgLayout title="Payment Failed" showBack={false}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <FadeSlideIn>
           {/* Failed Icon */}
           <View style={styles.failedContainer}>
             <View style={styles.failedIcon}>
@@ -174,6 +178,7 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
           >
             <Text style={styles.secondaryBtnText}>Go Back Home</Text>
           </TouchableOpacity>
+          </FadeSlideIn>
         </ScrollView>
       </PgLayout>
     );
@@ -181,10 +186,10 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
 };
 
 const C = {
-  bg: '#F8F7F6',
+  bg: '#FFFFFF',
   surface: '#FFFFFF',
   border: '#E7E0DA',
-  gold: '#CF8B17',
+  gold: '#0E6B57',
   textPri: '#1C1C1E',
   textSec: '#7A7A80',
   textTer: '#A79C93',
@@ -243,13 +248,13 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: C.border },
 
   primaryBtn: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#0E6B57',
     paddingVertical: 16,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#1C1C1E',
+    shadowColor: '#0E6B57',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

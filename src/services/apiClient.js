@@ -52,6 +52,11 @@ const getTokenExpiresAt = () => selectTokenExpiresAt(_store?.getState());
 /** Exported so legacy callers (goldApi.js etc.) can get userId without prop-drilling */
 export const getUserId = () => _store?.getState()?.auth?.userId || null;
 
+/** Exported for the rare caller that needs to build its own fetch (e.g. a
+ * multipart/form-data upload, where apiRequest's JSON.stringify + fixed
+ * Content-Type would break the request). */
+export const getAccessToken = () => getToken();
+
 // ─── AsyncStorage helpers (single key) ───────────────────────────────────────
 // Merges onto whatever's already stored so a partial payload (e.g. a token
 // refresh response that has no userId) can't silently erase fields — like

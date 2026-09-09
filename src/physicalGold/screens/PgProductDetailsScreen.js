@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Image,
   Alert,
-  Animated,
   Modal,
   Dimensions,
   BackHandler,
@@ -18,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { selectUserId } from "../../store/authSlice";
 import { setCartCount } from "../../store/cartSlice";
 import PgLayout from "../components/PgLayout";
+import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import {
   getProductVariants,
@@ -33,12 +33,12 @@ const { width: SW, height: SH } = Dimensions.get("window");
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#CF8B17",
+  gold: "#0E6B57",
   goldLight: "#F7F4ED",
-  goldMid: "#E4BB67",
-  goldDim: "rgba(207,139,23,0.10)",
+  goldMid: "#2FA085",
+  goldDim: "rgba(14,107,87,0.10)",
   navy: "#1C1C1E",
   navyMid: "#48484C",
   navyLight: "#7A7A80",
@@ -72,46 +72,6 @@ const TRUST_ICONS = [
 
 // AI model preview card — hidden per request.
 const SHOW_AI_MODEL_PREVIEW = false;
-
-// ─── Shimmer ──────────────────────────────────────────────────────────────────
-const Shimmer = ({ w, h, r = 10 }) => {
-  const a = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const shimmerLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(a, {
-          toValue: 1,
-          duration: 850,
-          useNativeDriver: true,
-        }),
-        Animated.timing(a, {
-          toValue: 0,
-          duration: 850,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    shimmerLoop.start();
-    return () => {
-      shimmerLoop.stop();
-      a.stopAnimation();
-    };
-  }, []);
-  return (
-    <Animated.View
-      style={{
-        width: w,
-        height: h,
-        borderRadius: r,
-        backgroundColor: "#E4BB67",
-        opacity: a.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0.18, 0.42],
-        }),
-      }}
-    />
-  );
-};
 
 // ─── Section Header ───────────────────────────────────────────────────────────
 const SectionHeader = ({ title }) => (
@@ -148,6 +108,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [cartQuantity, setCartQuantity] = useState(0);
 
   // ── Hardware back
   useEffect(() => {
@@ -243,6 +204,31 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     setSelectedViewIdx(idx);
   };
 
+  // How many units of the currently selected variant are already sitting in
+  // the cart — checked on mount/variant-change so "Add to Cart" doesn't lie
+  // about a variant the user has already added.
+  const refreshCartQuantityForVariant = (cart, variantId) => {
+    // selectedVariant.id is a string (.toString() at mapping time) but the
+    // cart API returns productVariantId as a number — String() both sides
+    // so the match isn't silently defeated by a strict-equality type mismatch.
+    const match = cart?.itemsInCart?.find(
+      (it) => String(it.productVariantId) === String(variantId)
+    );
+    setCartQuantity(match?.quantity || 0);
+  };
+
+  useEffect(() => {
+    if (!userId || !selectedVariant?.id) {
+      setCartQuantity(0);
+      return;
+    }
+    let alive = true;
+    getCart(userId)
+      .then((cart) => { if (alive) refreshCartQuantityForVariant(cart, selectedVariant.id); })
+      .catch(() => { if (alive) setCartQuantity(0); });
+    return () => { alive = false; };
+  }, [userId, selectedVariant?.id]);
+
   // Adds the selected variant, then switches the CTA into the quantity-stepper
   // state — no blocking alert, matching the web app's inline transition.
   const addSelectedVariantToCart = async () => {
@@ -262,7 +248,10 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     try {
       await addToCart(userId, product.id, selectedVariant.id, 1);
       getCart(userId)
-        .then((cart) => dispatch(setCartCount(cart?.itemsInCart?.length || 0)))
+        .then((cart) => {
+          dispatch(setCartCount(cart?.itemsInCart?.length || 0));
+          refreshCartQuantityForVariant(cart, selectedVariant.id);
+        })
         .catch(() => {});
       return true;
     } catch (e) {
@@ -287,7 +276,10 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
 
   const handleAddToCart = async () => {
     const ok = await addSelectedVariantToCart();
-    if (ok) navigation.navigate("PgCart");
+    if (ok) {
+      setCartMsg({ text: "Added to cart", type: "success" });
+      setTimeout(() => setCartMsg({ text: "", type: "" }), 2500);
+    }
   };
 
   const handleGenerateModelPreview = async () => {
@@ -340,22 +332,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
         showBack
         onBack={() => navigation.goBack()}
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
-        >
-          <View style={{ margin: 16, marginTop: 20 }}>
-            <Shimmer w="100%" h={300} r={22} />
-          </View>
-          <View style={{ paddingHorizontal: 16, gap: 10 }}>
-            <Shimmer w="70%" h={22} />
-            <Shimmer w="45%" h={14} />
-            <View style={{ height: 6 }} />
-            <Shimmer w="100%" h={88} r={16} />
-            <Shimmer w="100%" h={130} r={16} />
-            <Shimmer w="100%" h={110} r={16} />
-          </View>
-        </ScrollView>
+        <PgLoader label="Loading product..." />
       </PgLayout>
     );
   }
@@ -370,7 +347,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
       >
         <View style={s.empty}>
           <View style={s.emptyIcon}>
-            <Ionicons name="diamond-outline" size={32} color={C.gold} />
+            <Ionicons name="diamond-outline" size={32} color="#CF8B17" />
           </View>
           <Text style={s.emptyTitle}>Product Not Found</Text>
           <Text style={s.emptySub}>This item may no longer be available.</Text>
@@ -500,7 +477,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
               <View style={s.titleRowLeft}>
                 <Text style={s.name}>{product.name}</Text>
                 <View style={s.trustRow}>
-                  <Ionicons name="shield-checkmark-outline" size={14} color={C.gold} />
+                  <Ionicons name="shield-checkmark-outline" size={14} color="#CF8B17" />
                   <Text style={s.trustText}>BIS Hallmarked</Text>
                 </View>
               </View>
@@ -526,7 +503,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
               {TRUST_ICONS.map((t, i) => (
                 <React.Fragment key={t.label}>
                   <View style={s.trustGridItem}>
-                    <Ionicons name={t.icon} size={20} color={C.gold} />
+                    <Ionicons name={t.icon} size={20} color="#CF8B17" />
                     <Text style={s.trustGridLabel}>{t.label}</Text>
                   </View>
                   {i < TRUST_ICONS.length - 1 && <View style={s.trustGridDivider} />}
@@ -725,6 +702,14 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                 >
                   {cartMsg.text}
                 </Text>
+                {cartMsg.type !== "error" && (
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate("PgCart")}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={s.viewCartLink}>View Cart</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : null}
           </View>
@@ -733,24 +718,29 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
 
         {/* ──────────────── FOOTER ──────────────── */}
         <View style={s.footer}>
-          <View style={s.footerInner}>
-            <View style={s.footerLeft}>
-              <Text style={s.footerLabel}>Price</Text>
-              <Text style={s.footerPrice}>₹{fmt(price)}</Text>
+          <View style={s.footerPriceRow}>
+            <Text style={s.footerLabel}>Price</Text>
+            <Text style={s.footerPrice}>₹{fmt(price)}</Text>
+          </View>
+          {!inStock ? (
+            <View style={s.outOfStockBtn}>
+              <Text style={[s.cartBtnText, s.cartBtnTextDis]}>Out of Stock</Text>
             </View>
-            {!inStock ? (
-              <View style={[s.cartBtn, s.cartBtnDis]}>
-                <Text style={[s.cartBtnText, s.cartBtnTextDis]}>Out of Stock</Text>
-              </View>
-            ) : (
+          ) : (
+            <View style={s.footerActions}>
               <TouchableOpacity
                 style={s.cartBtn}
-                onPress={handleAddToCart}
+                onPress={cartQuantity > 0 ? () => navigation.navigate("PgCart") : handleAddToCart}
                 disabled={!selectedVariant || cartLoading}
                 activeOpacity={0.85}
               >
                 {cartLoading ? (
                   <ActivityIndicator size="small" color="#fff" />
+                ) : cartQuantity > 0 ? (
+                  <>
+                    <Ionicons name="checkmark-circle" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={s.cartBtnText}>View Cart · Qty {cartQuantity}</Text>
+                  </>
                 ) : (
                   <>
                     <Ionicons name="cart-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
@@ -758,8 +748,8 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                   </>
                 )}
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
+          )}
         </View>
       </View>
 
@@ -958,7 +948,7 @@ const s = StyleSheet.create({
     gap: 5,
     marginTop: 4,
   },
-  trustText: { fontSize: 12, fontWeight: "600", color: C.gold },
+  trustText: { fontSize: 12, fontWeight: "600", color: "#CF8B17" },
 
   // Dots
   dotBar: {
@@ -983,7 +973,7 @@ const s = StyleSheet.create({
     borderRadius: 56,
     backgroundColor: C.goldLight,
     borderWidth: 2,
-    borderColor: C.gold,
+    borderColor: "#CF8B17",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
@@ -991,16 +981,16 @@ const s = StyleSheet.create({
   coinWeight: {
     fontSize: 26,
     fontWeight: "700",
-    color: C.gold,
+    color: "#CF8B17",
     lineHeight: 30,
   },
   coinLine: {
     width: 44,
     height: 1,
-    backgroundColor: "rgba(207,139,23,0.3)",
+    backgroundColor: "rgba(14,107,87,0.3)",
     marginVertical: 4,
   },
-  coinSub: { fontSize: 10, fontWeight: "600", color: C.goldMid },
+  coinSub: { fontSize: 10, fontWeight: "600", color: "#CF8B17" },
 
   // ── Body ─────────────────────────────────────────────────────────────────
   body: { paddingHorizontal: 16 },
@@ -1046,7 +1036,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  discPillText: { fontSize: 10, fontWeight: "700", color: C.gold },
+  discPillText: { fontSize: 10, fontWeight: "700", color: C.navy },
 
   // ── Trust icons strip ──────────────────────────────────────────────────────
   trustGrid: {
@@ -1083,12 +1073,12 @@ const s = StyleSheet.create({
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "rgba(207,139,23,0.20)",
+    borderTopColor: "rgba(14,107,87,0.20)",
   },
   variantInPriceLabel: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#CF8B17",
+    color: C.navyMid,
     letterSpacing: 0.8,
     marginBottom: 8,
   },
@@ -1101,7 +1091,7 @@ const s = StyleSheet.create({
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "rgba(207,139,23,0.20)",
+    borderTopColor: "rgba(14,107,87,0.20)",
   },
   totalChargesLabel: {
     fontSize: 13,
@@ -1150,7 +1140,7 @@ const s = StyleSheet.create({
     color: C.navy,
   },
   specViewMoreWrap: { flexDirection: "row", alignItems: "center", gap: 3 },
-  specViewMoreText: { fontSize: 12.5, fontWeight: "600", color: C.gold },
+  specViewMoreText: { fontSize: 12.5, fontWeight: "600", color: C.navyMid },
   specDropdownContent: {
     marginTop: 12,
     paddingTop: 12,
@@ -1179,7 +1169,7 @@ const s = StyleSheet.create({
     backgroundColor: C.goldDim,
   },
   chipWeight: { fontSize: 15, fontWeight: "700", color: C.navy },
-  chipWeightActive: { color: C.gold },
+  chipWeightActive: { color: C.navy },
   chipPurity: { fontSize: 10, color: C.navyLight, marginTop: 1 },
   chipPurityActive: { color: "#CF8B17" },
   chipPrice: {
@@ -1188,7 +1178,7 @@ const s = StyleSheet.create({
     color: C.navyMid,
     marginTop: 3,
   },
-  chipPriceActive: { color: C.gold },
+  chipPriceActive: { color: C.navy },
   chipOosText: { fontSize: 9, color: C.red, marginTop: 3, fontWeight: "700" },
   chipDot: {
     width: 4,
@@ -1215,15 +1205,16 @@ const s = StyleSheet.create({
     flex: 1,
     textAlign: "right",
   },
-  specAccent: { color: C.gold },
+  specAccent: { color: "#CF8B17" },
 
   // ── Cart Message ──────────────────────────────────────────────────────────
   cartMsg: { flexDirection: "row", alignItems: "center", borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1 },
   cartMsgOk: { backgroundColor: "#E8F5E9", borderColor: "#E8F5E9" },
   cartMsgErr: { backgroundColor: "#FDECEA", borderColor: "#FDECEA" },
-  cartMsgText: { fontSize: 13, fontWeight: "600" },
+  cartMsgText: { flex: 1, fontSize: 13, fontWeight: "600" },
   cartMsgOkText: { color: C.green },
   cartMsgErrText: { color: C.red },
+  viewCartLink: { fontSize: 12.5, fontWeight: "700", color: C.gold, marginLeft: 8 },
 
   // ── AI Model Preview ──────────────────────────────────────────────────────
   previewDesc: {
@@ -1250,7 +1241,7 @@ const s = StyleSheet.create({
   previewBtnText: {
     fontSize: 14,
     fontWeight: "600",
-    color: C.gold,
+    color: C.navy,
   },
   previewNoteRow: {
     flexDirection: "row",
@@ -1271,38 +1262,52 @@ const s = StyleSheet.create({
     borderTopColor: "#E7E0DA",
     paddingBottom: 24,
   },
-  footerInner: {
+  footerPriceRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "baseline",
+    gap: 6,
     paddingHorizontal: 16,
     paddingTop: 12,
-    gap: 16,
   },
-  footerLeft: { flex: 1 },
   footerLabel: {
     fontSize: 11,
     fontWeight: "600",
     color: C.navyLight,
     letterSpacing: 0.3,
-    marginBottom: 1,
   },
   footerPrice: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
     color: C.green,
     letterSpacing: -0.5,
   },
 
+  footerActions: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    gap: 10,
+  },
   cartBtn: {
     flex: 1,
     flexDirection: "row",
-    backgroundColor: C.navy,
+    backgroundColor: C.gold,
     borderRadius: 14,
-    height: 52,
+    height: 50,
     justifyContent: "center",
     alignItems: "center",
   },
-  cartBtnDis: { backgroundColor: C.border },
+
+  outOfStockBtn: {
+    flexDirection: "row",
+    backgroundColor: C.border,
+    borderRadius: 14,
+    height: 50,
+    marginHorizontal: 16,
+    marginTop: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   cartBtnText: {
     fontSize: 14,
     fontWeight: "700",

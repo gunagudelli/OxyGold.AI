@@ -304,29 +304,41 @@ export const getVariantImage = async (variantId) => {
 /**
  * Get user cart
  * @param {number} userId - User ID
+ * @param {number|string} [addressId] - Optional delivery address ID. When
+ *   passed, the backend computes and returns deliveryFee/deliveryDistanceKm/
+ *   ratePerKm based on that address's coordinates (matches the web app).
  * @returns {Promise<Object>} Cart data with items
  */
-export const getCart = async (userId) => {
+export const getCart = async (userId, addressId) => {
   validateUserId(userId);
 
   try {
-    // GET /api/oxygold-api/cart/customer-cart-info?customerId={userId}
-    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/cart/customer-cart-info`, {
-      params: { customerId: userId },
-    });
+    // GET /api/oxygold-api/cart/customer-cart-info?customerId={userId}&addressId={addressId}
+    const params = { customerId: userId };
+    if (addressId !== undefined && addressId !== null && addressId !== '') {
+      params.addressId = addressId;
+    }
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/cart/customer-cart-info`, { params });
     const data = extractData(response);
     return {
       itemsInCart: data?.itemsInCart || [],
       totalCartValue: data?.totalCartValue || 0,
       totalGstCharges: data?.totalGstCharges || 0,
+      totalMakingCharges: data?.totalMakingCharges || 0,
       totalPayableAmount: data?.totalPayableAmount || 0,
       totalItemsInCart: data?.totalItemsInCart || 0,
       totalCartItemWeight: data?.totalCartItemWeight || 0,
+      deliveryFee: data?.deliveryFee || 0,
+      deliveryDistanceKm: data?.deliveryDistanceKm ?? null,
+      ratePerKm: data?.ratePerKm ?? null,
     };
   } catch (error) {
     if (error.status === 404) {
       console.log('[PhysicalGoldApi] Cart not found (404), returning empty cart');
-      return { itemsInCart: [], totalCartValue: 0, totalGstCharges: 0, totalPayableAmount: 0, totalItemsInCart: 0 };
+      return {
+        itemsInCart: [], totalCartValue: 0, totalGstCharges: 0, totalMakingCharges: 0,
+        totalPayableAmount: 0, totalItemsInCart: 0, deliveryFee: 0, deliveryDistanceKm: null, ratePerKm: null,
+      };
     }
     console.error('[PhysicalGoldApi] getCart failed:', error.message);
     throw error;
@@ -521,6 +533,33 @@ export const getUserOrders = async (userId) => {
       return [];
     }
     console.error('[PhysicalGoldApi] getUserOrders failed:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get delivery/shipment tracking for one order — tracking number, assigned
+ * delivery partner, delivery address, and a status timeline.
+ * Matches web's fetchOrderDeliveryTracking() in physicalGoldService.ts.
+ * @param {number|string} orderId - Order ID
+ * @param {number|string} userId - User ID
+ * @returns {Promise<Object|null>} Tracking data, or null if not available yet
+ */
+export const getOrderDeliveryTracking = async (orderId, userId) => {
+  validateId(orderId, 'Order ID');
+  validateUserId(userId);
+
+  try {
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/admin/delivery/order/${orderId}`, {
+      headers: { 'X-User-Id': String(userId) },
+    });
+    return extractData(response);
+  } catch (error) {
+    if (error.status === 404) {
+      // Tracking simply doesn't exist yet for this order (e.g. not shipped) — not an error state.
+      return null;
+    }
+    console.error('[PhysicalGoldApi] getOrderDeliveryTracking failed:', error.message);
     throw error;
   }
 };
@@ -1188,4 +1227,118 @@ export const getAllGoldRates = async () => {
     console.error('[PhysicalGoldApi] getAllGoldRates failed:', error.message);
     throw error;
   }
+};
+
+// ═════════════════════════════════════════════════════════════════════════
+// HELPDESK / CONTACT SUPPORT — matches the web app's ticket system exactly
+// (src/PhysicalGold/ProfileSlider.tsx "Contact Support" tab)
+// ═════════════════════════════════════════════════════════════════════════
+
+/**
+ * Submit a new support query.
+ * @param {{ userId: number, query: string, email: string }} payload
+ * @returns {Promise<{ ticketId: number, email: string, randomTicketId: string }>}
+ */
+export const writeQuery = async ({ userId, query, email }) => {
+  validateUserId(userId);
+  if (!query?.trim()) throw new Error('Query is required');
+  try {
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/helpdesk/writeQuery`, {
+      userId,
+      query,
+      email,
+    });
+    const data = extractData(response);
+    return {
+      ticketId: data?.ticketId,
+      email: data?.email,
+      randomTicketId: data?.randomTicketId,
+    };
+  } catch (error) {
+    console.error('[PhysicalGoldApi] writeQuery failed:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * List a user's support tickets, filtered by status.
+ * @param {{ userId: number, queryStatus: 'PENDING'|'COMPLETED'|'CANCELLED', page?: number, size?: number }} params
+ * @returns {Promise<Array<Object>>}
+ */
+export const getAllQueries = async ({ userId, queryStatus, page = 0, size = 20 }) => {
+  validateUserId(userId);
+  try {
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/helpdesk/getAllQueries`, {
+      userId,
+      queryStatus,
+      page,
+      size,
+    });
+    const data = extractData(response);
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.content)) return data.content;
+    return [];
+  } catch (error) {
+    console.error('[PhysicalGoldApi] getAllQueries failed:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * Cancel a pending support ticket.
+ * @param {number} queryId - The ticket's `id` field (not `ticketId`/`randomTicketId`)
+ * @param {number} userId
+ */
+export const cancelQuery = async (queryId, userId) => {
+  validateId(queryId, 'Query ID');
+  validateUserId(userId);
+  try {
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/helpdesk/cancelQuery/${queryId}`, { userId });
+    return extractData(response);
+  } catch (error) {
+    console.error('[PhysicalGoldApi] cancelQuery failed:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * Attach a screenshot to a just-created ticket. Separate multipart call made
+ * AFTER writeQuery succeeds, using writeQuery's returned ticketId as queryId
+ * (that's the web app's own naming quirk, kept for backend compatibility).
+ * @param {number} userId
+ * @param {number} queryId - writeQuery's `ticketId`
+ * @param {{ uri: string, name: string, type: string }} file - RN image-picker asset shape
+ */
+export const uploadQueryScreenshot = async (userId, queryId, file) => {
+  validateUserId(userId);
+  validateId(queryId, 'Query ID');
+  if (!file?.uri) throw new Error('File is required');
+
+  const { getAccessToken } = await import('../../services/apiClient');
+  const token = getAccessToken();
+
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name || 'screenshot.jpg',
+    type: file.type || 'image/jpeg',
+  });
+
+  const url = `${PHYSICAL_GOLD_BASE_URL}/helpdesk/multiUploadQueryScreenShot?userId=${userId}&queryId=${queryId}&fileType=IMAGE`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // Deliberately NOT setting Content-Type — fetch sets the multipart
+      // boundary itself when the body is a FormData instance.
+      Accept: 'application/json',
+    },
+    body: formData,
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.message || 'Failed to upload attachment');
+  }
+  return data;
 };

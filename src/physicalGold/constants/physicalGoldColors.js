@@ -1,9 +1,9 @@
 // Matches oxygold/src/PhysicalGold/styles.css (--pg-* tokens)
 export const PG_COLORS = {
   // Brand
-  gold:        '#CF8B17',
+  gold:        '#0E6B57',
   goldLight:   '#F7F4ED',
-  goldDark:    '#CF8B17',
+  goldDark:    '#0E6B57',
   goldBg:      '#F7F4ED',
 
   // Grays

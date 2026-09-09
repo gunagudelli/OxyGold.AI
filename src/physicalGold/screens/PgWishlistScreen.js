@@ -13,24 +13,27 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
 import { useFocusEffect } from "@react-navigation/native";
 import { selectUserId } from "../../store/authSlice";
-import { setWishlistCount } from "../../store/cartSlice";
+import { setWishlistCount, setCartCount } from "../../store/cartSlice";
 import PgLayout from "../components/PgLayout";
+import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import {
   getWishlist,
   removeFromWishlist,
   addToCart,
   getProductAllImages,
+  getProductVariants,
+  getCart,
 } from "./physicalGoldApi";
 
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#CF8B17",
-  goldBright: "#E8A530",
-  goldMuted: "rgba(207,139,23,0.10)",
-  goldBorder: "rgba(207,139,23,0.20)",
-  goldText: "#CF8B17",
+  gold: "#0E6B57",
+  goldBright: "#14876D",
+  goldMuted: "rgba(14,107,87,0.10)",
+  goldBorder: "rgba(14,107,87,0.20)",
+  goldText: "#0E6B57",
   textPrimary: "#1C1C1E",
   textSecondary: "#7A7A80",
   textMuted: "#A79C93",
@@ -57,10 +60,11 @@ const resolveItem = (raw) => ({
 });
 
 // ─── Single product card ──────────────────────────────────────────────────────
-const WishlistCard = ({ raw, onRemove, onAddToCart, onViewDetails, removing, addingCart }) => {
+const WishlistCard = ({ raw, onRemove, onAddToCart, onGoToCart, onViewDetails, removing, addingCart, inCart }) => {
   const item = resolveItem(raw);
   const [imgUrl, setImgUrl]         = useState(item.imageUrl);
   const [imgLoading, setImgLoading] = useState(!item.imageUrl && !!item.productId);
+  const [offer, setOffer]           = useState(null); // { mrpDisplay, discountPct }
 
   React.useEffect(() => {
     if (!item.imageUrl && item.productId) {
@@ -72,18 +76,45 @@ const WishlistCard = ({ raw, onRemove, onAddToCart, onViewDetails, removing, add
     }
   }, [item.productId]);
 
-  return (
-    <View style={s.card}>
+  // MRP lives on the variant, not the wishlist list response — same lookup
+  // ProductCard does on Home, so wishlist cards show the same offer badge.
+  React.useEffect(() => {
+    if (!item.productId) return;
+    getProductVariants(item.productId)
+      .then((res) => {
+        const inner = res?.data || res;
+        const list = inner?.listVariantResponse || inner?.variants || (Array.isArray(inner) ? inner : []);
+        // Pick the exact variant this wishlist item is for — a product can
+        // have several variants (different weights), each with its own MRP,
+        // so blindly using list[0] shows the wrong one whenever the
+        // wishlisted variant isn't the first in the list.
+        const v =
+          list.find((x) => String(x?.id) === String(item.variantId)) ||
+          list?.[0];
+        const mrp = v?.mrp || 0;
+        const price = v?.price || item.price || 0;
+        if (mrp > price && price > 0) {
+          setOffer({
+            mrpDisplay: mrp.toLocaleString("en-IN"),
+            discountPct: Math.round(((mrp - price) / mrp) * 100),
+          });
+        }
+      })
+      .catch(() => {});
+  }, [item.productId, item.variantId]);
 
-      {/* ── Image area ─────────────────────────────────── */}
-      <TouchableOpacity style={s.imageWrap} onPress={onViewDetails} activeOpacity={0.88}>
+  return (
+    <TouchableOpacity style={s.card} onPress={onViewDetails} activeOpacity={0.88}>
+
+      {/* ── Image area — square, matches ProductCard on Home ─────────────── */}
+      <View style={s.imageWrap}>
         {imgLoading ? (
-          <ActivityIndicator size="small" color={C.goldBright} />
+          <ActivityIndicator size="small" color={C.goldBright} style={s.imgLoader} />
         ) : imgUrl ? (
           <Image source={{ uri: imgUrl }} style={s.image} resizeMode="contain" />
         ) : (
           <View style={s.imagePlaceholder}>
-            <Ionicons name="diamond-outline" size={28} color={C.goldBright} />
+            <Ionicons name="diamond-outline" size={30} color="#CF8B17" />
           </View>
         )}
 
@@ -94,7 +125,7 @@ const WishlistCard = ({ raw, onRemove, onAddToCart, onViewDetails, removing, add
           </View>
         )}
 
-        {/* heart remove — top right */}
+        {/* heart remove — top right, same circular chip as ProductCard's wishlist button */}
         <TouchableOpacity
           style={s.heartBtn}
           onPress={() => onRemove(item.wishlistId)}
@@ -107,39 +138,66 @@ const WishlistCard = ({ raw, onRemove, onAddToCart, onViewDetails, removing, add
             : <Ionicons name="heart" size={15} color={C.red} />
           }
         </TouchableOpacity>
-      </TouchableOpacity>
+      </View>
 
       {/* ── Info ───────────────────────────────────────── */}
       <View style={s.info}>
+        {/* The weight already shows in the name ("10 Gram Gold"), so a
+            separate weight badge underneath was just repeating it — dropped
+            in favor of the price/MRP/offer block below. */}
         <Text style={s.name} numberOfLines={2}>{item.name}</Text>
 
-        {!!item.weight && (
-          <View style={s.weightPill}>
-            <Text style={s.weightText}>{item.weight}g</Text>
+        {/* Price on top, MRP + offer % on the line below, Add to Cart chip
+            on the right of the whole block. */}
+        <View style={s.bottomRow}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            {!!item.price ? (
+              <>
+                <View style={s.priceRow}>
+                  <Text style={s.priceRupee}>₹</Text>
+                  <Text style={s.priceAmount}>
+                    {Number(item.price).toLocaleString("en-IN")}
+                  </Text>
+                </View>
+                {!!offer && (
+                  <View style={s.offerRow}>
+                    <Text style={s.priceStrike}>₹{offer.mrpDisplay}</Text>
+                    <View style={s.offerPill}>
+                      <Text style={s.offerPillText}>{offer.discountPct}% OFF</Text>
+                    </View>
+                  </View>
+                )}
+              </>
+            ) : (
+              <Text style={s.priceNA}>Price on request</Text>
+            )}
           </View>
-        )}
 
-        {!!item.price && (
-          <Text style={s.price}>
-            ₹{Number(item.price).toLocaleString("en-IN")}
-          </Text>
-        )}
+          <TouchableOpacity
+            style={[s.cartBtn, inCart && s.cartBtnInCart]}
+            onPress={() => (inCart ? onGoToCart() : onAddToCart(raw, item))}
+            disabled={addingCart || removing}
+            activeOpacity={0.82}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {addingCart ? (
+              <ActivityIndicator size="small" color={inCart ? C.gold : "#fff"} />
+            ) : inCart ? (
+              <>
+                <Ionicons name="checkmark-circle" size={13} color={C.gold} />
+                <Text style={[s.cartBtnText, s.cartBtnTextInCart]}>In Cart</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="cart-outline" size={13} color="#fff" />
+                <Text style={s.cartBtnText}>Add</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* ── Add to Cart ────────────────────────────────── */}
-      <TouchableOpacity
-        style={s.cartBtn}
-        onPress={() => onAddToCart(raw, item)}
-        disabled={addingCart || removing}
-        activeOpacity={0.82}
-      >
-        {addingCart
-          ? <ActivityIndicator size="small" color="#fff" />
-          : <Text style={s.cartBtnText}>Add to Cart</Text>
-        }
-      </TouchableOpacity>
-
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -151,6 +209,7 @@ const PgWishlistScreen = ({ navigation }) => {
   const [loading, setLoading]             = useState(true);
   const [removingId, setRemovingId]       = useState(null);
   const [cartLoadingId, setCartLoadingId] = useState(null);
+  const [cartVariantIds, setCartVariantIds] = useState(new Set());
 
   useFocusEffect(
     useCallback(() => {
@@ -163,6 +222,15 @@ const PgWishlistScreen = ({ navigation }) => {
         })
         .catch(() => setItems([]))
         .finally(() => setLoading(false));
+
+      getCart(userId)
+        .then((cartData) => {
+          const ids = (cartData?.itemsInCart || []).map((it) =>
+            String(it.productVariantId),
+          );
+          setCartVariantIds(new Set(ids));
+        })
+        .catch(() => {});
     }, [userId, dispatch]),
   );
 
@@ -188,6 +256,11 @@ const PgWishlistScreen = ({ navigation }) => {
     setCartLoadingId(item.wishlistId);
     try {
       await addToCart(userId, item.productId, item.variantId, 1);
+      setCartVariantIds((prev) => new Set(prev).add(String(item.variantId)));
+      try {
+        const cartData = await getCart(userId);
+        dispatch(setCartCount(cartData?.totalItemsInCart || 0));
+      } catch {}
       Alert.alert("Added to Cart", `${item.name} added to your cart`, [
         { text: "View Cart", onPress: () => navigation.navigate("PgCart") },
         { text: "OK" },
@@ -203,9 +276,7 @@ const PgWishlistScreen = ({ navigation }) => {
   if (loading) {
     return (
       <PgLayout title="My Wishlist" showBack onBack={() => navigation.goBack()}>
-        <View style={s.center}>
-          <ActivityIndicator size="large" color={C.goldBright} />
-        </View>
+        <PgLoader />
       </PgLayout>
     );
   }
@@ -269,8 +340,10 @@ const PgWishlistScreen = ({ navigation }) => {
                       raw={raw}
                       removing={removingId === item.wishlistId}
                       addingCart={cartLoadingId === item.wishlistId}
+                      inCart={cartVariantIds.has(String(item.variantId))}
                       onRemove={handleRemove}
                       onAddToCart={handleAddToCart}
+                      onGoToCart={() => navigation.navigate("PgCart")}
                       onViewDetails={() =>
                         navigation.navigate("PgProductDetails", {
                           productId: item.productId,
@@ -315,40 +388,43 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.goldBorder,
   },
-  countText: { fontSize: 11, fontWeight: "700", color: C.goldText },
+  countText: { fontSize: 11, fontWeight: "700", color: C.textPrimary },
 
   // ── Grid ────────────────────────────────────────────────────────────────────
   row: { flexDirection: "row", paddingHorizontal: 10 },
   col: { width: "50%", padding: 5 },
 
-  // ── Card ────────────────────────────────────────────────────────────────────
+  // ── Card — same shell as ProductCard on Home ─────────────────────────────────
   card: {
     backgroundColor: C.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: C.border,
+    borderRadius: 16,
     overflow: "hidden",
     shadowColor: "rgba(34,30,28,0.09)",
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
-  // ── Image ────────────────────────────────────────────────────────────────────
+  // ── Image — square, "contain" + consistent padding so every product sits
+  // the same size regardless of its own image's crop/aspect ratio (a coin
+  // graphic doesn't get zoomed in and crop off its text) ─────────────────────
   imageWrap: {
     width: "100%",
-    height: 148,
+    aspectRatio: 1,
     backgroundColor: "#F7F4ED",
-    justifyContent: "center",
-    alignItems: "center",
+    position: "relative",
+    overflow: "hidden",
+    padding: 14,
   },
   image: { width: "100%", height: "100%" },
+  imgLoader: { flex: 1, alignSelf: "center" },
   imagePlaceholder: {
     width: "100%",
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "rgba(207,139,23,0.06)",
   },
   karatBadge: {
     position: "absolute",
@@ -359,54 +435,66 @@ const s = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
-  karatBadgeText: { fontSize: 10, fontWeight: "800", color: C.goldBright, letterSpacing: 0.8 },
+  karatBadgeText: { fontSize: 10, fontWeight: "800", color: "#E8A530", letterSpacing: 0.8 },
 
   heartBtn: {
     position: "absolute",
     top: 8,
     right: 8,
-    width: 30,
-    height: 30,
-    borderRadius: 9,
+    width: 27,
+    height: 27,
+    borderRadius: 14,
     backgroundColor: "rgba(255,255,255,0.92)",
-    borderWidth: 1,
-    borderColor: "rgba(200,90,84,0.25)",
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "rgba(34,30,28,0.15)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 2,
   },
 
   // ── Info ─────────────────────────────────────────────────────────────────────
-  info: { paddingHorizontal: 10, paddingTop: 10, paddingBottom: 6 },
-  name: { fontSize: 13, fontWeight: "700", color: C.textPrimary, lineHeight: 18, marginBottom: 6 },
-  weightPill: {
-    alignSelf: "flex-start",
-    backgroundColor: C.goldMuted,
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: C.goldBorder,
-    marginBottom: 5,
+  info: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12, gap: 6 },
+  name: { fontSize: 13, fontWeight: "600", color: C.textPrimary, lineHeight: 18, height: 36 },
+  // ── Bottom row — price block on the left, compact Add to Cart chip on the right ────
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginTop: 2,
+    gap: 6,
   },
-  weightText: { fontSize: 10, fontWeight: "700", color: C.goldText },
-  price: { fontSize: 16, fontWeight: "800", color: C.green, letterSpacing: -0.3, marginBottom: 4 },
+  priceRow: { flexDirection: "row", alignItems: "baseline", gap: 1 },
+  priceRupee: { fontSize: 11, fontWeight: "600", color: C.textPrimary },
+  priceAmount: { fontSize: 16, fontWeight: "700", color: C.textPrimary, lineHeight: 20 },
+  priceNA: { fontSize: 11, color: C.textMuted, fontStyle: "italic" },
+  // MRP + discount % — the line right below the price
+  offerRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
+  priceStrike: { fontSize: 10.5, color: C.red, textDecorationLine: "line-through", fontWeight: "500" },
+  offerPill: { backgroundColor: C.goldMuted, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+  offerPillText: { fontSize: 9, fontWeight: "700", color: C.gold },
 
-  // ── Cart Button ───────────────────────────────────────────────────────────────
+  // ── Cart Button — icon + short label, same height as ProductCard's "View Details" ──
   cartBtn: {
-    backgroundColor: C.gold,
-    marginHorizontal: 10,
-    marginBottom: 10,
-    borderRadius: 10,
-    paddingVertical: 9,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: C.gold,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: 4,
+    height: 30,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: C.gold,
   },
-  cartBtnText: { fontSize: 12, fontWeight: "800", color: "#fff" },
+  cartBtnText: { fontSize: 11.5, fontWeight: "700", color: "#fff" },
+  // ── Already-in-cart state — outlined instead of filled, so it visibly
+  // differs from the "Add" button rather than silently doing nothing ──
+  cartBtnInCart: {
+    backgroundColor: C.goldMuted,
+    borderWidth: 1,
+    borderColor: C.goldBorder,
+  },
+  cartBtnTextInCart: { color: C.gold },
 
   // ── Empty ────────────────────────────────────────────────────────────────────
   emptyCircle: {

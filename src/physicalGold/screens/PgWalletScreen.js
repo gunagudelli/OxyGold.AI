@@ -14,11 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { selectUserId } from '../../store/authSlice';
 import { getWalletBalance, getWalletTransactions } from './physicalGoldApi';
 import PgLayout from '../components/PgLayout';
+import PgLoader from '../components/PgLoader';
+import FadeSlideIn from '../components/FadeSlideIn';
 
 const C = {
-  bg: '#F8F7F6',
+  bg: '#FFFFFF',
   card: '#FFFFFF',
-  gold: '#CF8B17',
+  gold: '#0E6B57',
   navy: '#1C1C1E',
   navyLight: '#7A7A80',
   green: '#2ECC71',
@@ -126,6 +128,7 @@ const PgWalletScreen = ({ navigation }) => {
           />
         }
       >
+        <FadeSlideIn>
         {/* ── Balance Card ── */}
         <View style={styles.balanceCard}>
           <View style={styles.balanceHeaderRow}>
@@ -177,9 +180,7 @@ const PgWalletScreen = ({ navigation }) => {
           </View>
 
           {state.isLoading && state.transactions.length === 0 ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator size="large" color={C.navy} />
-            </View>
+            <PgLoader label="Loading transactions..." fullscreen={false} />
           ) : filteredTransactions.length === 0 ? (
             <View style={styles.emptyBox}>
               <Ionicons name="time-outline" size={40} color={C.border} />
@@ -240,6 +241,7 @@ const PgWalletScreen = ({ navigation }) => {
             <Text style={styles.errorText}>{state.error}</Text>
           </View>
         )}
+        </FadeSlideIn>
       </ScrollView>
     </PgLayout>
   );
@@ -320,7 +322,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
   },
-  filterChipActive: { backgroundColor: C.navy, borderColor: C.navy },
+  filterChipActive: { backgroundColor: C.gold, borderColor: C.gold },
   filterChipText: {
     fontSize: 10,
     fontWeight: '800',

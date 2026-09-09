@@ -54,9 +54,9 @@ export const performLogout = async ({
     if (navigationRef?.isReady?.()) {
       navigationRef.reset({
         index: 0,
-        routes: [{ name: 'Home' }],
+        routes: [{ name: 'Login' }],
       });
-      console.log('[logout] Navigation reset to Home');
+      console.log('[logout] Navigation reset to Login');
     }
 
     return { success: true };

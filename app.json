@@ -25,7 +25,13 @@
     "plugins": [
       "expo-font",
       "expo-video",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "OXYGOLD.AI uses your location to auto-fill your delivery address accurately."
+        }
+      ]
     ],
     "extra": {
       "eas": {

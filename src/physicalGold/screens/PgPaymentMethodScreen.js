@@ -10,6 +10,7 @@ import {
   ActivityIndicator, Alert, SafeAreaView, StatusBar
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import FadeSlideIn from '../components/FadeSlideIn';
 
 const PgPaymentMethodScreen = ({ navigation, route }) => {
   const { userId, accessToken, cartTotal, cartItems } = route?.params || {};
@@ -76,6 +77,7 @@ const PgPaymentMethodScreen = ({ navigation, route }) => {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <FadeSlideIn>
         {/* Order Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
@@ -143,7 +145,7 @@ const PgPaymentMethodScreen = ({ navigation, route }) => {
 
         {/* Info Box */}
         <View style={styles.infoBox}>
-          <Ionicons name="information-circle" size={20} color="#CF8B17" />
+          <Ionicons name="information-circle" size={20} color="#0E6B57" />
           <Text style={styles.infoText}>
             Your payment is secure and encrypted. We accept all major payment methods.
           </Text>
@@ -154,6 +156,7 @@ const PgPaymentMethodScreen = ({ navigation, route }) => {
           <Ionicons name="shield-checkmark" size={18} color="#2ECC71" />
           <Text style={styles.securityText}>256-bit SSL encrypted • 100% secure</Text>
         </View>
+        </FadeSlideIn>
       </ScrollView>
 
       {/* Footer Button */}
@@ -176,7 +179,7 @@ const PgPaymentMethodScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F8F7F6' },
+  root: { flex: 1, backgroundColor: '#FFFFFF' },
   
   header: {
     flexDirection: 'row',
@@ -224,7 +227,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   methodCardActive: {
-    borderColor: '#CF8B17',
+    borderColor: '#0E6B57',
     backgroundColor: '#F7F4ED',
   },
 
@@ -269,13 +272,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radioButtonActive: {
-    borderColor: '#CF8B17',
+    borderColor: '#0E6B57',
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#CF8B17',
+    backgroundColor: '#0E6B57',
   },
 
   infoBox: {
@@ -312,7 +315,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   continueBtn: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#0E6B57',
     paddingVertical: 16,
     borderRadius: 12,
     justifyContent: 'center',

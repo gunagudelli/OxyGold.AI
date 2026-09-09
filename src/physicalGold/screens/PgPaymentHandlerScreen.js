@@ -31,9 +31,9 @@ import {
 } from "./physicalGoldApi";
 
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#CF8B17",
+  gold: "#0E6B57",
   navy: "#1C1C1E",
   navyLight: "#7A7A80",
   textMuted: "#A79C93",
@@ -365,7 +365,7 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
               <View style={styles.spinnerArc} />
             </Animated.View>
             <View style={styles.spinnerInner}>
-              <Ionicons name="card" size={32} color="#CF8B17" />
+              <Ionicons name="card" size={32} color="#0E6B57" />
             </View>
           </Animated.View>
           <Text style={styles.processingTitle}>Processing Payment</Text>
@@ -532,15 +532,15 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: "transparent",
     borderTopColor: C.gold,
-    borderRightColor: "rgba(207,139,23,0.25)",
+    borderRightColor: "rgba(14,107,87,0.25)",
   },
   spinnerInner: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(207,139,23,0.08)",
+    backgroundColor: "rgba(14,107,87,0.08)",
     borderWidth: 1,
-    borderColor: "rgba(207,139,23,0.20)",
+    borderColor: "rgba(14,107,87,0.20)",
     justifyContent: "center",
     alignItems: "center",
   },

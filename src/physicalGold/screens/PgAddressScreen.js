@@ -12,11 +12,13 @@ import {
   FlatList,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 import { useSelector } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
 import { selectUserId } from "../../store/authSlice";
 import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import PgLayout from "../components/PgLayout";
+import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import {
   getUserAddresses,
@@ -40,13 +42,13 @@ const INDIAN_STATES = [
 ];
 
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   surface: "#FFFFFF",
   border: "#E7E0DA",
-  gold: "#CF8B17",
-  goldLight: "#E8A530",
-  goldDim: "rgba(207,139,23,0.10)",
-  goldDimBorder: "rgba(207,139,23,0.20)",
+  gold: "#0E6B57",
+  goldLight: "#14876D",
+  goldDim: "rgba(14,107,87,0.10)",
+  goldDimBorder: "rgba(14,107,87,0.20)",
   textPri: "#1C1C1E",
   textSec: "#7A7A80",
   textTer: "#A79C93",
@@ -129,10 +131,14 @@ const PgAddressScreen = ({ navigation, route }) => {
     area: "",
     pinCode: "",
     type: "Home",
+    latitude: "",
+    longitude: "",
   });
   const [errors, setErrors] = useState({});
   const [showStateDropdown, setShowStateDropdown] = useState(false);
   const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
+  const [fetchingLocation, setFetchingLocation] = useState(false);
 
   useEffect(() => {
     performanceMonitor.startMeasure('PgAddressScreen');
@@ -164,6 +170,8 @@ const PgAddressScreen = ({ navigation, route }) => {
         area: addr.area || "",
         pinCode: addr.pincode || addr.pinCode || "",
         type: addr.type || "Home",
+        latitude: addr.latitude || "",
+        longitude: addr.longitude || "",
       }));
 
       setAddresses(transformedAddresses);
@@ -180,24 +188,24 @@ const PgAddressScreen = ({ navigation, route }) => {
 
   const fetchPincodeDetails = async (pincode) => {
     if (!/^\d{6}$/.test(pincode)) return;
-    
+
     setPincodeLoading(true);
     try {
       const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
       const data = await response.json();
-      
+
       if (data[0]?.Status === "Success" && data[0]?.PostOffice?.length > 0) {
         const postOffice = data[0].PostOffice[0];
         const fetchedState = postOffice.State;
         const fetchedCity = postOffice.District;
         const fetchedArea = postOffice.Name;
-        
+
         if (addressForm.state && addressForm.state !== fetchedState) {
           setErrors(prev => ({ ...prev, pinCode: `This pincode belongs to ${fetchedState}, not ${addressForm.state}` }));
           setPincodeLoading(false);
           return;
         }
-        
+
         setAddressForm(prev => ({
           ...prev,
           state: fetchedState,
@@ -205,6 +213,7 @@ const PgAddressScreen = ({ navigation, route }) => {
           area: fetchedArea,
         }));
         setErrors(prev => ({ ...prev, pinCode: "" }));
+        geocodeAddress({ ...addressForm, state: fetchedState, city: fetchedCity, area: fetchedArea, pinCode: pincode });
       } else {
         setErrors(prev => ({ ...prev, pinCode: "Invalid pincode" }));
       }
@@ -212,6 +221,71 @@ const PgAddressScreen = ({ navigation, route }) => {
       setErrors(prev => ({ ...prev, pinCode: "Failed to validate pincode" }));
     } finally {
       setPincodeLoading(false);
+    }
+  };
+
+  // ── Geocoding — converts the typed address into lat/lng so delivery/routing
+  // has real coordinates, without requiring the user to grant GPS permission.
+  // Same Google Geocoding API + key already used by the web app for this. ──
+  const GOOGLE_API_KEY = "AIzaSyAM29otTWBIAefQe6mb7f617BbnXTHtN0M";
+
+  const geocodeAddress = async (fields) => {
+    const { flatNo, landMark, address, pinCode, state } = fields;
+    if (!flatNo?.trim() || !address?.trim() || !pinCode?.trim() || !state?.trim()) return;
+
+    const query = [flatNo, landMark, address, pinCode, state].filter(Boolean).join(", ");
+    setGeocoding(true);
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${GOOGLE_API_KEY}`
+      );
+      const data = await res.json();
+      if (data.status === "OK" && data.results?.[0]?.geometry?.location) {
+        const { lat, lng } = data.results[0].geometry.location;
+        setAddressForm((prev) => ({ ...prev, latitude: String(lat), longitude: String(lng) }));
+      }
+    } catch (error) {
+      console.log("[Geocoding] Failed:", error?.message);
+    } finally {
+      setGeocoding(false);
+    }
+  };
+
+  // ── Manual "use my current location" — matches web's fetchCurrentLocation ──
+  const handleFetchCurrentLocation = async () => {
+    setFetchingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Location Permission Needed",
+          "Allow location access in your device settings to use this feature."
+        );
+        return;
+      }
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Location request timed out")), 16000)
+      );
+      const position = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        timeoutPromise,
+      ]);
+
+      setAddressForm((prev) => ({
+        ...prev,
+        latitude: String(position.coords.latitude),
+        longitude: String(position.coords.longitude),
+      }));
+    } catch (error) {
+      Alert.alert(
+        "Couldn't Get Location",
+        error?.message === "Location request timed out"
+          ? "Location request timed out. Check your device location settings and try again."
+          : "Your current location is unavailable. Check your device location settings."
+      );
+    } finally {
+      setFetchingLocation(false);
     }
   };
 
@@ -240,6 +314,26 @@ const PgAddressScreen = ({ navigation, route }) => {
 
     setSaving(true);
     try {
+      // Geocode as a last resort if the field-level triggers never got coordinates
+      // (e.g. user typed everything before the pincode lookup finished).
+      let { latitude, longitude } = addressForm;
+      if (!latitude || !longitude) {
+        try {
+          const query = [addressForm.flatNo, addressForm.landMark, addressForm.address, addressForm.pinCode, addressForm.state]
+            .filter(Boolean).join(", ");
+          const res = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${GOOGLE_API_KEY}`
+          );
+          const data = await res.json();
+          if (data.status === "OK" && data.results?.[0]?.geometry?.location) {
+            latitude = String(data.results[0].geometry.location.lat);
+            longitude = String(data.results[0].geometry.location.lng);
+          }
+        } catch (err) {
+          console.log("[Geocoding] Failed on save:", err?.message);
+        }
+      }
+
       const payload = {
         userId: Number(userId),
         flatNo: addressForm.flatNo,
@@ -250,6 +344,8 @@ const PgAddressScreen = ({ navigation, route }) => {
         area: addressForm.area,
         pincode: addressForm.pinCode,
         type: addressForm.type,
+        latitude: latitude || "",
+        longitude: longitude || "",
       };
 
       if (editingAddress?.id) {
@@ -274,6 +370,8 @@ const PgAddressScreen = ({ navigation, route }) => {
         area: "",
         pinCode: "",
         type: "Home",
+        latitude: "",
+        longitude: "",
       });
       setErrors({});
       await fetchAddresses();
@@ -333,6 +431,8 @@ const PgAddressScreen = ({ navigation, route }) => {
       area: address.area || "",
       pinCode: address.pinCode || "",
       type: address.type || "Home",
+      latitude: address.latitude || "",
+      longitude: address.longitude || "",
     });
     setErrors({});
     setShowModal(true);
@@ -349,6 +449,8 @@ const PgAddressScreen = ({ navigation, route }) => {
       area: "",
       pinCode: "",
       type: "Home",
+      latitude: "",
+      longitude: "",
     });
     setErrors({});
     setShowModal(true);
@@ -361,12 +463,7 @@ const PgAddressScreen = ({ navigation, route }) => {
         showBack
         onBack={() => navigation.goBack()}
       >
-        <View style={[styles.center, { flex: 1 }]}>
-          <ActivityIndicator size="large" color={C.gold} />
-          <Text style={{ marginTop: 12, color: C.textSec }}>
-            Loading addresses...
-          </Text>
-        </View>
+        <PgLoader label="Loading addresses..." />
       </PgLayout>
     );
   }
@@ -408,7 +505,7 @@ const PgAddressScreen = ({ navigation, route }) => {
           )}
 
           <TouchableOpacity style={styles.addBtn} onPress={handleAddNewAddress} activeOpacity={0.85}>
-            <Ionicons name="add-circle" size={20} color="#fff" />
+            <Ionicons name="add-circle" size={18} color="#fff" />
             <Text style={styles.addBtnText}>Add New Address</Text>
           </TouchableOpacity>
         </FadeSlideIn>
@@ -439,107 +536,129 @@ const PgAddressScreen = ({ navigation, route }) => {
               style={styles.modalScroll}
               showsVerticalScrollIndicator={false}
             >
-              {/* 1. State */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>State *</Text>
-                <TouchableOpacity
-                  style={[styles.dropdownBtn, errors.state && styles.fieldError]}
-                  onPress={() => setShowStateDropdown(true)}
-                >
-                  <Text style={[styles.dropdownBtnText, !addressForm.state && styles.dropdownPlaceholder]}>
-                    {addressForm.state || "Select State"}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color={C.textTer} />
-                </TouchableOpacity>
-                {errors.state && (
-                  <Text style={styles.errorText}>{errors.state}</Text>
-                )}
-              </View>
-
-              {/* 2. PIN Code */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>PIN Code *</Text>
-                <View style={styles.pincodeRow}>
-                  <TextInput
-                    style={[styles.fieldInput, { flex: 1 }, errors.pinCode && styles.fieldError]}
-                    placeholder="e.g., 500001"
-                    value={addressForm.pinCode}
-                    onChangeText={(text) => {
-                      setAddressForm({ ...addressForm, pinCode: text });
-                      if (text.length === 6) {
-                        fetchPincodeDetails(text);
-                      }
-                    }}
-                    placeholderTextColor={C.textTer}
-                    maxLength={6}
-                    keyboardType="numeric"
-                  />
-                  {pincodeLoading && (
-                    <ActivityIndicator size="small" color={C.gold} style={{ marginLeft: 8 }} />
+              {/* 1–2. State + PIN Code, side by side */}
+              <View style={styles.fieldRow}>
+                <View style={[styles.fieldContainer, styles.fieldHalf]}>
+                  <Text style={styles.fieldLabel}>State *</Text>
+                  <TouchableOpacity
+                    style={[styles.dropdownBtn, errors.state && styles.fieldError]}
+                    onPress={() => setShowStateDropdown(true)}
+                  >
+                    <Text style={[styles.dropdownBtnText, !addressForm.state && styles.dropdownPlaceholder]} numberOfLines={1}>
+                      {addressForm.state || "Select"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={18} color={C.textTer} />
+                  </TouchableOpacity>
+                  {errors.state && (
+                    <Text style={styles.errorText}>{errors.state}</Text>
                   )}
                 </View>
-                {errors.pinCode && (
-                  <Text style={styles.errorText}>{errors.pinCode}</Text>
-                )}
-                {pincodeLoading && (
-                  <Text style={styles.infoText}>Fetching city and area...</Text>
-                )}
+
+                <View style={[styles.fieldContainer, styles.fieldHalf]}>
+                  <Text style={styles.fieldLabel}>PIN Code *</Text>
+                  <View style={styles.pincodeRow}>
+                    <TextInput
+                      style={[styles.fieldInput, { flex: 1 }, errors.pinCode && styles.fieldError]}
+                      placeholder="500001"
+                      value={addressForm.pinCode}
+                      onChangeText={(text) => {
+                        setAddressForm({ ...addressForm, pinCode: text });
+                        if (text.length === 6) {
+                          fetchPincodeDetails(text);
+                        }
+                      }}
+                      placeholderTextColor={C.textTer}
+                      maxLength={6}
+                      keyboardType="numeric"
+                    />
+                    {pincodeLoading && (
+                      <ActivityIndicator size="small" color={C.gold} style={{ marginLeft: 6 }} />
+                    )}
+                  </View>
+                  {errors.pinCode && (
+                    <Text style={styles.errorText}>{errors.pinCode}</Text>
+                  )}
+                </View>
+              </View>
+              {pincodeLoading && (
+                <Text style={[styles.infoText, { marginTop: -10, marginBottom: 12 }]}>Fetching city and area...</Text>
+              )}
+
+              {/* 3–4. City + Area, side by side (both auto-filled from pincode) */}
+              <View style={styles.fieldRow}>
+                <View style={[styles.fieldContainer, styles.fieldHalf]}>
+                  <Text style={styles.fieldLabel}>City *</Text>
+                  <TextInput
+                    style={[styles.fieldInput, addressForm.city && styles.fieldInputAutoFilled, errors.city && styles.fieldError]}
+                    placeholder="Auto-filled"
+                    value={addressForm.city}
+                    onChangeText={(text) =>
+                      setAddressForm({ ...addressForm, city: text })
+                    }
+                    placeholderTextColor={C.textTer}
+                    editable={!!addressForm.city || addressForm.pinCode.length !== 6}
+                  />
+                  {errors.city && (
+                    <Text style={styles.errorText}>{errors.city}</Text>
+                  )}
+                </View>
+
+                <View style={[styles.fieldContainer, styles.fieldHalf]}>
+                  <Text style={styles.fieldLabel}>Area *</Text>
+                  <TextInput
+                    style={[styles.fieldInput, addressForm.area && styles.fieldInputAutoFilled, errors.area && styles.fieldError]}
+                    placeholder="Auto-filled"
+                    value={addressForm.area}
+                    onChangeText={(text) =>
+                      setAddressForm({ ...addressForm, area: text })
+                    }
+                    placeholderTextColor={C.textTer}
+                    editable={!!addressForm.area || addressForm.pinCode.length !== 6}
+                  />
+                  {errors.area && (
+                    <Text style={styles.errorText}>{errors.area}</Text>
+                  )}
+                </View>
               </View>
 
-              {/* 3. City (Auto-filled) */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>City *</Text>
-                <TextInput
-                  style={[styles.fieldInput, addressForm.city && styles.fieldInputAutoFilled, errors.city && styles.fieldError]}
-                  placeholder="Auto-filled from pincode"
-                  value={addressForm.city}
-                  onChangeText={(text) =>
-                    setAddressForm({ ...addressForm, city: text })
-                  }
-                  placeholderTextColor={C.textTer}
-                  editable={!!addressForm.city || addressForm.pinCode.length !== 6}
-                />
-                {errors.city && (
-                  <Text style={styles.errorText}>{errors.city}</Text>
-                )}
+              {/* 5–6. Flat/House Number + Landmark, side by side */}
+              <View style={styles.fieldRow}>
+                <View style={[styles.fieldContainer, styles.fieldHalf]}>
+                  <Text style={styles.fieldLabel}>Flat / House No. *</Text>
+                  <TextInput
+                    style={[styles.fieldInput, errors.flatNo && styles.fieldError]}
+                    placeholder="e.g., 4B"
+                    value={addressForm.flatNo}
+                    onChangeText={(text) =>
+                      setAddressForm({ ...addressForm, flatNo: text })
+                    }
+                    onBlur={() => geocodeAddress(addressForm)}
+                    placeholderTextColor={C.textTer}
+                  />
+                  {errors.flatNo && (
+                    <Text style={styles.errorText}>{errors.flatNo}</Text>
+                  )}
+                </View>
+
+                <View style={[styles.fieldContainer, styles.fieldHalf]}>
+                  <Text style={styles.fieldLabel}>Landmark *</Text>
+                  <TextInput
+                    style={[styles.fieldInput, errors.landMark && styles.fieldError]}
+                    placeholder="e.g., Near City Mall"
+                    value={addressForm.landMark}
+                    onChangeText={(text) =>
+                      setAddressForm({ ...addressForm, landMark: text })
+                    }
+                    onBlur={() => geocodeAddress(addressForm)}
+                    placeholderTextColor={C.textTer}
+                  />
+                  {errors.landMark && (
+                    <Text style={styles.errorText}>{errors.landMark}</Text>
+                  )}
+                </View>
               </View>
 
-              {/* 4. Area (Auto-filled) */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Area *</Text>
-                <TextInput
-                  style={[styles.fieldInput, addressForm.area && styles.fieldInputAutoFilled, errors.area && styles.fieldError]}
-                  placeholder="Auto-filled from pincode"
-                  value={addressForm.area}
-                  onChangeText={(text) =>
-                    setAddressForm({ ...addressForm, area: text })
-                  }
-                  placeholderTextColor={C.textTer}
-                  editable={!!addressForm.area || addressForm.pinCode.length !== 6}
-                />
-                {errors.area && (
-                  <Text style={styles.errorText}>{errors.area}</Text>
-                )}
-              </View>
-
-              {/* 5. Flat / House Number */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Flat / House Number *</Text>
-                <TextInput
-                  style={[styles.fieldInput, errors.flatNo && styles.fieldError]}
-                  placeholder="e.g., 4B, Flat 201"
-                  value={addressForm.flatNo}
-                  onChangeText={(text) =>
-                    setAddressForm({ ...addressForm, flatNo: text })
-                  }
-                  placeholderTextColor={C.textTer}
-                />
-                {errors.flatNo && (
-                  <Text style={styles.errorText}>{errors.flatNo}</Text>
-                )}
-              </View>
-
-              {/* 6. Building Name / Street */}
+              {/* 7. Building Name / Street */}
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Building Name / Street *</Text>
                 <TextInput
@@ -549,27 +668,11 @@ const PgAddressScreen = ({ navigation, route }) => {
                   onChangeText={(text) =>
                     setAddressForm({ ...addressForm, address: text })
                   }
+                  onBlur={() => geocodeAddress(addressForm)}
                   placeholderTextColor={C.textTer}
                 />
                 {errors.address && (
                   <Text style={styles.errorText}>{errors.address}</Text>
-                )}
-              </View>
-
-              {/* 7. Landmark */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Landmark *</Text>
-                <TextInput
-                  style={[styles.fieldInput, errors.landMark && styles.fieldError]}
-                  placeholder="e.g., Near City Mall, Opposite Park"
-                  value={addressForm.landMark}
-                  onChangeText={(text) =>
-                    setAddressForm({ ...addressForm, landMark: text })
-                  }
-                  placeholderTextColor={C.textTer}
-                />
-                {errors.landMark && (
-                  <Text style={styles.errorText}>{errors.landMark}</Text>
                 )}
               </View>
 
@@ -598,6 +701,46 @@ const PgAddressScreen = ({ navigation, route }) => {
                   ))}
                 </View>
               </View>
+
+              {/* Location status — coordinates are geocoded from the typed address */}
+              <View style={styles.locationStatusRow}>
+                {geocoding ? (
+                  <>
+                    <ActivityIndicator size="small" color={C.gold} />
+                    <Text style={styles.locationStatusText}>Locating address...</Text>
+                  </>
+                ) : addressForm.latitude && addressForm.longitude ? (
+                  <>
+                    <Ionicons name="checkmark-circle" size={14} color={C.success} />
+                    <Text style={[styles.locationStatusText, { color: C.success }]}>
+                      Location set: {Number(addressForm.latitude).toFixed(6)}, {Number(addressForm.longitude).toFixed(6)}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="location-outline" size={14} color={C.textTer} />
+                    <Text style={styles.locationStatusText}>
+                      Location will be set automatically from your address
+                    </Text>
+                  </>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={styles.gpsBtn}
+                onPress={handleFetchCurrentLocation}
+                disabled={fetchingLocation}
+                activeOpacity={0.75}
+              >
+                {fetchingLocation ? (
+                  <ActivityIndicator size="small" color={C.textPri} />
+                ) : (
+                  <Ionicons name="navigate-outline" size={15} color={C.textPri} />
+                )}
+                <Text style={styles.gpsBtnText}>
+                  {fetchingLocation ? "Fetching..." : "Use my current GPS location instead"}
+                </Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.confirmBtn, saving && styles.confirmBtnDisabled]}
@@ -668,13 +811,15 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 13, fontWeight: "600", color: C.textPri },
 
   addBtn: {
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 7,
     backgroundColor: C.gold,
-    borderRadius: 12,
-    height: 46,
+    borderRadius: 22,
+    height: 42,
+    paddingHorizontal: 22,
     marginTop: 20,
     marginBottom: 20,
     shadowColor: C.gold,
@@ -683,7 +828,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  addBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", letterSpacing: 0.2 },
+  addBtnText: { fontSize: 13.5, fontWeight: "700", color: "#fff", letterSpacing: 0.2 },
 
   addressesList: { gap: 12 },
   addressCard: {
@@ -710,7 +855,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
   },
-  addressTypeText: { fontSize: 11, fontWeight: "700", color: C.gold },
+  addressTypeText: { fontSize: 11, fontWeight: "700", color: C.textPri },
   addressActions: { flexDirection: "row", gap: 8 },
   iconBtn: { padding: 6 },
   addressBody: { flexDirection: "row", gap: 8 },
@@ -767,6 +912,8 @@ const styles = StyleSheet.create({
   modalScroll: { paddingHorizontal: 16, paddingVertical: 16, maxHeight: 600 },
 
   fieldContainer: { marginBottom: 16 },
+  fieldRow: { flexDirection: "row", gap: 12 },
+  fieldHalf: { flex: 1 },
   fieldLabel: {
     fontSize: 13,
     fontWeight: "700",
@@ -788,7 +935,7 @@ const styles = StyleSheet.create({
   textArea: { minHeight: 80, textAlignVertical: "top" },
 
   errorText: { fontSize: 12, color: C.error, marginTop: 4 },
-  infoText: { fontSize: 12, color: C.gold, marginTop: 4, fontWeight: "600" },
+  infoText: { fontSize: 12, color: C.textSec, marginTop: 4, fontWeight: "600" },
 
   typeSelector: { flexDirection: "row", gap: 10 },
   typeBtn: {
@@ -802,7 +949,17 @@ const styles = StyleSheet.create({
   },
   typeBtnActive: { backgroundColor: C.goldDim, borderColor: C.gold },
   typeBtnText: { fontSize: 13, fontWeight: "600", color: C.textSec },
-  typeBtnTextActive: { color: C.gold, fontWeight: "700" },
+  typeBtnTextActive: { color: C.textPri, fontWeight: "700" },
+
+  locationStatusRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10, marginTop: -4 },
+  locationStatusText: { fontSize: 11.5, color: C.textTer, fontWeight: "500" },
+
+  gpsBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    borderWidth: 1, borderColor: C.border, borderRadius: 12,
+    paddingVertical: 11, marginBottom: 16,
+  },
+  gpsBtnText: { fontSize: 12.5, fontWeight: "600", color: C.textPri },
 
   confirmBtn: {
     backgroundColor: C.gold,

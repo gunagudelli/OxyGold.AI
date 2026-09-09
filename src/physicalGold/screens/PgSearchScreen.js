@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -9,21 +9,32 @@ import {
   ActivityIndicator,
   Modal,
 } from "react-native";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { selectUserId } from "../../store/authSlice";
+import { incrementWishlistCount, decrementWishlistCount, setCartCount } from "../../store/cartSlice";
 import ProductCard from "../components/ProductCard";
 import PgLayout from "../components/PgLayout";
+import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
-import { searchAllProducts } from "./physicalGoldApi";
+import {
+  searchAllProducts,
+  getWishlist,
+  addToWishlist,
+  removeFromWishlist,
+  getProductVariants,
+  addToCart,
+  getCart,
+} from "./physicalGoldApi";
 import { debounce } from "../../utils/debounce";
 
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   bgCard: "#FFFFFF",
-  gold: "#CF8B17",
-  goldBright: "#E8A530",
-  goldText: "#CF8B17",
+  gold: "#0E6B57",
+  goldBright: "#14876D",
+  goldText: "#0E6B57",
   textPrimary: "#1C1C1E",
   textSecondary: "#7A7A80",
   textMuted: "#A79C93",
@@ -32,16 +43,106 @@ const C = {
 
 const PgSearchScreen = ({ navigation }) => {
   const userId = useSelector(selectUserId);
-  
+  const dispatch = useDispatch();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
+
+  // ── Wishlist — same pattern as PgHomeScreen ──────────────────────────────
+  const [wishlistMap, setWishlistMap] = useState({});
+  const [wishlistLoading, setWishlistLoading] = useState({});
+  const variantCache = useRef({});
+
+  // ── Cart — same pattern as PgHomeScreen ──────────────────────────────────
+  const [cartVariantIds, setCartVariantIds] = useState(new Set());
+  const [cartLoadingId, setCartLoadingId] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      getWishlist(userId)
+        .then((items) => {
+          const map = {};
+          (items || []).forEach((w) => {
+            const pid = String(w.productId || w.product?.id);
+            if (pid) map[pid] = w.id || w.wishlistId;
+          });
+          setWishlistMap(map);
+        })
+        .catch(() => {});
+
+      getCart(userId)
+        .then((cartData) => {
+          const ids = (cartData?.itemsInCart || []).map((it) =>
+            String(it.productVariantId),
+          );
+          setCartVariantIds(new Set(ids));
+        })
+        .catch(() => {});
+    }, [userId])
+  );
+
+  const handleCardAddToCart = useCallback(
+    async (product, variant) => {
+      const variantId = variant?.id;
+      const pid = String(product?.id);
+      if (cartVariantIds.has(String(variantId))) {
+        navigation.navigate("PgCart");
+        return;
+      }
+      if (!product?.id || !variantId) return;
+      setCartLoadingId(pid);
+      try {
+        await addToCart(userId, product.id, variantId, 1);
+        setCartVariantIds((prev) => new Set(prev).add(String(variantId)));
+        const cartData = await getCart(userId).catch(() => null);
+        if (cartData) dispatch(setCartCount(cartData.totalItemsInCart || 0));
+      } catch (e) {
+        console.log("[PgSearchScreen] Add to cart failed:", e?.message);
+      } finally {
+        setCartLoadingId(null);
+      }
+    },
+    [userId, cartVariantIds, dispatch, navigation],
+  );
+
+  const handleWishlistToggle = useCallback(async (item) => {
+    const pid = String(item?.id);
+    if (wishlistLoading[pid]) return;
+    setWishlistLoading((p) => ({ ...p, [pid]: true }));
+    try {
+      if (wishlistMap[pid]) {
+        await removeFromWishlist(wishlistMap[pid]);
+        setWishlistMap((p) => { const n = { ...p }; delete n[pid]; return n; });
+        dispatch(decrementWishlistCount());
+      } else {
+        let v = variantCache.current[pid];
+        if (!v) {
+          const r = await getProductVariants(item.id);
+          const inner = r?.data || r;
+          const list = inner?.listVariantResponse || inner?.variants || (Array.isArray(inner) ? inner : []);
+          v = list[0];
+          if (v) variantCache.current[pid] = v;
+        }
+        if (!v?.id) return;
+        const res = await addToWishlist(userId, item.id, v.id);
+        setWishlistMap((p) => ({ ...p, [pid]: res?.id || res?.wishlistId || pid }));
+        dispatch(incrementWishlistCount());
+      }
+    } catch (e) {
+      // silent — matches PgHomeScreen's best-effort wishlist toggle
+    }
+    setWishlistLoading((p) => ({ ...p, [pid]: false }));
+  }, [wishlistMap, wishlistLoading, userId, dispatch]);
   
   // Filter state
   const [filters, setFilters] = useState({
     purity: "",
+    size: "",
+    inStock: false,
     minPrice: "",
     maxPrice: "",
     minWeight: "",
@@ -71,6 +172,9 @@ const PgSearchScreen = ({ navigation }) => {
             maxPrice: currentFilters.maxPrice ? Number(currentFilters.maxPrice) : undefined,
             minWeight: currentFilters.minWeight ? Number(currentFilters.minWeight) : undefined,
             maxWeight: currentFilters.maxWeight ? Number(currentFilters.maxWeight) : undefined,
+            // "In Stock Only" is opt-in — only send it when toggled on, so the
+            // default (untouched) search isn't silently narrowed to inStock=false.
+            inStock: currentFilters.inStock ? true : undefined,
           });
 
           const results = response?.data?.results || response?.results || [];
@@ -99,6 +203,8 @@ const PgSearchScreen = ({ navigation }) => {
   const clearFilters = () => {
     setFilters({
       purity: "",
+      size: "",
+      inStock: false,
       minPrice: "",
       maxPrice: "",
       minWeight: "",
@@ -161,10 +267,7 @@ const PgSearchScreen = ({ navigation }) => {
           contentContainerStyle={styles.scrollContent}
         >
           {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={C.gold} />
-              <Text style={styles.loadingText}>Searching...</Text>
-            </View>
+            <PgLoader label="Searching..." fullscreen={false} />
           ) : products.length === 0 && searchQuery ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No products found</Text>
@@ -185,6 +288,11 @@ const PgSearchScreen = ({ navigation }) => {
                 <View key={product.id} style={styles.gridItem}>
                   <ProductCard
                     product={product}
+                    isInWishlist={!!wishlistMap[String(product?.id)]}
+                    onWishlistToggle={() => handleWishlistToggle(product)}
+                    onAddToCart={handleCardAddToCart}
+                    addingCart={cartLoadingId === String(product?.id)}
+                    cartVariantIds={cartVariantIds}
                     onPress={() =>
                       navigation.navigate("PgProductDetails", {
                         productId: product.id,
@@ -334,6 +442,36 @@ const PgSearchScreen = ({ navigation }) => {
                     />
                   </View>
                 </View>
+
+                {/* Size */}
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterLabel}>Size</Text>
+                  <TextInput
+                    style={styles.rangeInput}
+                    placeholder="e.g., ring size, bangle size"
+                    placeholderTextColor={C.textMuted}
+                    value={filters.size}
+                    onChangeText={(text) =>
+                      setFilters((prev) => ({ ...prev, size: text }))
+                    }
+                  />
+                </View>
+
+                {/* In Stock Only */}
+                <View style={[styles.filterSection, { borderBottomWidth: 0 }]}>
+                  <TouchableOpacity
+                    style={styles.inStockRow}
+                    onPress={() =>
+                      setFilters((prev) => ({ ...prev, inStock: !prev.inStock }))
+                    }
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.filterLabel, { marginBottom: 0 }]}>In Stock Only</Text>
+                    <View style={[styles.toggle, filters.inStock && styles.toggleActive]}>
+                      <View style={[styles.toggleKnob, filters.inStock && styles.toggleKnobActive]} />
+                    </View>
+                  </TouchableOpacity>
+                </View>
               </ScrollView>
 
               {/* Modal Actions */}
@@ -395,9 +533,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "rgba(207,139,23,0.08)",
+    backgroundColor: "rgba(14,107,87,0.08)",
     borderWidth: 1,
-    borderColor: "rgba(207,139,23,0.20)",
+    borderColor: "rgba(14,107,87,0.20)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -495,7 +633,7 @@ const styles = StyleSheet.create({
   filterText: {
     fontSize: 12,
     fontWeight: "600",
-    color: C.goldText,
+    color: C.textPrimary,
   },
   filterLabel: {
     fontSize: 14,
@@ -513,7 +651,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   sortOptionActive: {
-    backgroundColor: "rgba(207,139,23,0.08)",
+    backgroundColor: "rgba(14,107,87,0.08)",
     borderColor: C.gold,
   },
   sortOptionText: {
@@ -522,7 +660,7 @@ const styles = StyleSheet.create({
     color: C.textSecondary,
   },
   sortOptionTextActive: {
-    color: C.goldText,
+    color: C.textPrimary,
     fontWeight: "700",
   },
   purityOptions: {
@@ -538,7 +676,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   purityChipActive: {
-    backgroundColor: "rgba(207,139,23,0.08)",
+    backgroundColor: "rgba(14,107,87,0.08)",
     borderColor: C.gold,
   },
   purityChipText: {
@@ -547,7 +685,7 @@ const styles = StyleSheet.create({
     color: C.textSecondary,
   },
   purityChipTextActive: {
-    color: C.goldText,
+    color: C.textPrimary,
     fontWeight: "700",
   },
   rangeInputs: {
@@ -570,6 +708,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: C.textMuted,
+  },
+  inStockRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  toggle: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: C.border,
+    padding: 3,
+    justifyContent: "center",
+  },
+  toggleActive: {
+    backgroundColor: C.gold,
+  },
+  toggleKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#FFF",
+  },
+  toggleKnobActive: {
+    transform: [{ translateX: 18 }],
   },
   modalActions: {
     flexDirection: "row",

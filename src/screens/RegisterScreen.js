@@ -15,6 +15,8 @@ import {
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width: W } = Dimensions.get("window");
@@ -23,18 +25,18 @@ const API_AUTH = "https://meta.oxyloans.com/api/oxygold-api/auth/userLoginOrRegi
 const API_ROLE = "https://meta.oxyloans.com/api/oxygold-api/auth/createRole";
 const SELECTED_ROLE = "DIGITALGOld";
 
-// ── Colours (matches your web theme) ─────────────────────────────────────────
+// ── Colours — warm cream page, matching Login and the rest of the app ──────
 const C = {
-  bg: "#0d1f3c",
+  bg: "#FBF3E4",
   bgLight: "#1a3060",
-  card: "#f7f8fa",
+  card: "#FBF3E4",
   gold: "#f0bb3a",
   goldDark: "#d9a020",
-  navy: "#0d1f3c",
+  navy: "#1C1C1E",
   blue: "#2a4e9e",
   white: "#ffffff",
-  label: "#9eaab8",
-  border: "#e0e4e8",
+  label: "#8A7F6E",
+  border: "rgba(217,160,32,0.28)",
   inputBg: "#ffffff",
   prefixBg: "#f4f5f7",
   success: "#16a34a",
@@ -42,8 +44,8 @@ const C = {
   successBd: "#bbf7d0",
   error: "#dc2626",
   errorBg: "#fef2f2",
-  muted: "#bcc5cf",
-  text: "#0d1f3c",
+  muted: "#A79C8E",
+  text: "#1C1C1E",
 };
 
 // ── Slide-in animation hook ───────────────────────────────────────────────────
@@ -70,31 +72,23 @@ const useSlideIn = (trigger) => {
 };
 
 // ── OTP Box ───────────────────────────────────────────────────────────────────
-// maxLength is 6 (not 1) so that when iOS/Android autofill delivers the whole
-// SMS code into whichever box is focused, the field can actually hold it —
-// handleOtpChange then splits a multi-digit value across all six boxes.
-const OtpBox = ({ value, inputRef, onChange, onKeyPress, onFocus }) => (
-  <TextInput
-    ref={inputRef}
-    style={[styles.otpBox, value ? styles.otpBoxFilled : null]}
-    value={value}
-    onChangeText={onChange}
-    onKeyPress={onKeyPress}
-    onFocus={onFocus}
-    keyboardType="number-pad"
-    maxLength={6}
-    textAlign="center"
-    selectTextOnFocus
-    textContentType="oneTimeCode"
-    autoComplete="sms-otp"
-  />
+// A single-box display driven by one hidden TextInput. Six separate real
+// TextInputs (the old approach) each declared textContentType="oneTimeCode",
+// which confuses iOS/Android's autofill suggestion — tapping the OS chip can
+// fire onChangeText on more than one box at once, corrupting the code. One
+// real input (see hiddenOtpInput below) is what the OS actually autofills;
+// these boxes just render its value.
+const OtpBox = ({ value, filled }) => (
+  <View style={[styles.otpBox, filled && styles.otpBoxFilled]}>
+    <Text style={styles.otpBoxText}>{value}</Text>
+  </View>
 );
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 const RegisterScreen = ({ navigation }) => {
   const [step, setStep] = useState("phone"); // 'phone' | 'otp'
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [otp, setOtp] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -102,7 +96,7 @@ const RegisterScreen = ({ navigation }) => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showOtpSent, setShowOtpSent] = useState(false);
 
-  const otpRefs = useRef([]);
+  const hiddenOtpRef = useRef(null);
   // Removed animation to prevent blinking on navigation
 
   // Resend countdown
@@ -145,7 +139,7 @@ const RegisterScreen = ({ navigation }) => {
       setTimeout(() => setShowOtpSent(false), 3000);
       setStep("otp");
       setResendTimer(30);
-      setTimeout(() => otpRefs.current[0]?.focus(), 150);
+      setTimeout(() => hiddenOtpRef.current?.focus(), 150);
     } catch (err) {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {
@@ -156,7 +150,7 @@ const RegisterScreen = ({ navigation }) => {
   // ── Verify OTP ──────────────────────────────────────────────────────────────
   const handleVerifyOtp = async () => {
     setError("");
-    const otpValue = otp.join("");
+    const otpValue = otp;
     if (otpValue.length < 6) {
       setError("Enter the 6-digit OTP");
       return;
@@ -217,39 +211,13 @@ const RegisterScreen = ({ navigation }) => {
   };
 
   // ── OTP helpers ─────────────────────────────────────────────────────────────
-  const handleOtpChange = (i, val) => {
-    const digits = val.replace(/\D/g, "");
+  const handleOtpChange = (val) => {
     setError("");
-
-    // Autofill (or a paste) delivers the whole code at once — spread it
-    // across all six boxes starting from the box that received it.
-    if (digits.length > 1) {
-      const next = [...otp];
-      for (let j = 0; j < digits.length && i + j < 6; j++) {
-        next[i + j] = digits[j];
-      }
-      setOtp(next);
-      const lastFilled = Math.min(i + digits.length, 6) - 1;
-      otpRefs.current[lastFilled]?.focus();
-      otpRefs.current[lastFilled]?.blur();
-      return;
-    }
-
-    const digit = digits.slice(-1);
-    const next = [...otp];
-    next[i] = digit;
-    setOtp(next);
-    if (digit && i < 5) otpRefs.current[i + 1]?.focus();
-  };
-
-  const handleOtpKeyPress = (i, e) => {
-    if (e.nativeEvent.key === "Backspace" && !otp[i] && i > 0) {
-      otpRefs.current[i - 1]?.focus();
-    }
+    setOtp(val.replace(/\D/g, "").slice(0, 6));
   };
 
   const handleResend = () => {
-    setOtp(["", "", "", "", "", ""]);
+    setOtp("");
     setError("");
     handleSendOtp();
   };
@@ -257,29 +225,32 @@ const RegisterScreen = ({ navigation }) => {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
+        {/* Plain decorative gold-corner texture, same one Login uses —
+            wordmark/tagline are real Text elements below, not baked in. */}
+        <Image
+          source={require("../../assets/Backgrond image.png")}
+          style={styles.screenBg}
+          resizeMode="cover"
+          pointerEvents="none"
+        />
+
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Background blobs ── */}
-          <View style={styles.blob1} pointerEvents="none" />
-          <View style={styles.blob2} pointerEvents="none" />
-
           {/* ── Card ── */}
           <View style={styles.card}>
             {/* LEFT PANEL — shown on wider screens, hidden on mobile */}
             {W > 600 && (
               <View style={styles.leftPanel}>
                 <Image
-                  source={{
-                    uri: "https://img.freepik.com/premium-photo/gold-investment-outlook-illustration-gold-bars-stock-data-hologram_36897-5112.jpg",
-                  }}
+                  source={require("../../assets/loginImg.png")}
                   style={StyleSheet.absoluteFill}
                   resizeMode="cover"
                 />
@@ -318,26 +289,29 @@ const RegisterScreen = ({ navigation }) => {
               <View>
                 {step === "phone" ? (
                   <>
-                    <Text style={styles.formTitle}>Create account</Text>
-                    <Text style={styles.formSub}>
-                      Enter your mobile to get started
+                    <View style={styles.wordmarkRow}>
+                      <Text style={styles.wordmarkOxy}>OXY</Text>
+                      <Text style={styles.wordmarkGold}>GOLD</Text>
+                      <Text style={styles.wordmarkAi}>.AI</Text>
+                    </View>
+                    <Text style={styles.heroTagline}>
+                      Pure Gold & Silver Delivered Home
                     </Text>
 
-                    {/* Phone input */}
-                    <Text style={styles.fieldLabel}>MOBILE NUMBER</Text>
-                    <View style={styles.phoneWrap}>
-                      <View style={styles.phonePrefix}>
-                        <Text style={styles.phonePrefixText}>+91</Text>
-                      </View>
+                    <View style={styles.phonePillWrap}>
+                      <Text style={styles.flagEmoji}>🇮🇳</Text>
+                      <Text style={styles.countryCodeText}>+91</Text>
+                      <Ionicons name="chevron-down" size={13} color={C.muted} />
+                      <View style={styles.phonePillDivider} />
                       <TextInput
-                        style={styles.phoneInput}
+                        style={styles.phonePillInput}
                         value={phone}
                         onChangeText={(v) => {
                           setPhone(v.replace(/\D/g, "").slice(0, 10));
                           setError("");
                         }}
                         keyboardType="number-pad"
-                        placeholder="98765 43210"
+                        placeholder="Enter your mobile number"
                         placeholderTextColor={C.muted}
                         returnKeyType="done"
                         onSubmitEditing={handleSendOtp}
@@ -352,22 +326,31 @@ const RegisterScreen = ({ navigation }) => {
                     ) : null}
 
                     <TouchableOpacity
-                      style={[styles.btn, loading && styles.btnDisabled]}
                       onPress={handleSendOtp}
                       disabled={loading}
                       activeOpacity={0.85}
+                      style={loading && styles.btnDisabled}
                     >
-                      {loading ? (
-                        <ActivityIndicator color={C.navy} size="small" />
-                      ) : (
-                        <Text style={styles.btnText}>Send OTP →</Text>
-                      )}
+                      <LinearGradient
+                        colors={["#FBDA86", "#E7A730"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.continueBtn}
+                      >
+                        {loading ? (
+                          <ActivityIndicator color={C.navy} size="small" />
+                        ) : (
+                          <View style={styles.continueBtnInner}>
+                            <Text style={styles.continueBtnText}>Continue</Text>
+                            <Ionicons name="arrow-forward" size={18} color={C.navy} />
+                          </View>
+                        )}
+                      </LinearGradient>
                     </TouchableOpacity>
 
-                    <View style={styles.divider}>
-                      <View style={styles.dividerLine} />
-                      <Text style={styles.dividerText}>OR</Text>
-                      <View style={styles.dividerLine} />
+                    <View style={styles.trustRow}>
+                      <Ionicons name="shield-checkmark-outline" size={15} color={C.goldDark} />
+                      <Text style={styles.trustText}>Secure & trusted delivery</Text>
                     </View>
 
                     <Text style={styles.footerText}>
@@ -407,7 +390,7 @@ const RegisterScreen = ({ navigation }) => {
                       style={styles.changePhoneBtn}
                       onPress={() => {
                         setStep("phone");
-                        setOtp(["", "", "", "", "", ""]);
+                        setOtp("");
                         setError("");
                       }}
                     >
@@ -416,18 +399,28 @@ const RegisterScreen = ({ navigation }) => {
 
                     {/* OTP boxes */}
                     <Text style={styles.fieldLabel}>ENTER 6-DIGIT OTP</Text>
-                    <View style={styles.otpRow}>
-                      {otp.map((d, i) => (
-                        <OtpBox
-                          key={i}
-                          value={d}
-                          inputRef={(el) => (otpRefs.current[i] = el)}
-                          onChange={(v) => handleOtpChange(i, v)}
-                          onKeyPress={(e) => handleOtpKeyPress(i, e)}
-                          onFocus={() => setError("")}
-                        />
-                      ))}
-                    </View>
+                    <TouchableOpacity
+                      activeOpacity={1}
+                      onPress={() => hiddenOtpRef.current?.focus()}
+                    >
+                      <View style={styles.otpRow}>
+                        {[0, 1, 2, 3, 4, 5].map((i) => (
+                          <OtpBox key={i} value={otp[i] || ""} filled={!!otp[i]} />
+                        ))}
+                      </View>
+                    </TouchableOpacity>
+                    <TextInput
+                      ref={hiddenOtpRef}
+                      value={otp}
+                      onChangeText={handleOtpChange}
+                      onFocus={() => setError("")}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      textContentType="oneTimeCode"
+                      autoComplete="sms-otp"
+                      style={styles.hiddenOtpInput}
+                      caretHidden
+                    />
 
                     <Text style={styles.otpHint}>
                       Didn't receive it?{"  "}
@@ -463,12 +456,12 @@ const RegisterScreen = ({ navigation }) => {
                     <TouchableOpacity
                       style={[
                         styles.btn,
-                        (loading || otp.join("").length < 6 || showSuccess) &&
+                        (loading || otp.length < 6 || showSuccess) &&
                           styles.btnDisabled,
                       ]}
                       onPress={handleVerifyOtp}
                       disabled={
-                        loading || otp.join("").length < 6 || showSuccess
+                        loading || otp.length < 6 || showSuccess
                       }
                       activeOpacity={0.85}
                     >
@@ -501,39 +494,34 @@ const styles = StyleSheet.create({
     padding: 20,
   },
 
-  blob1: {
-    position: "absolute",
-    width: 340,
-    height: 340,
-    borderRadius: 170,
-    backgroundColor: "rgba(42,78,158,0.22)",
-    left: -120,
-    top: "30%",
+  // Plain decorative texture — fine to crop with "cover" since there's no
+  // baked-in text/content that needs to land in a specific spot.
+  screenBg: {
+    ...StyleSheet.absoluteFillObject,
   },
-  blob2: {
-    position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: "rgba(240,187,58,0.06)",
-    right: -60,
-    top: "15%",
+  wordmarkRow: {
+    flexDirection: "row",
+    alignSelf: "center",
+    marginBottom: 8,
+  },
+  wordmarkOxy: { fontSize: 30, fontWeight: "800", color: C.goldDark, letterSpacing: -0.5 },
+  wordmarkGold: { fontSize: 30, fontWeight: "800", color: C.navy, letterSpacing: -0.5 },
+  wordmarkAi: { fontSize: 30, fontWeight: "800", color: C.goldDark, letterSpacing: -0.5 },
+  heroTagline: {
+    fontSize: 14,
+    color: C.label,
+    textAlign: "center",
+    marginBottom: 28,
   },
 
-  // Card
+  // Card — no floating-card shadow/border on mobile, sits flush on the
+  // cream page. Desktop leftPanel keeps its own dark side-panel look.
   card: {
     width: "100%",
     maxWidth: 720,
     borderRadius: 18,
     overflow: "hidden",
     flexDirection: "row",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.55,
-    shadowRadius: 32,
-    elevation: 20,
-    borderWidth: 1,
-    borderColor: "rgba(240,187,58,0.12)",
   },
 
   // Left panel
@@ -581,10 +569,50 @@ const styles = StyleSheet.create({
   // Right panel
   rightPanel: {
     flex: 1,
-    backgroundColor: C.card,
+    backgroundColor: "transparent",
     padding: 32,
     justifyContent: "center",
   },
+
+  phonePillWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.inputBg,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    paddingHorizontal: 16,
+    height: 56,
+    gap: 8,
+  },
+  flagEmoji: { fontSize: 18 },
+  countryCodeText: { fontSize: 15, fontWeight: "600", color: C.text },
+  phonePillDivider: { width: 1, height: 24, backgroundColor: C.border, marginHorizontal: 4 },
+  phonePillInput: { flex: 1, fontSize: 15, color: C.text, padding: 0 },
+
+  continueBtn: {
+    marginTop: 22,
+    borderRadius: 30,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: C.goldDark,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  continueBtnInner: { flexDirection: "row", alignItems: "center", gap: 8 },
+  continueBtnText: { fontSize: 16, fontWeight: "700", color: C.navy },
+
+  trustRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 16,
+  },
+  trustText: { fontSize: 12.5, color: C.label, fontWeight: "500" },
 
   formTitle: {
     fontSize: 20,
@@ -639,13 +667,24 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: C.border,
     borderRadius: 9,
-    fontSize: 18,
-    fontWeight: "600",
-    color: C.navy,
     backgroundColor: C.inputBg,
-    textAlign: "center",
+    alignItems: "center",
+    justifyContent: "center",
   },
+  otpBoxText: { fontSize: 18, fontWeight: "600", color: C.navy },
   otpBoxFilled: { borderColor: C.goldDark, backgroundColor: "#fffcf2" },
+  // Sole real input on the whole screen. Tapping any display box above
+  // (via the wrapping TouchableOpacity) focuses this one directly, so
+  // manual entry never depends on touch passing through an overlay. Kept
+  // at 1x1 with near-zero opacity rather than opacity:0/width:0 — some
+  // Android autofill heuristics skip fully invisible / zero-size fields
+  // when deciding whether to show the SMS-code suggestion chip.
+  hiddenOtpInput: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    opacity: 0.01,
+  },
   otpHint: { fontSize: 11, color: C.label, marginBottom: 14 },
   otpHintBold: { fontWeight: "700", color: C.navy },
   resendBtn: { color: C.goldDark, fontWeight: "600" },

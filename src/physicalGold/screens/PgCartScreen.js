@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Animated,
   Image,
   Modal,
   Dimensions,
@@ -20,19 +19,20 @@ import { setCartCount } from "../../store/cartSlice";
 import { apiGet, apiPost, apiDelete } from "../../services/apiClient";
 import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import PgLayout from "../components/PgLayout";
+import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
-import { getProductImages } from "./physicalGoldApi";
+import { getProductImages, getUserAddresses } from "./physicalGoldApi";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { FLATLIST_OPTIMIZATIONS, keyExtractor } from "../../utils/flatListOptimizations";
 
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#CF8B17",
+  gold: "#0E6B57",
   goldLight: "#F7F4ED",
-  goldMid: "#E4BB67",
-  goldDim: "rgba(207,139,23,0.10)",
-  goldDimBorder: "rgba(207,139,23,0.25)",
+  goldMid: "#2FA085",
+  goldDim: "rgba(14,107,87,0.10)",
+  goldDimBorder: "rgba(14,107,87,0.25)",
   navy: "#1C1C1E",
   navyMid: "#48484C",
   navyLight: "#7A7A80",
@@ -40,43 +40,9 @@ const C = {
   red: "#C0392B",
   border: "#E7E0DA",
   divider: "#EEEBE8",
-  surfaceAlt: "#F8F7F6",
+  surfaceAlt: "#FFFFFF",
 };
 
-// ── Shimmer ───────────────────────────────────────────────────────────────────
-const Shimmer = ({ w, h, r = 8, style }) => {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const shimmerLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 850, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0, duration: 850, useNativeDriver: true }),
-      ])
-    );
-    shimmerLoop.start();
-    return () => {
-      shimmerLoop.stop();
-      anim.stopAnimation();
-    };
-  }, []);
-  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.65] });
-  return (
-    <Animated.View style={[{ width: w, height: h, borderRadius: r, backgroundColor: C.goldMid, opacity }, style]} />
-  );
-};
-
-// ── Skeleton Row ──────────────────────────────────────────────────────────────
-const SkeletonRow = () => (
-  <View style={styles.itemCard}>
-    <Shimmer w={100} h={100} r={14} />
-    <View style={{ flex: 1, gap: 8 }}>
-      <Shimmer w="80%" h={14} />
-      <Shimmer w="50%" h={11} />
-      <Shimmer w="40%" h={11} />
-      <Shimmer w="100%" h={38} r={10} style={{ marginTop: 4 }} />
-    </View>
-  </View>
-);
 
 // ── Section Header ────────────────────────────────────────────────────────────
 const SectionHeader = ({ title }) => (
@@ -111,7 +77,7 @@ const CartItemRow = ({ item, busy, imageUrl, onRemove, onIncrement, onDecrement,
           {item.weight ? (
             <Text style={styles.fallbackWeight}>{item.weight}g</Text>
           ) : (
-            <Ionicons name="diamond-outline" size={20} color={C.goldMid} />
+            <Ionicons name="diamond-outline" size={20} color="#E4BB67" />
           )}
           {item.weight ? (
             <>
@@ -181,7 +147,6 @@ const PgCartScreen = ({ navigation }) => {
 
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [checkingOut, setCheckingOut] = useState(false);
   const [itemLoading, setItemLoading] = useState({});
   const [itemImages, setItemImages] = useState({});
   const [showImageModal, setShowImageModal] = useState(false);
@@ -192,6 +157,14 @@ const PgCartScreen = ({ navigation }) => {
   const [totalMakingCharges, setTotalMakingCharges] = useState(0);
   const [totalPayableAmount, setTotalPayableAmount] = useState(0);
 
+  // Distance-based delivery — mirrors the web cart: fetched by passing the
+  // customer's default address (the first one with lat/long) as addressId
+  // alongside the cart-info call. Falls back to 0/null when no address has
+  // coordinates yet, same as web.
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState(null);
+  const [ratePerKm, setRatePerKm] = useState(null);
+  const selectedAddressIdRef = useRef(null);
 
   useEffect(() => {
     performanceMonitor.startMeasure('PgCartScreen');
@@ -219,15 +192,35 @@ const PgCartScreen = ({ navigation }) => {
     setTotalGstCharges(data?.totalGstCharges || 0);
     setTotalMakingCharges(data?.totalMakingCharges || 0);
     setTotalPayableAmount(data?.totalPayableAmount || 0);
+    setDeliveryFee(data?.deliveryFee || 0);
+    setDeliveryDistanceKm(data?.deliveryDistanceKm ?? null);
+    setRatePerKm(data?.ratePerKm ?? null);
     dispatch(setCartCount(data?.itemsInCart?.length || 0));
+  };
+
+  // Picks the same "preferred default" address the web cart uses: the first
+  // address that actually has coordinates, falling back to the first address
+  // overall (which then just won't produce a delivery fee).
+  const resolveDefaultAddressId = async () => {
+    if (selectedAddressIdRef.current) return selectedAddressIdRef.current;
+    try {
+      const addresses = await getUserAddresses(userId);
+      const preferred = addresses.find((a) => a.latitude && a.longitude) || addresses[0];
+      selectedAddressIdRef.current = preferred?.id ?? null;
+    } catch (e) {
+      selectedAddressIdRef.current = null;
+    }
+    return selectedAddressIdRef.current;
   };
 
   const fetchCartData = async (silent = false) => {
     if (!silent) setLoading(true);
     const t0 = Date.now();
     try {
-      const data = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/cart/customer-cart-info`, { params: { customerId: userId } });
-      console.log('🛒 Cart API Response:', JSON.stringify(data, null, 2));
+      const addressId = await resolveDefaultAddressId();
+      const data = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/cart/customer-cart-info`, {
+        params: addressId ? { customerId: userId, addressId } : { customerId: userId },
+      });
       applyCartData(data);
       if (!silent) performanceMonitor.endMeasure('PgCartScreen');
     } catch (err) {
@@ -243,7 +236,10 @@ const PgCartScreen = ({ navigation }) => {
 
   const silentRefresh = async (cartId) => {
     try {
-      const data = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/cart/customer-cart-info`, { params: { customerId: userId } });
+      const addressId = selectedAddressIdRef.current;
+      const data = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/cart/customer-cart-info`, {
+        params: addressId ? { customerId: userId, addressId } : { customerId: userId },
+      });
       applyCartData(data);
     } catch (err) {
       if (err?.status === 404) setCartItems([]);
@@ -308,20 +304,11 @@ const PgCartScreen = ({ navigation }) => {
     navigation.navigate("PgCheckout", { cartTotal: totalPayableAmount, cartItems });
   };
 
-  // ── Loading skeleton ──
+  // ── Loading ──
   if (loading) {
     return (
       <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          <SectionHeader title="ITEMS IN CART" />
-          <View style={styles.listCard}>
-            <SkeletonRow />
-            <View style={styles.itemDivider} />
-            <SkeletonRow />
-            <View style={styles.itemDivider} />
-            <SkeletonRow />
-          </View>
-        </ScrollView>
+        <PgLoader label="Loading cart..." />
       </PgLayout>
     );
   }
@@ -396,7 +383,13 @@ const PgCartScreen = ({ navigation }) => {
             )}
             <SummaryRow label="GST (3%)" value={`₹${gst.toLocaleString("en-IN")}`} />
             <View style={styles.specDivider} />
-            <SummaryRow label="Shipping" value="Free" isFree />
+            <SummaryRow
+              label={`Delivery${deliveryDistanceKm !== null ? ` (${deliveryDistanceKm} km)` : ""}`}
+              value={`₹${deliveryFee.toLocaleString("en-IN")}`}
+            />
+            {ratePerKm !== null && deliveryDistanceKm !== null && (
+              <Text style={styles.deliveryRateNote}>₹{ratePerKm}/km delivery rate</Text>
+            )}
             <View style={styles.specDivider} />
             <SummaryRow label="Insurance" value="Included" />
             <View style={styles.grandRow}>
@@ -420,19 +413,12 @@ const PgCartScreen = ({ navigation }) => {
               <Text style={styles.footerSub}>{cartItems.length} item{cartItems.length > 1 ? "s" : ""}</Text>
             </View>
             <TouchableOpacity
-              style={[styles.checkoutBtn, checkingOut && styles.checkoutBtnOff]}
-              disabled={checkingOut}
+              style={styles.checkoutBtn}
               activeOpacity={0.85}
               onPress={handleCheckout}
             >
-              {checkingOut ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Text style={styles.checkoutBtnText}>Checkout</Text>
-                  <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 6 }} />
-                </>
-              )}
+              <Text style={styles.checkoutBtnText}>Checkout</Text>
+              <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 6 }} />
             </TouchableOpacity>
           </View>
         </View>
@@ -520,7 +506,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "rgba(228,187,103,0.4)",
   },
-  fallbackWeight: { fontSize: 13, fontWeight: "700", color: C.goldMid },
+  fallbackWeight: { fontSize: 13, fontWeight: "700", color: "#E4BB67" },
   fallbackDivider: { width: 22, height: 1, backgroundColor: "rgba(228,187,103,0.4)", marginVertical: 3 },
   fallbackPurity: { fontSize: 9, fontWeight: "700", color: "rgba(228,187,103,0.7)", letterSpacing: 0.4 },
 
@@ -529,7 +515,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(34,30,28,0.88)",
     borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2,
   },
-  purityPillText: { fontSize: 9, fontWeight: "600", color: C.goldMid, letterSpacing: 0.4 },
+  purityPillText: { fontSize: 9, fontWeight: "600", color: "#E4BB67", letterSpacing: 0.4 },
 
   // Details — right side, fills remaining width
   detailsCol: { flex: 1, gap: 5 },
@@ -579,6 +565,7 @@ const styles = StyleSheet.create({
   specLabel: { fontSize: 13, color: C.navyLight },
   specValue: { fontSize: 13, fontWeight: "700", color: C.navy },
   specFree: { fontSize: 13, fontWeight: "600", color: C.green },
+  deliveryRateNote: { fontSize: 10.5, color: C.navyLight, textAlign: "right", marginTop: -3, marginBottom: 6 },
   grandRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.divider,
@@ -607,10 +594,9 @@ const styles = StyleSheet.create({
   checkoutBtn: {
     flex: 1,
     flexDirection: "row",
-    backgroundColor: C.navy, borderRadius: 14, height: 52,
+    backgroundColor: C.gold, borderRadius: 14, height: 52,
     justifyContent: "center", alignItems: "center",
   },
-  checkoutBtnOff: { backgroundColor: C.border },
   checkoutBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", letterSpacing: 0.2 },
 
   // ── Empty state ──
@@ -622,7 +608,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: "700", color: C.navy, marginBottom: 6 },
   emptySubtitle: { fontSize: 13, color: C.navyLight, marginBottom: 24, textAlign: "center" },
   browseBtn: {
-    backgroundColor: "#CF8B17", borderRadius: 13, paddingHorizontal: 28, paddingVertical: 14,
+    backgroundColor: C.gold, borderRadius: 13, paddingHorizontal: 28, paddingVertical: 14,
   },
   browseBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", letterSpacing: 0.1 },
 

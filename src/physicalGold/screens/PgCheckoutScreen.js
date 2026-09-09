@@ -20,6 +20,7 @@ import { useSelector } from "react-redux";
 import { useFocusEffect } from "@react-navigation/native";
 import { selectUserId, selectAccessToken } from "../../store/authSlice";
 import PgLayout from "../components/PgLayout";
+import PgLoader from "../components/PgLoader";
 import {
   getUserProfile,
   getUserAddresses,
@@ -30,13 +31,13 @@ import {
 
 // ─── Design Tokens (mirrors PgCartScreen exactly) ────────────────────────────
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#CF8B17",
+  gold: "#0E6B57",
   goldLight: "#F7F4ED",
-  goldMid: "#E4BB67",
-  goldDim: "rgba(207,139,23,0.10)",
-  goldDimBorder: "rgba(207,139,23,0.25)",
+  goldMid: "#2FA085",
+  goldDim: "rgba(14,107,87,0.10)",
+  goldDimBorder: "rgba(14,107,87,0.25)",
   navy: "#1C1C1E",
   navyMid: "#48484C",
   navyLight: "#7A7A80",
@@ -48,47 +49,11 @@ const C = {
   redBorder: "#FDECEA",
   border: "#E7E0DA",
   divider: "#EEEBE8",
-  surfaceAlt: "#F8F7F6",
+  surfaceAlt: "#FFFFFF",
   grey: "#E7E0DA",
   warn: "#D4A574",
   warnBg: "#FDF6ED",
   warnBorder: "#D4A574",
-};
-
-// ─── Shimmer (same as PgCartScreen) ──────────────────────────────────────────
-const ShimmerBox = ({ width, height, borderRadius = 8 }) => {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(anim, {
-          toValue: 0,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-  }, []);
-  const opacity = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.25, 0.55],
-  });
-  return (
-    <Animated.View
-      style={{
-        width,
-        height,
-        borderRadius,
-        backgroundColor: C.goldMid,
-        opacity,
-      }}
-    />
-  );
 };
 
 // ─── Section Header (same as PgCartScreen) ───────────────────────────────────
@@ -97,42 +62,6 @@ const SectionHeader = ({ title }) => (
     <Text style={styles.sectionTitle}>{title}</Text>
   </View>
 );
-
-// ─── Skeleton loader (same pattern as PgCartScreen) ──────────────────────────
-const SkeletonBlock = ({ height = 80 }) => {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(anim, {
-          toValue: 0,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-  }, []);
-  const opacity = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.25, 0.55],
-  });
-  return (
-    <Animated.View
-      style={{
-        height,
-        borderRadius: 14,
-        backgroundColor: C.goldMid,
-        opacity,
-        marginBottom: 12,
-      }}
-    />
-  );
-};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PgCheckoutScreen = ({ navigation, route }) => {
@@ -147,8 +76,8 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [showAllAddresses, setShowAllAddresses] = useState(false);
   const [deletingAddressId, setDeletingAddressId] = useState(null);
-  // Cash on Delivery is the only payment method offered right now.
-  const paymentMode = "COD";
+  // COD or online payment (Cashfree — UPI/Cards/Net Banking), matching web.
+  const [paymentMode, setPaymentMode] = useState("COD");
   const [profileComplete, setProfileComplete] = useState(false);
   
   // Store cart data in state so it persists when navigating back
@@ -157,6 +86,13 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   const [cartSubtotal, setCartSubtotal] = useState(0);
   const [cartGst, setCartGst] = useState(0);
   const [cartMaking, setCartMaking] = useState(0);
+
+  // Distance-based delivery — same as PgCartScreen: recomputed by the
+  // backend whenever we pass the currently-selected address's id, so this
+  // updates automatically if the user switches addresses.
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState(null);
+  const [ratePerKm, setRatePerKm] = useState(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -212,12 +148,21 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           area: a.area || "",
           pinCode: a.pincode || a.pinCode || "",
           state: a.state || "",
+          latitude: a.latitude || "",
+          longitude: a.longitude || "",
         }));
 
         if (list.length > 0) {
           hadAddressesRef.current = true;
           setAddresses(list);
-          setSelectedAddressId((prev) => (prev && list.some((a) => a.id === prev)) ? prev : list[0].id);
+          // Same "preferred default" as PgCartScreen — the first address that
+          // actually has coordinates, not just list[0] — so both screens
+          // compute delivery against the same address and show the same total.
+          setSelectedAddressId((prev) => {
+            if (prev && list.some((a) => a.id === prev)) return prev;
+            const preferred = list.find((a) => a.latitude && a.longitude) || list[0];
+            return preferred.id;
+          });
         } else if (!hadAddressesRef.current) {
           // Only a genuinely new user (never had addresses loaded) hits the
           // empty-state prompt — a refetch that transiently returns empty
@@ -253,6 +198,9 @@ const PgCheckoutScreen = ({ navigation, route }) => {
         setCartSubtotal(cart?.totalCartValue || 0);
         setCartGst(cart?.totalGstCharges || 0);
         setCartMaking(cart?.totalMakingCharges || 0);
+        setDeliveryFee(cart?.deliveryFee || 0);
+        setDeliveryDistanceKm(cart?.deliveryDistanceKm ?? null);
+        setRatePerKm(cart?.ratePerKm ?? null);
       } else if (routeCartTotal && routeCartItems) {
         // Fallback to route params if API fails
         console.log('[Checkout] Using cart data from route params');
@@ -283,6 +231,25 @@ const PgCheckoutScreen = ({ navigation, route }) => {
       }, wait);
     }
   };
+
+  // Re-fetches the cart with the selected address's id so delivery fee/km
+  // stay correct — runs once selectedAddressId is first known, and again
+  // whenever the user picks a different saved address.
+  useEffect(() => {
+    if (!userId || !selectedAddressId) return;
+    getCart(userId, selectedAddressId)
+      .then((cart) => {
+        setCartItems(cart?.itemsInCart || []);
+        setCartTotal(cart?.totalPayableAmount || 0);
+        setCartSubtotal(cart?.totalCartValue || 0);
+        setCartGst(cart?.totalGstCharges || 0);
+        setCartMaking(cart?.totalMakingCharges || 0);
+        setDeliveryFee(cart?.deliveryFee || 0);
+        setDeliveryDistanceKm(cart?.deliveryDistanceKm ?? null);
+        setRatePerKm(cart?.ratePerKm ?? null);
+      })
+      .catch(() => {});
+  }, [userId, selectedAddressId]);
 
   const handleDeleteAddress = async (addressId) => {
     Alert.alert(
@@ -364,7 +331,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     }
     Alert.alert(
       "Confirm Order",
-      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(cartTotal || 0).toLocaleString("en-IN")}\nPayment: Cash on Delivery`,
+      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(cartTotal || 0).toLocaleString("en-IN")}\nPayment: ${paymentMode === "COD" ? "Cash on Delivery" : "Online Payment"}`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Confirm Order", onPress: () => processOrder() },
@@ -389,10 +356,23 @@ const PgCheckoutScreen = ({ navigation, route }) => {
       const txnId = orderRes?.txnId;
       const totalAmount = orderRes?.totalAmount;
 
-      // COD orders are auto-confirmed by the backend on creation (this app's
-      // only payment mode right now) — calling confirmOrder here is rejected
-      // with "Order already confirmed", so it's skipped entirely.
+      if (paymentMode === "CASHFREE") {
+        // Online payment — hand off to the Cashfree SDK screen; it verifies
+        // via webhook and generates the invoice once payment completes.
+        navigation.navigate("PgPaymentHandler", {
+          orderId,
+          orderNumber,
+          txnId,
+          paymentSessionId: orderRes?.paymentSessionId,
+          totalAmount,
+          paymentMode,
+        });
+        return;
+      }
 
+      // COD orders are auto-confirmed by the backend on creation — calling
+      // confirmOrder here is rejected with "Order already confirmed", so
+      // it's skipped entirely.
       navigation.navigate("PgPaymentStatus", {
         orderId,
         orderNumber,
@@ -413,34 +393,18 @@ const PgCheckoutScreen = ({ navigation, route }) => {
         return;
       }
       Alert.alert("Checkout Failed", errorMessage);
-    } finally {
+      // Only re-enable the button on failure — on success we're navigating
+      // away, and clearing the flag here would briefly re-enable it before
+      // the transition completes, opening a double-submit window.
       setCheckoutLoading(false);
     }
   };
 
-  // ── Loading skeleton ──
+  // ── Loading ──
   if (loading) {
     return (
       <PgLayout title="Checkout" showBack onBack={() => navigation.goBack()}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <View style={{ paddingTop: 4 }}>
-            <ShimmerBox width="40%" height={13} />
-            <View style={{ height: 14 }} />
-            <SkeletonBlock height={90} />
-            <SkeletonBlock height={90} />
-            <View style={{ height: 8 }} />
-            <ShimmerBox width="40%" height={13} />
-            <View style={{ height: 14 }} />
-            <SkeletonBlock height={100} />
-            <View style={{ height: 8 }} />
-            <ShimmerBox width="40%" height={13} />
-            <View style={{ height: 14 }} />
-            <SkeletonBlock height={140} />
-          </View>
-        </ScrollView>
+        <PgLoader label="Loading checkout..." />
       </PgLayout>
     );
   }
@@ -532,7 +496,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
                               <Text
                                 style={[
                                   styles.addrTypeText,
-                                  selected && { color: C.gold },
+                                  selected && { color: C.navy },
                                 ]}
                               >
                                 {addr.type}
@@ -610,16 +574,33 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           <View style={styles.card}>
             <SectionHeader title="PAYMENT METHOD" />
 
-            <View style={styles.codRow}>
-              <View style={styles.payIconBoxSelected}>
-                <Ionicons name="cash-outline" size={18} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.payLabelSelected}>Cash on Delivery</Text>
-                <Text style={styles.paySub}>Pay at your doorstep</Text>
-              </View>
-              <Ionicons name="checkmark-circle" size={20} color={C.gold} />
-            </View>
+            {[
+              { id: "COD", icon: "cash-outline", label: "Cash on Delivery", sub: "Pay at your doorstep" },
+              { id: "CASHFREE", icon: "card-outline", label: "Online Payment", sub: "UPI, Cards, Net Banking" },
+            ].map((opt, i) => {
+              const selected = paymentMode === opt.id;
+              return (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={[styles.codRow, !selected && styles.codRowUnselected, i > 0 && { marginTop: 10 }]}
+                  onPress={() => setPaymentMode(opt.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.payIconBoxSelected, !selected && styles.payIconBoxUnselected]}>
+                    <Ionicons name={opt.icon} size={18} color={selected ? "#fff" : C.navyLight} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.payLabelSelected}>{opt.label}</Text>
+                    <Text style={styles.paySub}>{opt.sub}</Text>
+                  </View>
+                  <Ionicons
+                    name={selected ? "checkmark-circle" : "ellipse-outline"}
+                    size={20}
+                    color={selected ? C.gold : C.border}
+                  />
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* ── Order Summary — gold card matching PgCartScreen summaryCard ── */}
@@ -657,9 +638,16 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             <View style={styles.specDivider} />
 
             <View style={styles.specRow}>
-              <Text style={styles.specLabel}>Shipping</Text>
-              <Text style={styles.specFree}>Free</Text>
+              <Text style={styles.specLabel}>
+                Delivery{deliveryDistanceKm !== null ? ` (${deliveryDistanceKm} km)` : ""}
+              </Text>
+              <Text style={styles.specValue}>
+                ₹{Number(deliveryFee || 0).toLocaleString("en-IN")}
+              </Text>
             </View>
+            {ratePerKm !== null && deliveryDistanceKm !== null && (
+              <Text style={styles.deliveryRateNote}>₹{ratePerKm}/km delivery rate</Text>
+            )}
             <View style={styles.specDivider} />
 
             <View style={styles.specRow}>
@@ -670,7 +658,9 @@ const PgCheckoutScreen = ({ navigation, route }) => {
 
             <View style={styles.specRow}>
               <Text style={styles.specLabel}>Payment Method</Text>
-              <Text style={styles.specValue}>Cash on Delivery</Text>
+              <Text style={styles.specValue}>
+                {paymentMode === "COD" ? "Cash on Delivery" : "Online Payment"}
+              </Text>
             </View>
 
             <View style={styles.grandTotalRow}>
@@ -762,7 +752,7 @@ const styles = StyleSheet.create({
   manageText: {
     fontSize: 12,
     fontWeight: "700",
-    color: C.gold,
+    color: C.navyMid,
     marginBottom: 14,
   },
 
@@ -846,7 +836,7 @@ const styles = StyleSheet.create({
   addrTypeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: C.gold,
+    color: C.navyMid,
     letterSpacing: 0.8,
   },
   addrMainText: {
@@ -894,10 +884,10 @@ const styles = StyleSheet.create({
   showMoreText: {
     fontSize: 12,
     fontWeight: "700",
-    color: C.gold,
+    color: C.navy,
   },
 
-  // ── Payment (Cash on Delivery only) ──
+  // ── Payment — COD or Online (Cashfree) ──
   codRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -908,6 +898,10 @@ const styles = StyleSheet.create({
     backgroundColor: C.goldLight,
     padding: 14,
   },
+  codRowUnselected: {
+    borderColor: C.border,
+    backgroundColor: C.card,
+  },
   payIconBoxSelected: {
     width: 36,
     height: 36,
@@ -916,7 +910,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  payLabelSelected: { fontSize: 13, fontWeight: "700", color: C.gold, marginBottom: 2 },
+  payIconBoxUnselected: { backgroundColor: C.grey },
+  payLabelSelected: { fontSize: 13, fontWeight: "700", color: C.navy, marginBottom: 2 },
   paySub: {
     fontSize: 11,
     color: C.navyLight,
@@ -945,6 +940,7 @@ const styles = StyleSheet.create({
   specLabel: { fontSize: 13, color: C.navyLight },
   specValue: { fontSize: 13, fontWeight: "700", color: C.navy },
   specFree: { fontSize: 13, fontWeight: "600", color: C.green },
+  deliveryRateNote: { fontSize: 10.5, color: C.navyLight, textAlign: "right", marginTop: -3, marginBottom: 6 },
   grandTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -990,7 +986,7 @@ const styles = StyleSheet.create({
 
   checkoutBtn: {
     flexDirection: "row",
-    backgroundColor: C.navy,
+    backgroundColor: C.gold,
     borderRadius: 14,
     height: 52,
     paddingHorizontal: 22,
