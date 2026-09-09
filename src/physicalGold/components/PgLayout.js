@@ -2,6 +2,7 @@ import React from "react";
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
@@ -41,28 +42,28 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
 
       <View style={[h.header, { paddingTop: insets.top }]}>
         <View style={h.inner}>
-          {/* LEFT */}
+          {/* LEFT — logo sits here now, not centered, when there's no back
+              button. A left-aligned logo next to the actions on the right
+              is the standard, professional header layout. */}
           {showBack ? (
             <TouchableOpacity style={h.iconBtn} onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="arrow-back" size={22} color={HEADER_COLORS.text} />
             </TouchableOpacity>
+          ) : !hideLogo ? (
+            <Image
+              source={require("../../../assets/logo.png")}
+              style={h.logoImg}
+              resizeMode="contain"
+            />
           ) : (
             <View style={h.iconBtn} />
           )}
 
           {/* CENTER */}
-          {showBack ? (
+          {showBack && (
             <Text style={h.title} numberOfLines={1}>
               {title}
             </Text>
-          ) : (
-            !hideLogo && (
-              <View style={h.logoWrap}>
-                <Text style={h.logoOxy}>OXY</Text>
-                <Text style={h.logoGold}>GOLD</Text>
-                <Text style={h.logoAi}>.AI</Text>
-              </View>
-            )
           )}
 
           {/* RIGHT — cart is reachable from every shopping-related screen;
@@ -264,15 +265,7 @@ const h = StyleSheet.create({
     alignItems: "center",
   },
   cartBadgeText: { color: "#fff", fontSize: 9, fontWeight: "700" },
-  logoWrap: { flexDirection: "row", alignItems: "center" },
-  logoOxy: { color: HEADER_COLORS.accent, fontWeight: "900", fontSize: 16 },
-  logoGold: { color: HEADER_COLORS.text, fontWeight: "900", fontSize: 16 },
-  logoAi: {
-    color: HEADER_COLORS.accent,
-    fontWeight: "900",
-    fontSize: 16,
-    marginLeft: 2,
-  },
+  logoImg: { width: 52, height: 52 },
   title: {
     flex: 1,
     textAlign: "center",

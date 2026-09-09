@@ -1189,7 +1189,7 @@ const PgHomeScreen = ({ navigation }) => {
           address the delivery-fee calc treats as default so it's never out
           of sync with checkout. ── */}
       <LinearGradient
-        colors={["rgba(106,44,110,0.16)", "#FFFFFF"]}
+        colors={["rgba(207,139,23,0.20)", "#FFFFFF"]}
         style={styles.combinedTopBar}
       >
         <TouchableOpacity
