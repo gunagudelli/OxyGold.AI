@@ -8,11 +8,9 @@ import {
   ScrollView,
   ActivityIndicator,
   Animated,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -20,31 +18,33 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_AUTH, API_ROLE } from "../constants/api";
 
-const { width: W } = Dimensions.get("window");
-
 const SELECTED_ROLE = "DIGITALGOld";
 
-// ── Colours — warm cream page, matching Login and the rest of the app ──────
+// ── Colours — sophisticated luxury palette: deep emerald, warm champagne
+// gold, soft ivory background, dark charcoal text. One flat background
+// throughout (no colour-block header) — emerald/gold used only as accents. ──
 const C = {
-  bg: "#FBF3E4",
-  bgLight: "#1a3060",
-  card: "#FBF3E4",
-  gold: "#f0bb3a",
-  goldDark: "#d9a020",
-  navy: "#1C1C1E",
-  blue: "#2a4e9e",
+  bg: "#FAF7F0",
+  card: "#FAF7F0",
+  emerald: "#0B4F3B",
+  emeraldTint: "rgba(11,79,59,0.06)",
+  champagne: "#F3D57A",
+  gold: "#C9962B",
+  charcoal: "#26282B",
+  muted: "#6B6F76",
   white: "#ffffff",
-  label: "#8A7F6E",
-  border: "rgba(217,160,32,0.28)",
+  border: "rgba(11,79,59,0.14)",
   inputBg: "#ffffff",
-  prefixBg: "#f4f5f7",
   success: "#16a34a",
   successBg: "#f0fdf4",
   successBd: "#bbf7d0",
   error: "#dc2626",
   errorBg: "#fef2f2",
-  muted: "#A79C8E",
-  text: "#1C1C1E",
+  // Back-compat aliases so the OTP-step styles below (unchanged) still resolve.
+  navy: "#26282B",
+  goldDark: "#C9962B",
+  label: "#6B6F76",
+  text: "#26282B",
 };
 
 // ── Slide-in animation hook ───────────────────────────────────────────────────
@@ -96,7 +96,41 @@ const RegisterScreen = ({ navigation }) => {
   const [showOtpSent, setShowOtpSent] = useState(false);
 
   const hiddenOtpRef = useRef(null);
-  // Removed animation to prevent blinking on navigation
+  // Removed step-change animation to prevent blinking on navigation — this
+  // entrance animation is separate: it runs once on mount only, matching
+  // the Borrower app's login/register screens.
+  const entranceOpacity = useRef(new Animated.Value(0)).current;
+  const entranceTranslateY = useRef(new Animated.Value(40)).current;
+  // Logo pops in with a spring bounce, slightly ahead of the card.
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.6)).current;
+  useEffect(() => {
+    Animated.timing(logoOpacity, {
+      toValue: 1,
+      duration: 350,
+      useNativeDriver: true,
+    }).start();
+    Animated.spring(logoScale, {
+      toValue: 1,
+      friction: 5,
+      tension: 60,
+      useNativeDriver: true,
+    }).start();
+    Animated.parallel([
+      Animated.timing(entranceOpacity, {
+        toValue: 1,
+        duration: 500,
+        delay: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(entranceTranslateY, {
+        toValue: 0,
+        duration: 500,
+        delay: 120,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   // Resend countdown
   useEffect(() => {
@@ -229,78 +263,49 @@ const RegisterScreen = ({ navigation }) => {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* Plain decorative gold-corner texture, same one Login uses —
-            wordmark/tagline are real Text elements below, not baked in. */}
-        <Image
-          source={require("../../assets/Backgrond image.png")}
-          style={styles.screenBg}
-          resizeMode="cover"
-          pointerEvents="none"
-        />
-
+        {/* One flat ivory background throughout — no colour-block header.
+            Logo sits near the top with minimal padding, then the form
+            block centers vertically as one unit so short content doesn't
+            leave a dead zone at the bottom. */}
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Card ── */}
-          <View style={styles.card}>
-            {/* LEFT PANEL — shown on wider screens, hidden on mobile */}
-            {W > 600 && (
-              <View style={styles.leftPanel}>
-                <Image
-                  source={require("../../assets/loginImg.png")}
-                  style={StyleSheet.absoluteFill}
-                  resizeMode="cover"
-                />
-                <View style={styles.leftOverlay} />
-                <View style={styles.leftContent}>
-                  <Text style={styles.logoName}>OXYGOLD.AI</Text>
-                  <View>
-                    <Text style={styles.tagline}>
-                      Start your{"\n"}
-                      <Text style={styles.taglineGold}>gold journey</Text>
-                      {"\n"}today
-                    </Text>
-                    <Text style={styles.leftDesc}>
-                      Join thousands of smart investors building wealth with
-                      digital gold — secure, insured, and always live rates.
-                    </Text>
-                    <View style={styles.statsRow}>
-                      {[
-                        ["24K", "Purity"],
-                        ["₹100", "Min. Buy"],
-                        ["100%", "Insured"],
-                      ].map(([v, l]) => (
-                        <View key={l} style={styles.stat}>
-                          <Text style={styles.statVal}>{v}</Text>
-                          <Text style={styles.statLbl}>{l}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                </View>
-              </View>
-            )}
+          <Animated.Image
+            source={require("../../assets/logo-header.png")}
+            style={[
+              styles.headerLogo,
+              {
+                opacity: logoOpacity,
+                transform: [{ scale: logoScale }],
+              },
+            ]}
+            resizeMode="contain"
+          />
+          <Text style={styles.headerTagline}>
+            Pure Gold & Silver, Delivered to Your Door
+          </Text>
 
-            {/* RIGHT PANEL */}
-            <View style={styles.rightPanel}>
-              <View>
+          <Animated.View
+            style={[
+              styles.card,
+              {
+                opacity: entranceOpacity,
+                transform: [{ translateY: entranceTranslateY }],
+              },
+            ]}
+          >
                 {step === "phone" ? (
                   <>
-                    <View style={styles.wordmarkRow}>
-                      <Text style={styles.wordmarkOxy}>OXY</Text>
-                      <Text style={styles.wordmarkGold}>GOLD</Text>
-                      <Text style={styles.wordmarkAi}>.AI</Text>
-                    </View>
-                    <Text style={styles.heroTagline}>
-                      Pure Gold & Silver Delivered Home
+                    <Text style={styles.formTitle}>Create Account</Text>
+                    <Text style={styles.formSub}>
+                      Sign up to start investing in gold & silver.
                     </Text>
 
                     <View style={styles.phonePillWrap}>
                       <Text style={styles.flagEmoji}>🇮🇳</Text>
                       <Text style={styles.countryCodeText}>+91</Text>
-                      <Ionicons name="chevron-down" size={13} color={C.muted} />
                       <View style={styles.phonePillDivider} />
                       <TextInput
                         style={styles.phonePillInput}
@@ -310,7 +315,7 @@ const RegisterScreen = ({ navigation }) => {
                           setError("");
                         }}
                         keyboardType="number-pad"
-                        placeholder="Enter your mobile number"
+                        placeholder="Enter 10-digit mobile number"
                         placeholderTextColor={C.muted}
                         returnKeyType="done"
                         onSubmitEditing={handleSendOtp}
@@ -327,33 +332,33 @@ const RegisterScreen = ({ navigation }) => {
                     <TouchableOpacity
                       onPress={handleSendOtp}
                       disabled={loading}
-                      activeOpacity={0.85}
+                      activeOpacity={0.88}
                       style={loading && styles.btnDisabled}
                     >
                       <LinearGradient
-                        colors={["#FBDA86", "#E7A730"]}
+                        colors={[C.champagne, C.gold]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.continueBtn}
                       >
                         {loading ? (
-                          <ActivityIndicator color={C.navy} size="small" />
+                          <ActivityIndicator color={C.charcoal} size="small" />
                         ) : (
                           <View style={styles.continueBtnInner}>
                             <Text style={styles.continueBtnText}>Continue</Text>
-                            <Ionicons name="arrow-forward" size={18} color={C.navy} />
+                            <Ionicons name="arrow-forward" size={19} color={C.charcoal} />
                           </View>
                         )}
                       </LinearGradient>
                     </TouchableOpacity>
 
-                    <View style={styles.trustRow}>
-                      <Ionicons name="shield-checkmark-outline" size={15} color={C.goldDark} />
-                      <Text style={styles.trustText}>Secure & trusted delivery</Text>
+                    <View style={styles.trustBlock}>
+                      <Text style={styles.trustPrimary}>🔒 Your information is secure</Text>
+                      <Text style={styles.trustSecondary}>Secure payments • Trusted delivery</Text>
                     </View>
 
                     <Text style={styles.footerText}>
-                      Already have an account?{"  "}
+                      Already have an account?{" "}
                       <Text
                         style={styles.link}
                         onPress={() => navigation.navigate("Login")}
@@ -362,12 +367,11 @@ const RegisterScreen = ({ navigation }) => {
                       </Text>
                     </Text>
 
-                    <TouchableOpacity
-                      style={styles.backBtn}
-                      onPress={() => navigation.goBack()}
-                    >
-                      <Text style={styles.backBtnText}>← Back to home</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.legalText}>
+                      By continuing, you agree to our{" "}
+                      <Text style={styles.legalLink}>Terms of Service</Text> and{" "}
+                      <Text style={styles.legalLink}>Privacy Policy</Text>
+                    </Text>
                   </>
                 ) : (
                   <>
@@ -474,9 +478,7 @@ const RegisterScreen = ({ navigation }) => {
                     </TouchableOpacity>
                   </>
                 )}
-              </View>
-            </View>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -486,139 +488,90 @@ const RegisterScreen = ({ navigation }) => {
 // ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-  scroll: {
-    flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
 
-  // Plain decorative texture — fine to crop with "cover" since there's no
-  // baked-in text/content that needs to land in a specific spot.
-  screenBg: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  wordmarkRow: {
-    flexDirection: "row",
+  // Matches logo-header.png's real cropped aspect ratio (469×78 ≈ 6:1) —
+  // sizing the box to the actual content bounds, not the source canvas,
+  // so the wordmark fills it instead of floating in transparent padding.
+  headerLogo: {
+    width: 240,
+    height: 40,
     alignSelf: "center",
     marginBottom: 8,
   },
-  wordmarkOxy: { fontSize: 30, fontWeight: "800", color: C.goldDark, letterSpacing: -0.5 },
-  wordmarkGold: { fontSize: 30, fontWeight: "800", color: C.navy, letterSpacing: -0.5 },
-  wordmarkAi: { fontSize: 30, fontWeight: "800", color: C.goldDark, letterSpacing: -0.5 },
-  heroTagline: {
-    fontSize: 14,
-    color: C.label,
+  headerTagline: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: C.muted,
     textAlign: "center",
-    marginBottom: 28,
+    marginBottom: 32,
+    letterSpacing: 0.1,
   },
 
-  // Card — no floating-card shadow/border on mobile, sits flush on the
-  // cream page. Desktop leftPanel keeps its own dark side-panel look.
-  card: {
-    width: "100%",
-    maxWidth: 720,
-    borderRadius: 18,
-    overflow: "hidden",
-    flexDirection: "row",
-  },
-
-  // Left panel
-  leftPanel: { width: 280, backgroundColor: "#060f1e", overflow: "hidden" },
-  leftOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(6,15,30,0.65)",
-  },
-  leftContent: {
-    flex: 1,
-    justifyContent: "space-between",
-    padding: 28,
-    zIndex: 2,
-  },
-  logoName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: C.gold,
-    letterSpacing: 1,
-  },
-  tagline: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: C.white,
-    lineHeight: 28,
-    marginBottom: 10,
-  },
-  taglineGold: { color: C.gold },
-  leftDesc: {
-    fontSize: 11,
-    color: "rgba(255,255,255,0.42)",
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  statsRow: { flexDirection: "row", gap: 18 },
-  stat: { gap: 2 },
-  statVal: { fontSize: 18, fontWeight: "700", color: C.gold },
-  statLbl: {
-    fontSize: 9,
-    color: "rgba(255,255,255,0.32)",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-
-  // Right panel
-  rightPanel: {
-    flex: 1,
-    backgroundColor: "transparent",
-    padding: 32,
+  scroll: {
+    flexGrow: 1,
     justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 32,
   },
+
+  card: {},
 
   phonePillWrap: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: C.inputBg,
-    borderRadius: 30,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: C.border,
     paddingHorizontal: 16,
     height: 56,
-    gap: 8,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
-  flagEmoji: { fontSize: 18 },
-  countryCodeText: { fontSize: 15, fontWeight: "600", color: C.text },
-  phonePillDivider: { width: 1, height: 24, backgroundColor: C.border, marginHorizontal: 4 },
-  phonePillInput: { flex: 1, fontSize: 15, color: C.text, padding: 0 },
+  flagEmoji: { fontSize: 19 },
+  countryCodeText: { fontSize: 15, fontWeight: "700", color: C.charcoal },
+  phonePillDivider: { width: 1, height: 24, backgroundColor: C.border, marginHorizontal: 2 },
+  phonePillInput: { flex: 1, fontSize: 15, color: C.charcoal, padding: 0 },
 
   continueBtn: {
-    marginTop: 22,
-    borderRadius: 30,
-    paddingVertical: 16,
+    marginTop: 24,
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: C.goldDark,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowColor: C.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 5,
   },
   continueBtnInner: { flexDirection: "row", alignItems: "center", gap: 8 },
-  continueBtnText: { fontSize: 16, fontWeight: "700", color: C.navy },
+  continueBtnText: { fontSize: 16, fontWeight: "800", color: C.charcoal, letterSpacing: 0.2 },
 
-  trustRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
+  trustBlock: { alignItems: "center", marginTop: 24, gap: 4 },
+  trustPrimary: { fontSize: 12.5, fontWeight: "700", color: C.emerald },
+  trustSecondary: { fontSize: 11.5, color: C.muted },
+
+  legalText: {
+    textAlign: "center",
+    fontSize: 10.5,
+    color: C.muted,
     marginTop: 16,
+    lineHeight: 15,
+    paddingHorizontal: 8,
   },
-  trustText: { fontSize: 12.5, color: C.label, fontWeight: "500" },
+  legalLink: { color: C.emerald, fontWeight: "600", textDecorationLine: "underline" },
 
   formTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: C.navy,
-    marginBottom: 4,
-    letterSpacing: -0.3,
+    fontSize: 24,
+    fontWeight: "800",
+    color: C.charcoal,
+    marginBottom: 6,
+    letterSpacing: -0.4,
   },
   formSub: { fontSize: 12, color: C.label, marginBottom: 22 },
 

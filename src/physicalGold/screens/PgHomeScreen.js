@@ -1737,7 +1737,7 @@ const styles = StyleSheet.create({
   locationValue: {
     fontSize: 12.5,
     fontWeight: "700",
-    color: C.textPrimary,
+    color: "#48484C",
     marginTop: 1,
   },
 

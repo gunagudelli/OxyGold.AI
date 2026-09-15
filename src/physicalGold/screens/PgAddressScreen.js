@@ -594,6 +594,33 @@ const PgAddressScreen = ({ navigation, route }) => {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
+              {/* Use current location — shown first so it can auto-fill the
+                  fields below instead of being buried after them. */}
+              <Text style={styles.gpsIntroText}>
+                Use your current location to auto-fill your address
+              </Text>
+              <TouchableOpacity
+                style={styles.gpsBtn}
+                onPress={handleFetchCurrentLocation}
+                disabled={fetchingLocation}
+                activeOpacity={0.75}
+              >
+                {fetchingLocation ? (
+                  <ActivityIndicator size="small" color={C.textPri} />
+                ) : (
+                  <Ionicons name="navigate-outline" size={15} color={C.textPri} />
+                )}
+                <Text style={styles.gpsBtnText}>
+                  {fetchingLocation ? "Fetching..." : "Use my current GPS location instead"}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.orDivider}>
+                <View style={styles.orDividerLine} />
+                <Text style={styles.orDividerText}>OR ENTER MANUALLY</Text>
+                <View style={styles.orDividerLine} />
+              </View>
+
               {/* 1–2. State + PIN Code, side by side */}
               <View style={styles.fieldRow}>
                 <View style={[styles.fieldContainer, styles.fieldHalf]}>
@@ -783,22 +810,6 @@ const PgAddressScreen = ({ navigation, route }) => {
                   </>
                 )}
               </View>
-
-              <TouchableOpacity
-                style={styles.gpsBtn}
-                onPress={handleFetchCurrentLocation}
-                disabled={fetchingLocation}
-                activeOpacity={0.75}
-              >
-                {fetchingLocation ? (
-                  <ActivityIndicator size="small" color={C.textPri} />
-                ) : (
-                  <Ionicons name="navigate-outline" size={15} color={C.textPri} />
-                )}
-                <Text style={styles.gpsBtnText}>
-                  {fetchingLocation ? "Fetching..." : "Use my current GPS location instead"}
-                </Text>
-              </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.confirmBtn, saving && styles.confirmBtnDisabled]}
@@ -1012,12 +1023,23 @@ const styles = StyleSheet.create({
   locationStatusRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10, marginTop: -4 },
   locationStatusText: { fontSize: 11.5, color: C.textTer, fontWeight: "500" },
 
+  gpsIntroText: {
+    fontSize: 12.5, color: C.textSec, fontWeight: "500",
+    textAlign: "center", marginBottom: 10,
+  },
   gpsBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    borderWidth: 1, borderColor: C.border, borderRadius: 12,
-    paddingVertical: 11, marginBottom: 16,
+    borderWidth: 1.5, borderColor: C.goldDimBorder, backgroundColor: C.goldDim,
+    borderRadius: 12, paddingVertical: 13, marginBottom: 4,
   },
-  gpsBtnText: { fontSize: 12.5, fontWeight: "600", color: C.textPri },
+  gpsBtnText: { fontSize: 13, fontWeight: "700", color: C.gold },
+
+  orDivider: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    marginTop: 18, marginBottom: 18,
+  },
+  orDividerLine: { flex: 1, height: 1, backgroundColor: C.border },
+  orDividerText: { fontSize: 10.5, fontWeight: "700", color: C.textTer, letterSpacing: 0.5 },
 
   confirmBtn: {
     backgroundColor: C.gold,
