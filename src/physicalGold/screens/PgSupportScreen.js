@@ -258,7 +258,7 @@ const PgSupportScreen = ({ navigation }) => {
 
           {!showForm ? (
             <TouchableOpacity style={styles.newQueryBtn} onPress={() => setShowForm(true)} activeOpacity={0.85}>
-              <Ionicons name="add-circle-outline" size={18} color="#fff" />
+              <Ionicons name="add-circle-outline" size={15} color="#fff" />
               <Text style={styles.newQueryBtnText}>Raise a New Query</Text>
             </TouchableOpacity>
           ) : (
@@ -362,10 +362,11 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: C.navyLight, marginBottom: 16, lineHeight: 19 },
 
   newQueryBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    backgroundColor: C.gold, borderRadius: 12, paddingVertical: 13, marginBottom: 18,
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    alignSelf: "flex-start",
+    backgroundColor: C.gold, borderRadius: 9, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 18,
   },
-  newQueryBtnText: { color: "#fff", fontSize: 14, fontWeight: "800" },
+  newQueryBtnText: { color: "#fff", fontSize: 12.5, fontWeight: "800" },
 
   formCard: {
     backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border,

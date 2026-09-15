@@ -51,7 +51,7 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
             </TouchableOpacity>
           ) : !hideLogo ? (
             <Image
-              source={require("../../../assets/logo.png")}
+              source={require("../../../assets/logo-wordmark.png")}
               style={h.logoImg}
               resizeMode="contain"
             />
@@ -265,7 +265,7 @@ const h = StyleSheet.create({
     alignItems: "center",
   },
   cartBadgeText: { color: "#fff", fontSize: 9, fontWeight: "700" },
-  logoImg: { width: 52, height: 52 },
+  logoImg: { width: 132, height: 22 },
   title: {
     flex: 1,
     textAlign: "center",

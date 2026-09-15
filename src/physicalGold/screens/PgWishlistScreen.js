@@ -60,7 +60,10 @@ const resolveItem = (raw) => ({
 });
 
 // ─── Single product card ──────────────────────────────────────────────────────
-const WishlistCard = ({ raw, onRemove, onAddToCart, onGoToCart, onViewDetails, removing, addingCart, inCart }) => {
+// Wrapped in memo, with every callback below a stable parent reference (see
+// handleRemove/handleAddToCart/handleGoToCart/handleViewDetails) — that's
+// what lets a wishlist action on one row skip re-rendering every other row.
+const WishlistCard = React.memo(({ raw, onRemove, onAddToCart, onGoToCart, onViewDetails, removing, addingCart, inCart }) => {
   const item = resolveItem(raw);
   const [imgUrl, setImgUrl]         = useState(item.imageUrl);
   const [imgLoading, setImgLoading] = useState(!item.imageUrl && !!item.productId);
@@ -104,7 +107,7 @@ const WishlistCard = ({ raw, onRemove, onAddToCart, onGoToCart, onViewDetails, r
   }, [item.productId, item.variantId]);
 
   return (
-    <TouchableOpacity style={s.card} onPress={onViewDetails} activeOpacity={0.88}>
+    <TouchableOpacity style={s.card} onPress={() => onViewDetails?.(item, raw)} activeOpacity={0.88}>
 
       {/* ── Image area — square, matches ProductCard on Home ─────────────── */}
       <View style={s.imageWrap}>
@@ -199,7 +202,7 @@ const WishlistCard = ({ raw, onRemove, onAddToCart, onGoToCart, onViewDetails, r
 
     </TouchableOpacity>
   );
-};
+});
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 const PgWishlistScreen = ({ navigation }) => {
@@ -234,43 +237,79 @@ const PgWishlistScreen = ({ navigation }) => {
     }, [userId, dispatch]),
   );
 
-  const handleRemove = async (wishlistId) => {
-    setRemovingId(wishlistId);
-    try {
-      await removeFromWishlist(wishlistId);
-      const updated = items.filter((w) => (w.id || w.wishlistId) !== wishlistId);
-      setItems(updated);
-      dispatch(setWishlistCount(updated.length));
-    } catch (e) {
-      Alert.alert("Error", e?.message || "Failed to remove");
-    } finally {
-      setRemovingId(null);
-    }
-  };
-
-  const handleAddToCart = async (raw, item) => {
-    if (!item.productId || !item.variantId) {
-      Alert.alert("Error", "Product info missing");
-      return;
-    }
-    setCartLoadingId(item.wishlistId);
-    try {
-      await addToCart(userId, item.productId, item.variantId, 1);
-      setCartVariantIds((prev) => new Set(prev).add(String(item.variantId)));
+  // useCallback + stable references passed straight to WishlistCard below
+  // (not wrapped in a fresh per-item arrow at the call site) is what lets
+  // WishlistCard's React.memo actually skip re-rendering rows that didn't
+  // change.
+  const handleRemove = useCallback(
+    async (wishlistId) => {
+      setRemovingId(wishlistId);
       try {
-        const cartData = await getCart(userId);
-        dispatch(setCartCount(cartData?.totalItemsInCart || 0));
-      } catch {}
-      Alert.alert("Added to Cart", `${item.name} added to your cart`, [
-        { text: "View Cart", onPress: () => navigation.navigate("PgCart") },
-        { text: "OK" },
-      ]);
-    } catch (e) {
-      Alert.alert("Error", e?.message || "Failed to add to cart");
-    } finally {
-      setCartLoadingId(null);
+        await removeFromWishlist(wishlistId);
+        const updated = items.filter((w) => (w.id || w.wishlistId) !== wishlistId);
+        setItems(updated);
+        dispatch(setWishlistCount(updated.length));
+      } catch (e) {
+        Alert.alert("Error", e?.message || "Failed to remove");
+      } finally {
+        setRemovingId(null);
+      }
+    },
+    [items, dispatch],
+  );
+
+  const handleAddToCart = useCallback(
+    async (raw, item) => {
+      if (!item.productId || !item.variantId) {
+        Alert.alert("Error", "Product info missing");
+        return;
+      }
+      setCartLoadingId(item.wishlistId);
+      try {
+        await addToCart(userId, item.productId, item.variantId, 1);
+        setCartVariantIds((prev) => new Set(prev).add(String(item.variantId)));
+        try {
+          const cartData = await getCart(userId);
+          dispatch(setCartCount(cartData?.totalItemsInCart || 0));
+        } catch {}
+        Alert.alert("Added to Cart", `${item.name} added to your cart`, [
+          { text: "View Cart", onPress: () => navigation.navigate("PgCart") },
+          { text: "OK" },
+        ]);
+      } catch (e) {
+        Alert.alert("Error", e?.message || "Failed to add to cart");
+      } finally {
+        setCartLoadingId(null);
+      }
+    },
+    [userId, dispatch, navigation],
+  );
+
+  const handleGoToCart = useCallback(
+    () => navigation.navigate("PgCart"),
+    [navigation],
+  );
+
+  const handleViewDetails = useCallback(
+    (item, raw) =>
+      navigation.navigate("PgProductDetails", {
+        productId: item.productId,
+        product: raw.product || raw,
+      }),
+    [navigation],
+  );
+
+  // ── Grid — pair items into rows of 2. Memoized so an unrelated re-render
+  // (removingId/cartLoadingId/cartVariantIds changing for one row) doesn't
+  // rebuild this array and force FlatList to re-render every row. Must run
+  // before the early returns below — hooks can't be conditional. ──────────
+  const rows = React.useMemo(() => {
+    const r = [];
+    for (let i = 0; i < items.length; i += 2) {
+      r.push([items[i], items[i + 1] || null]);
     }
-  };
+    return r;
+  }, [items]);
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
@@ -305,12 +344,6 @@ const PgWishlistScreen = ({ navigation }) => {
     );
   }
 
-  // ── Grid — pair items into rows of 2 ─────────────────────────────────────────
-  const rows = [];
-  for (let i = 0; i < items.length; i += 2) {
-    rows.push([items[i], items[i + 1] || null]);
-  }
-
   return (
     <PgLayout title="My Wishlist" showBack onBack={() => navigation.goBack()}>
       <View style={s.container}>
@@ -343,13 +376,8 @@ const PgWishlistScreen = ({ navigation }) => {
                       inCart={cartVariantIds.has(String(item.variantId))}
                       onRemove={handleRemove}
                       onAddToCart={handleAddToCart}
-                      onGoToCart={() => navigation.navigate("PgCart")}
-                      onViewDetails={() =>
-                        navigation.navigate("PgProductDetails", {
-                          productId: item.productId,
-                          product: raw.product || raw,
-                        })
-                      }
+                      onGoToCart={handleGoToCart}
+                      onViewDetails={handleViewDetails}
                     />
                   </View>
                 );

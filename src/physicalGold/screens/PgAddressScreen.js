@@ -10,6 +10,8 @@ import {
   Alert,
   Modal,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
@@ -251,6 +253,45 @@ const PgAddressScreen = ({ navigation, route }) => {
     }
   };
 
+  // ── Reverse geocoding — converts GPS coordinates back into address fields
+  // (pinCode, state, city, area, address) so "Use my current location" fills
+  // the form the same way the web app's does. ──
+  const reverseGeocodeLocation = async (lat, lng) => {
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_API_KEY}`
+      );
+      const data = await res.json();
+      if (data.status !== "OK" || !data.results?.length) return null;
+
+      const result = data.results[0];
+      const component = (type) =>
+        result.address_components.find((c) => c.types.includes(type))?.long_name || "";
+
+      // Building up the "Complete Address" from every fine-grained component
+      // (building → street → colony → neighborhood), skipping city/state/
+      // pincode/country since those are captured separately below.
+      const addressParts = [
+        "subpremise", "premise", "route",
+        "sublocality_level_2", "sublocality_level_1", "sublocality", "neighborhood",
+      ]
+        .map(component)
+        .filter(Boolean);
+      const uniqueAddressParts = [...new Set(addressParts)];
+
+      return {
+        pinCode: component("postal_code"),
+        state: component("administrative_area_level_1"),
+        city: component("locality") || component("administrative_area_level_2"),
+        area: component("sublocality_level_1") || component("sublocality") || component("neighborhood"),
+        address: uniqueAddressParts.join(", ") || result.formatted_address,
+      };
+    } catch (error) {
+      console.log("[ReverseGeocoding] Failed:", error?.message);
+      return null;
+    }
+  };
+
   // ── Manual "use my current location" — matches web's fetchCurrentLocation ──
   const handleFetchCurrentLocation = async () => {
     setFetchingLocation(true);
@@ -272,11 +313,24 @@ const PgAddressScreen = ({ navigation, route }) => {
         timeoutPromise,
       ]);
 
+      const { latitude, longitude } = position.coords;
       setAddressForm((prev) => ({
         ...prev,
-        latitude: String(position.coords.latitude),
-        longitude: String(position.coords.longitude),
+        latitude: String(latitude),
+        longitude: String(longitude),
       }));
+
+      const reverseGeocoded = await reverseGeocodeLocation(latitude, longitude);
+      if (reverseGeocoded) {
+        setAddressForm((prev) => ({
+          ...prev,
+          pinCode: reverseGeocoded.pinCode || prev.pinCode,
+          state: reverseGeocoded.state || prev.state,
+          city: reverseGeocoded.city || prev.city,
+          area: reverseGeocoded.area || prev.area,
+          address: reverseGeocoded.address || prev.address,
+        }));
+      }
     } catch (error) {
       Alert.alert(
         "Couldn't Get Location",
@@ -518,7 +572,10 @@ const PgAddressScreen = ({ navigation, route }) => {
         transparent
         onRequestClose={() => setShowModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
@@ -535,6 +592,7 @@ const PgAddressScreen = ({ navigation, route }) => {
             <ScrollView
               style={styles.modalScroll}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
               {/* 1–2. State + PIN Code, side by side */}
               <View style={styles.fieldRow}>
@@ -757,7 +815,7 @@ const PgAddressScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* State Dropdown Modal */}
@@ -909,7 +967,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontWeight: "700", color: C.textPri },
   closeBtn: { padding: 8, marginRight: -8 },
-  modalScroll: { paddingHorizontal: 16, paddingVertical: 16, maxHeight: 600 },
+  modalScroll: { paddingHorizontal: 16, paddingVertical: 16, flexShrink: 1 },
 
   fieldContainer: { marginBottom: 16 },
   fieldRow: { flexDirection: "row", gap: 12 },

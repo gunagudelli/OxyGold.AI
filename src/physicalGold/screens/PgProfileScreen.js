@@ -456,10 +456,11 @@ const PgProfileScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {/* ── Profile Hero — solid green, no fade. ── */}
+        {/* ── Profile Hero — light gold fading to white, same family as
+            Home's Delivery/Banner sections, not a bold solid block. ── */}
         <FadeSlideIn delay={0}>
         <LinearGradient
-          colors={["#14876D", "#14876D"]}
+          colors={["rgba(14,107,87,0.32)", "#FFFFFF"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={styles.hero}
@@ -485,7 +486,7 @@ const PgProfileScreen = ({ navigation, route }) => {
             <Ionicons
               name={editing ? "close" : "pencil-outline"}
               size={13}
-              color="#fff"
+              color={T.ink}
             />
             <Text style={styles.heroEditBtnText}>{editing ? "Cancel" : "Edit"}</Text>
           </TouchableOpacity>
@@ -496,8 +497,8 @@ const PgProfileScreen = ({ navigation, route }) => {
         <FadeSlideIn delay={60}>
         <View style={styles.panel}>
 
-        {/* ── Account Summary ── */}
-        <View style={styles.statsRow}>
+        {/* ── Account Summary — light gold tint, like Home's sections ── */}
+        <View style={[styles.statsRow, styles.statsRowTinted]}>
           <TouchableOpacity
             style={[styles.statCol, styles.statColDivider]}
             onPress={() => navigation.navigate("PgWallet", { userId })}
@@ -530,7 +531,7 @@ const PgProfileScreen = ({ navigation, route }) => {
 
         <View style={styles.hairline} />
 
-        {/* ── Personal Information ── */}
+        {/* ── Personal Information — plain white ── */}
         <View style={styles.section}>
           <SectionHead
             title="Personal Information"
@@ -766,20 +767,20 @@ const styles = StyleSheet.create({
   heroName: {
     fontSize: 15.5,
     fontWeight: "700",
-    color: "#fff",
+    color: T.ink,
     marginBottom: 2,
     letterSpacing: -0.2,
   },
-  heroEmail: { fontSize: 11.5, fontWeight: "400", color: "rgba(255,255,255,0.78)" },
+  heroEmail: { fontSize: 11.5, fontWeight: "400", color: T.subtle },
   idBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(28,28,30,0.06)",
     borderRadius: 20,
     paddingHorizontal: 9,
     paddingVertical: 3,
     marginTop: 6,
   },
-  idBadgeText: { fontSize: 10.5, fontWeight: "700", color: "#fff", letterSpacing: 0.2 },
+  idBadgeText: { fontSize: 10.5, fontWeight: "700", color: T.ink, letterSpacing: 0.2 },
   heroEditBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -790,10 +791,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 7,
   },
-  heroEditBtnText: { fontSize: 12, fontWeight: "600", color: "#fff" },
+  heroEditBtnText: { fontSize: 12, fontWeight: "600", color: T.ink },
 
   // ── Account summary — three plain columns, small icon chips ──
   statsRow: { flexDirection: "row" },
+  statsRowTinted: {
+    backgroundColor: "rgba(14,107,87,0.16)",
+    borderRadius: 14,
+    paddingVertical: 6,
+  },
   statCol: {
     flex: 1,
     alignItems: "center",

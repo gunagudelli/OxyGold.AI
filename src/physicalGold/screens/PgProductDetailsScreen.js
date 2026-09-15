@@ -109,6 +109,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const [previewImageUrl, setPreviewImageUrl] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [cartQuantity, setCartQuantity] = useState(0);
+  const [buyNowLoading, setBuyNowLoading] = useState(false);
 
   // ── Hardware back
   useEffect(() => {
@@ -279,6 +280,45 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     if (ok) {
       setCartMsg({ text: "Added to cart", type: "success" });
       setTimeout(() => setCartMsg({ text: "", type: "" }), 2500);
+    }
+  };
+
+  // Buy Now — adds this variant to the cart (if not already there), then
+  // jumps straight to Checkout, skipping the Cart screen review step.
+  // Order creation always works off the real server-side cart, so this
+  // reuses the same add-to-cart + getCart round trip Cart screen itself
+  // uses to build the exact params Checkout already expects.
+  const handleBuyNow = async () => {
+    if (!selectedVariant?.id) {
+      Alert.alert("Select Variant", "Please choose a variant first.");
+      return;
+    }
+    if (!userId) {
+      Alert.alert("Session Expired", "Please login again.", [
+        { text: "OK", onPress: () => navigation.replace("Login") },
+      ]);
+      return;
+    }
+    setBuyNowLoading(true);
+    try {
+      if (cartQuantity <= 0) {
+        const ok = await addSelectedVariantToCart();
+        if (!ok) return;
+      }
+      const cart = await getCart(userId);
+      const cartItems = cart?.itemsInCart || [];
+      if (!cartItems.length) {
+        Alert.alert("Cart Empty", "Could not add this item. Please try again.");
+        return;
+      }
+      navigation.navigate("PgCheckout", {
+        cartTotal: cart?.totalPayableAmount || 0,
+        cartItems,
+      });
+    } catch (e) {
+      Alert.alert("Error", e?.message || "Could not proceed. Please try again.");
+    } finally {
+      setBuyNowLoading(false);
     }
   };
 
@@ -729,22 +769,38 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
           ) : (
             <View style={s.footerActions}>
               <TouchableOpacity
-                style={s.cartBtn}
+                style={s.cartBtnOutline}
                 onPress={cartQuantity > 0 ? () => navigation.navigate("PgCart") : handleAddToCart}
-                disabled={!selectedVariant || cartLoading}
+                disabled={!selectedVariant || cartLoading || buyNowLoading}
                 activeOpacity={0.85}
               >
                 {cartLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={C.gold} />
                 ) : cartQuantity > 0 ? (
                   <>
-                    <Ionicons name="checkmark-circle" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={s.cartBtnText}>View Cart · Qty {cartQuantity}</Text>
+                    <Ionicons name="checkmark-circle" size={16} color={C.gold} style={{ marginRight: 6 }} />
+                    <Text style={s.cartBtnTextOutline}>Qty {cartQuantity}</Text>
                   </>
                 ) : (
                   <>
-                    <Ionicons name="cart-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={s.cartBtnText}>Add to Cart</Text>
+                    <Ionicons name="cart-outline" size={16} color={C.gold} style={{ marginRight: 6 }} />
+                    <Text style={s.cartBtnTextOutline}>Add to Cart</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={s.buyNowBtn}
+                onPress={handleBuyNow}
+                disabled={!selectedVariant || cartLoading || buyNowLoading}
+                activeOpacity={0.85}
+              >
+                {buyNowLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="flash" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={s.cartBtnText}>Buy Now</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1288,10 +1344,27 @@ const s = StyleSheet.create({
     paddingTop: 10,
     gap: 10,
   },
-  cartBtn: {
+  cartBtnOutline: {
     flex: 1,
     flexDirection: "row",
-    backgroundColor: C.gold,
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: C.gold,
+    borderRadius: 14,
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cartBtnTextOutline: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.gold,
+    letterSpacing: 0.2,
+  },
+  buyNowBtn: {
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: "#CF8B17",
     borderRadius: 14,
     height: 50,
     justifyContent: "center",

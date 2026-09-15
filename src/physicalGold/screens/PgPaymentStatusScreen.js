@@ -109,21 +109,23 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
           </View>
 
           {/* Action Buttons */}
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={handleTrackOrder}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryBtnText}>Track My Order</Text>
-          </TouchableOpacity>
+          <View style={styles.btnRow}>
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              onPress={handleContinueShopping}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.secondaryBtnText}>Continue Shopping</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={handleContinueShopping}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.secondaryBtnText}>Continue Shopping</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={handleTrackOrder}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryBtnText}>Track My Order</Text>
+            </TouchableOpacity>
+          </View>
           </FadeSlideIn>
         </ScrollView>
       </PgLayout>
@@ -163,21 +165,23 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
           </View>
 
           {/* Action Buttons */}
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={handleRetry}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryBtnText}>Try Again</Text>
-          </TouchableOpacity>
+          <View style={styles.btnRow}>
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              onPress={handleContinueShopping}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.secondaryBtnText}>Go Back Home</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={handleContinueShopping}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.secondaryBtnText}>Go Back Home</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={handleRetry}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryBtnText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
           </FadeSlideIn>
         </ScrollView>
       </PgLayout>
@@ -203,75 +207,74 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 16, fontWeight: '700', color: C.textPri },
   loadingSubtext: { fontSize: 13, color: C.textSec, textAlign: 'center' },
 
-  successContainer: { alignItems: 'center', marginVertical: 32, gap: 12 },
+  successContainer: { alignItems: 'center', marginTop: 20, marginBottom: 24, gap: 8 },
   successIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#E8F5E9',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  checkmark: { fontSize: 40, color: '#2ECC71', fontWeight: '800' },
-  successTitle: { fontSize: 22, fontWeight: '800', color: C.textPri },
-  successSubtitle: { fontSize: 14, color: C.textSec, textAlign: 'center' },
+  checkmark: { fontSize: 30, color: '#2ECC71', fontWeight: '800' },
+  successTitle: { fontSize: 18, fontWeight: '800', color: C.textPri },
+  successSubtitle: { fontSize: 13, color: C.textSec, textAlign: 'center' },
 
-  failedContainer: { alignItems: 'center', marginVertical: 32, gap: 12 },
+  failedContainer: { alignItems: 'center', marginTop: 20, marginBottom: 24, gap: 8 },
   failedIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#FDECEA',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  xmark: { fontSize: 40, color: '#C85A54', fontWeight: '800' },
-  failedTitle: { fontSize: 22, fontWeight: '800', color: C.textPri },
-  failedSubtitle: { fontSize: 14, color: C.textSec, textAlign: 'center' },
+  xmark: { fontSize: 30, color: '#C85A54', fontWeight: '800' },
+  failedTitle: { fontSize: 18, fontWeight: '800', color: C.textPri },
+  failedSubtitle: { fontSize: 13, color: C.textSec, textAlign: 'center' },
 
   detailsBox: {
     backgroundColor: C.surface,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: C.border,
-    padding: 16,
-    marginBottom: 24,
-    gap: 12,
+    padding: 14,
+    marginBottom: 20,
+    gap: 10,
   },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  detailLabel: { fontSize: 13, color: C.textSec, fontWeight: '500' },
-  detailValue: { fontSize: 13, fontWeight: '700', color: C.textPri, flex: 1, textAlign: 'right', marginLeft: 12 },
+  detailLabel: { fontSize: 12.5, color: C.textSec, fontWeight: '500' },
+  detailValue: { fontSize: 12.5, fontWeight: '700', color: C.textPri, flex: 1, textAlign: 'right', marginLeft: 12 },
   statusSuccess: { color: '#2ECC71' },
   statusFailed: { color: '#C85A54' },
   divider: { height: 1, backgroundColor: C.border },
 
+  btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
   primaryBtn: {
+    flex: 1,
+    maxWidth: 160,
     backgroundColor: '#0E6B57',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 11,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#0E6B57',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
   },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  primaryBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 
   secondaryBtn: {
+    flex: 1,
+    maxWidth: 160,
     backgroundColor: C.surface,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: C.border,
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 11,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  secondaryBtnText: { color: C.textPri, fontSize: 15, fontWeight: '800' },
+  secondaryBtnText: { color: C.textPri, fontSize: 13, fontWeight: '700' },
 });
 
 export default PgPaymentStatusScreen;

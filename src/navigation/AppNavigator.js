@@ -105,13 +105,17 @@ const AppNavigator = ({ navigationRef }) => {
         <Stack.Screen name="SellProcess" component={SellProcessingScreen} />
         <Stack.Screen name="SellSuccess" component={SellSuccessScreen} />
 
-        {/* ── PHYSICAL GOLD ── */}
-        <Stack.Screen name="PgHome"           component={PgHomeScreen} />
+        {/* ── PHYSICAL GOLD ──
+            Home/Wishlist/Profile are the bottom-tab destinations — they get
+            animation: 'none' so switching tabs feels instant instead of
+            playing the same slide_from_right transition used for actually
+            drilling into a screen (Cart, Product Details, etc). */}
+        <Stack.Screen name="PgHome"           component={PgHomeScreen} options={{ animation: 'none' }} />
         <Stack.Screen name="PgProductDetails" component={PgProductDetailsScreen} />
         <Stack.Screen name="PgCart"           component={PgCartScreen} />
         <Stack.Screen name="PgAddress"        component={PgAddressScreen} />
         <Stack.Screen name="PgOrders"         component={PgOrdersScreen} />
-        <Stack.Screen name="PgProfile"        component={PgProfileScreen} />
+        <Stack.Screen name="PgProfile"        component={PgProfileScreen} options={{ animation: 'none' }} />
         <Stack.Screen name="PgWallet"         component={PgWalletScreen} />
         <Stack.Screen name="PgPaymentMethod"  component={PgPaymentMethodScreen} />
         <Stack.Screen name="PgCheckout"       component={PgCheckoutScreen} />
@@ -119,7 +123,7 @@ const AppNavigator = ({ navigationRef }) => {
         <Stack.Screen name="PgPaymentStatus"   component={PgPaymentStatusScreen} />
         <Stack.Screen name="PgInvoiceViewer"   component={PgInvoiceViewerScreen} />
         <Stack.Screen name="PgInvoiceDetails"  component={PgInvoiceDetailsScreen} />
-        <Stack.Screen name="PgWishlist"        component={PgWishlistScreen} />
+        <Stack.Screen name="PgWishlist"        component={PgWishlistScreen} options={{ animation: 'none' }} />
         <Stack.Screen name="PgTerms"           component={PgTermsScreen} />
         <Stack.Screen name="PgSearch"          component={PgSearchScreen} />
         <Stack.Screen name="PgAllRates"        component={PgAllRatesScreen} />

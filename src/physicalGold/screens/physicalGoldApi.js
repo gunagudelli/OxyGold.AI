@@ -19,7 +19,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { apiGet, apiPost, apiPut, apiPatch, apiDelete, extractData } from '../../services/apiClient';
+import { apiGet, apiPost, apiPatch, apiDelete, extractData } from '../../services/apiClient';
 import { PHYSICAL_GOLD_BASE_URL, BASE_URL } from '../../constants/api';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -861,8 +861,9 @@ export const updateAddress = async (addressData) => {
   }
 
   try {
-    // ✅ CORRECT: PUT /api/oxygold-api/auth/addAddress (for updates)
-    const response = await apiPut(`${PHYSICAL_GOLD_BASE_URL}/auth/addAddress`, addressData);
+    // ✅ CORRECT: PATCH /api/oxygold-api/auth/addAddress (same endpoint/method as
+    // addAddress — matches the web app, which updates by PATCHing with `id` set)
+    const response = await apiPatch(`${PHYSICAL_GOLD_BASE_URL}/auth/addAddress`, addressData);
     return extractData(response);
   } catch (error) {
     console.error('[PhysicalGoldApi] updateAddress failed:', error.message);

@@ -46,7 +46,7 @@ const ProductCard = ({
                 || product?.amount
                 || '';
 
-  const weight = product?.weight || product?.weightInGrams || null;
+  const weight = product?.weight || product?.weightInGrams || defaultVariant?.weight || null;
   const purity = product?.purity || product?.goldPurity || null;
 
   const status = product?.status || product?.productStatus || '';
@@ -123,17 +123,22 @@ const ProductCard = ({
   }, [product?.id]);
 
   // ── Heart bounce ──────────────────────────────────────────────────────────
+  // onPress/onWishlistToggle are stable parent callbacks (useCallback, no
+  // per-item args baked in) so the .map() at the call site can pass the same
+  // function reference to every card instead of a fresh closure each render
+  // — that's what lets React.memo below actually skip re-rendering cards
+  // that didn't change.
   const handleWishlist = () => {
     if (!onWishlistToggle) return;
     Animated.sequence([
       Animated.spring(heartScale, { toValue: 1.35, useNativeDriver: true, speed: 50 }),
       Animated.spring(heartScale, { toValue: 1,    useNativeDriver: true, speed: 50 }),
     ]).start();
-    onWishlistToggle();
+    onWishlistToggle(product);
   };
 
   return (
-    <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.88}>
+    <TouchableOpacity style={s.card} onPress={() => onPress?.(product)} activeOpacity={0.88}>
 
       {/* ── Image — taller, wider, less padding ────────────────────────────── */}
       <View style={s.imageWrap}>
@@ -180,6 +185,15 @@ const ProductCard = ({
               />
             </Animated.View>
           </TouchableOpacity>
+        )}
+
+        {/* Weight — bottom left, small pill driven by API data (not the
+            product photo itself, which sometimes has its own weight ribbon
+            baked in that gets cropped by the card's aspect ratio). */}
+        {!!weight && (
+          <View style={s.weightChip}>
+            <Text style={s.weightChipText}>{weight}g</Text>
+          </View>
         )}
       </View>
 
@@ -255,7 +269,7 @@ const ProductCard = ({
           ) : (
             <TouchableOpacity
               style={s.detailsBtn}
-              onPress={onPress}
+              onPress={() => onPress?.(product)}
               activeOpacity={0.8}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
@@ -361,6 +375,23 @@ const s = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 3,
     elevation: 2,
+  },
+
+  // ── Weight chip ──────────────────────────────────────────────────────────
+  weightChip: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(34,30,28,0.65)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  weightChipText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
 
   // ── Info ───────────────────────────────────────────────────────────────────

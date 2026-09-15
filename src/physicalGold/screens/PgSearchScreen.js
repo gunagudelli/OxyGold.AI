@@ -109,6 +109,18 @@ const PgSearchScreen = ({ navigation }) => {
     [userId, cartVariantIds, dispatch, navigation],
   );
 
+  // Stable reference so every ProductCard gets the same function instead of
+  // a fresh closure per item per render — lets ProductCard's React.memo
+  // actually skip re-rendering cards that didn't change.
+  const handleProductPress = useCallback(
+    (item) =>
+      navigation.navigate("PgProductDetails", {
+        productId: item?.id,
+        product: item,
+      }),
+    [navigation],
+  );
+
   const handleWishlistToggle = useCallback(async (item) => {
     const pid = String(item?.id);
     if (wishlistLoading[pid]) return;
@@ -289,16 +301,11 @@ const PgSearchScreen = ({ navigation }) => {
                   <ProductCard
                     product={product}
                     isInWishlist={!!wishlistMap[String(product?.id)]}
-                    onWishlistToggle={() => handleWishlistToggle(product)}
+                    onWishlistToggle={handleWishlistToggle}
                     onAddToCart={handleCardAddToCart}
                     addingCart={cartLoadingId === String(product?.id)}
                     cartVariantIds={cartVariantIds}
-                    onPress={() =>
-                      navigation.navigate("PgProductDetails", {
-                        productId: product.id,
-                        product,
-                      })
-                    }
+                    onPress={handleProductPress}
                   />
                 </View>
               ))}

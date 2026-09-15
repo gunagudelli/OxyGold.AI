@@ -391,6 +391,23 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           { text: "OK", onPress: () => navigation.replace("Login") },
         ]);
         return;
+      } else if (/pin ?code/i.test(err.message || "")) {
+        // Backend rejects orders for an address that's missing/invalid a PIN
+        // code — send the user straight to fix it instead of leaving them
+        // stuck on a bare error.
+        Alert.alert(
+          "Address Needs a PIN Code",
+          "The selected address is missing a valid PIN code. Please update it to continue.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Fix Address",
+              onPress: () => navigation.navigate("PgAddress", { userId, returnTo: "PgCheckout" }),
+            },
+          ],
+        );
+        setCheckoutLoading(false);
+        return;
       }
       Alert.alert("Checkout Failed", errorMessage);
       // Only re-enable the button on failure — on success we're navigating

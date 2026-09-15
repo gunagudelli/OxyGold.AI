@@ -18,11 +18,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_AUTH, API_ROLE } from "../constants/api";
 
 const { width: W } = Dimensions.get("window");
 
-const API_AUTH = "https://meta.oxyloans.com/api/oxygold-api/auth/userLoginOrRegister";
-const API_ROLE = "https://meta.oxyloans.com/api/oxygold-api/auth/createRole";
 const SELECTED_ROLE = "DIGITALGOld";
 
 // ── Colours — warm cream page, matching Login and the rest of the app ──────

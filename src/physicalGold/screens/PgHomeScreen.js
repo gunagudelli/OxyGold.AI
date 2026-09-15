@@ -13,6 +13,7 @@ import {
   TextInput,
   BackHandler,
   RefreshControl,
+  Linking,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
@@ -75,6 +76,9 @@ const C = {
   shadowDark: "rgba(34,30,28,0.10)",
   shimmer: "#F8F7F6",
 };
+
+// Footer — plain white, matches product cards & bottom nav bar.
+const FOOTER_BG = "#FFFFFF";
 
 const WHY_SHOP = [
   {
@@ -230,8 +234,30 @@ const SectionHeader = memo(({ title, count, onViewAll, onBack, showBack }) => (
   </View>
 ));
 
+// "2 mins ago" / "3 hrs ago" style relative time, for the last real price move.
+const formatTimeAgo = (ts) => {
+  if (!ts) return "";
+  const diffSec = Math.floor((Date.now() - ts) / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} min${diffMin > 1 ? "s" : ""} ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hr${diffHr > 1 ? "s" : ""} ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
+};
+
 // ─── Rate column — one karat/metal cell inside the live-rates card ────────────
 const RateColumn = memo(({ icon, label, rate, decimals }) => {
+  // Re-render every 30s purely so "X mins ago" keeps advancing even when no
+  // new price has come in — otherwise it'd freeze at whatever it read on
+  // the render that set it.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => forceTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
+
   // Flash the block green/red for a moment whenever the price actually
   // changes between polls, instead of only relying on the static up/down
   // badge — that badge doesn't draw the eye to a value that just moved.
@@ -294,6 +320,12 @@ const RateColumn = memo(({ icon, label, rate, decimals }) => {
               {rate.changePct.toFixed(2)}%
             </Text>
           </View>
+        )}
+        {rate.changeAmount != null && rate.changedAt != null && (
+          <Text style={styles.rateChangeMeta} numberOfLines={1}>
+            {rate.direction === "up" ? "+" : "-"}₹
+            {rate.changeAmount.toLocaleString("en-IN")} · {formatTimeAgo(rate.changedAt)}
+          </Text>
         )}
       </View>
     </Animated.View>
@@ -362,16 +394,22 @@ const PgHomeScreen = ({ navigation }) => {
     price: null,
     changePct: null,
     direction: null,
+    changeAmount: null,
+    changedAt: null,
   });
   const [gold22kRate, setGold22kRate] = useState({
     price: null,
     changePct: null,
     direction: null,
+    changeAmount: null,
+    changedAt: null,
   });
   const [silverRate, setSilverRate] = useState({
     price: null,
     changePct: null,
     direction: null,
+    changeAmount: null,
+    changedAt: null,
   });
 
   // Pull-to-refresh
@@ -434,20 +472,32 @@ const PgHomeScreen = ({ navigation }) => {
 
     const applyRate = async (kind, price) => {
       if (!price) return;
-      const storageKey = `pg_last_${kind}_rate`;
-      const prevRaw = await AsyncStorage.getItem(storageKey).catch(() => null);
-      const prev = prevRaw ? Number(prevRaw) : null;
+      // One JSON blob per metal — holds the last known price AND the last
+      // *actual* change event (amount/direction/when), so that when a poll
+      // brings back the same price again, we keep showing how much it last
+      // moved and how long ago, instead of the badge just disappearing.
+      const storageKey = `pg_rate_${kind}`;
+      const storedRaw = await AsyncStorage.getItem(storageKey).catch(() => null);
+      const stored = storedRaw ? JSON.parse(storedRaw) : null;
       if (!alive) return;
 
-      let direction = null;
-      let changePct = null;
-      if (prev && prev > 0 && prev !== price) {
-        direction = price > prev ? "up" : "down";
-        changePct = ((price - prev) / prev) * 100;
+      let direction = stored?.direction ?? null;
+      let changePct = stored?.changePct ?? null;
+      let changeAmount = stored?.changeAmount ?? null;
+      let changedAt = stored?.changedAt ?? null;
+
+      if (stored?.price && stored.price > 0 && stored.price !== price) {
+        direction = price > stored.price ? "up" : "down";
+        changePct = ((price - stored.price) / stored.price) * 100;
+        changeAmount = Math.abs(price - stored.price);
+        changedAt = Date.now();
       }
 
-      SETTERS[kind]({ price, changePct, direction });
-      await AsyncStorage.setItem(storageKey, String(price)).catch(() => {});
+      SETTERS[kind]({ price, changePct, direction, changeAmount, changedAt });
+      await AsyncStorage.setItem(
+        storageKey,
+        JSON.stringify({ price, changePct, direction, changeAmount, changedAt }),
+      ).catch(() => {});
     };
 
     const loadRates = async () => {
@@ -660,24 +710,30 @@ const PgHomeScreen = ({ navigation }) => {
   const loadCrossSell = async (currentCat) => {
     const metal = detectMetal(currentCat?.name);
     const otherMetal = metal === "gold" ? "silver" : metal === "silver" ? "gold" : null;
-    if (!otherMetal) {
-      setCrossSellCategory(null);
-      setCrossSellProducts([]);
-      return;
-    }
+
     // A catalog can have more than one category whose name mentions the
     // metal (e.g. "Silver" and "Silver Coins") — picking just the first
     // match risks landing on one with zero products while a later match
-    // has real stock, which is what made this show up for Gold but not
-    // Silver. Try every match in order until one actually has products.
-    const candidates = categories.filter(
-      (c) => c.id !== currentCat.id && detectMetal(c.name) === otherMetal,
+    // has real stock. Try every metal-name match first, in order.
+    const metalCandidates = otherMetal
+      ? categories.filter((c) => c.id !== currentCat.id && detectMetal(c.name) === otherMetal)
+      : [];
+
+    // Fallback — the category names may not literally say "gold"/"silver"
+    // at all, so if metal-matching finds nothing, fall back to any other
+    // category with stock (Amazon/Flipkart-style "you might also like",
+    // not strictly a same/other-metal pairing).
+    const fallbackCandidates = categories.filter(
+      (c) => c.id !== currentCat.id && !metalCandidates.some((m) => m.id === c.id),
     );
+
+    const candidates = [...metalCandidates, ...fallbackCandidates];
     if (!candidates.length) {
       setCrossSellCategory(null);
       setCrossSellProducts([]);
       return;
     }
+
     setCrossSellLoading(true);
     try {
       for (const cat of candidates) {
@@ -688,7 +744,7 @@ const PgHomeScreen = ({ navigation }) => {
           return;
         }
       }
-      // None of the matching categories had products.
+      // Nothing in the whole catalog had stock besides the current category.
       setCrossSellCategory(null);
       setCrossSellProducts([]);
     } finally {
@@ -829,23 +885,33 @@ const PgHomeScreen = ({ navigation }) => {
   });
 
   // ── Search ─────────────────────────────────────────────────────────────────
+  // The text itself updates immediately (so typing feels responsive), but
+  // the actual filtering — two .filter() passes over allProductsCache, which
+  // only grows as more categories get browsed in a session — is debounced so
+  // it doesn't run synchronously on every single keystroke.
+  const searchDebounceRef = useRef(null);
+
   const handleSearchChange = (text) => {
     setSearchQuery(text);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
     if (!text.trim()) {
       setIsSearchActive(false);
       setSearchResults({ categories: [], products: [] });
       return;
     }
     setIsSearchActive(true);
-    const q = text.trim().toLowerCase();
-    setSearchResults({
-      categories: categories.filter((c) => c?.name?.toLowerCase().includes(q)),
-      products: allProductsCache.filter(
-        (p) =>
-          p?.name?.toLowerCase().includes(q) ||
-          p?.description?.toLowerCase().includes(q),
-      ),
-    });
+    searchDebounceRef.current = setTimeout(() => {
+      const q = text.trim().toLowerCase();
+      setSearchResults({
+        categories: categories.filter((c) => c?.name?.toLowerCase().includes(q)),
+        products: allProductsCache.filter(
+          (p) =>
+            p?.name?.toLowerCase().includes(q) ||
+            p?.description?.toLowerCase().includes(q),
+        ),
+      });
+    }, 220);
   };
 
   const handleSearchFocus = () => {
@@ -926,6 +992,18 @@ const PgHomeScreen = ({ navigation }) => {
     [wishlistMap, wishlistLoading, userId, dispatch, showToast],
   );
 
+  // Stable reference so every ProductCard in a list gets the same function
+  // instead of a fresh closure per item per render (which defeats its
+  // React.memo — see the note in ProductCard.js).
+  const handleProductPress = useCallback(
+    (item) =>
+      navigation.navigate("PgProductDetails", {
+        productId: item?.id,
+        product: item,
+      }),
+    [navigation],
+  );
+
   const visibleProducts = showAllProducts ? products : products.slice(0, 6);
   const totalProducts = products.length;
   const hasMore = totalProducts > 6 && !showAllProducts;
@@ -997,16 +1075,11 @@ const PgHomeScreen = ({ navigation }) => {
                   <ProductCard
                     product={item}
                     isInWishlist={!!wishlistMap[String(item?.id)]}
-                    onWishlistToggle={() => handleWishlistToggle(item)}
+                    onWishlistToggle={handleWishlistToggle}
                     onAddToCart={handleCardAddToCart}
                     addingCart={cartLoadingId === String(item?.id)}
                     cartVariantIds={cartVariantIds}
-                    onPress={() =>
-                      navigation.navigate("PgProductDetails", {
-                        productId: item?.id,
-                        product: item,
-                      })
-                    }
+                    onPress={handleProductPress}
                   />
                 </View>
               ))}
@@ -1151,16 +1224,11 @@ const PgHomeScreen = ({ navigation }) => {
               <ProductCard
                 product={item}
                 isInWishlist={!!wishlistMap[String(item?.id)]}
-                onWishlistToggle={() => handleWishlistToggle(item)}
+                onWishlistToggle={handleWishlistToggle}
                 onAddToCart={handleCardAddToCart}
                 addingCart={cartLoadingId === String(item?.id)}
                 cartVariantIds={cartVariantIds}
-                onPress={() =>
-                  navigation.navigate("PgProductDetails", {
-                    productId: item?.id,
-                    product: item,
-                  })
-                }
+                onPress={handleProductPress}
               />
             </View>
           ))}
@@ -1482,12 +1550,18 @@ const PgHomeScreen = ({ navigation }) => {
                 {renderProductsGrid()}
 
                 {/* ── Cross-sell — Gold results get an "Explore Silver" strip
-                    below, and vice versa, same idea both directions. ── */}
+                    below, and vice versa; falls back to "You Might Also
+                    Like" when the categories aren't literally named by
+                    metal, so this always has something to show. ── */}
                 {!loading.products && !crossSellLoading && crossSellProducts.length > 0 && (
                   <View style={styles.crossSellSection}>
                     <View style={styles.crossSellHeader}>
                       <Text style={styles.crossSellTitle}>
-                        Explore {detectMetal(crossSellCategory?.name) === "gold" ? "Gold" : "Silver"}
+                        {detectMetal(crossSellCategory?.name) === "gold"
+                          ? "Explore Gold"
+                          : detectMetal(crossSellCategory?.name) === "silver"
+                          ? "Explore Silver"
+                          : "You Might Also Like"}
                       </Text>
                       <TouchableOpacity
                         onPress={() => handleCategoryPress(crossSellCategory)}
@@ -1507,16 +1581,11 @@ const PgHomeScreen = ({ navigation }) => {
                           <ProductCard
                             product={item}
                             isInWishlist={!!wishlistMap[String(item?.id)]}
-                            onWishlistToggle={() => handleWishlistToggle(item)}
+                            onWishlistToggle={handleWishlistToggle}
                             onAddToCart={handleCardAddToCart}
                             addingCart={cartLoadingId === String(item?.id)}
                             cartVariantIds={cartVariantIds}
-                            onPress={() =>
-                              navigation.navigate("PgProductDetails", {
-                                productId: item?.id,
-                                product: item,
-                              })
-                            }
+                            onPress={handleProductPress}
                           />
                         </View>
                       ))}
@@ -1527,6 +1596,83 @@ const PgHomeScreen = ({ navigation }) => {
             )}
           </>
         )}
+
+        {/* ── Footer ── */}
+        <View style={styles.footer}>
+          <View style={styles.footerTopRow}>
+            <Image
+              source={require("../../../assets/logo-wordmark.png")}
+              style={styles.footerLogoImg}
+              resizeMode="contain"
+            />
+            <Text style={styles.footerTagline}>
+              Your trusted destination for authentic 22K hallmarked gold
+              jewellery. Crafted with precision, delivered with care.
+            </Text>
+          </View>
+
+          <View style={styles.footerDivider} />
+
+          {/* Contact Us */}
+          <View style={styles.footerBlock}>
+            <Text style={styles.footerHeading}>CONTACT US</Text>
+
+            <View style={styles.footerContactRow}>
+              <Ionicons name="location-outline" size={15} color="#CF8B17" style={styles.footerContactIcon} />
+              <Text style={styles.footerContactText}>
+                OXYIDEAS PARTNERS LLP, CC-03, Indu Fortune Fields, KPHB,
+                Hyderabad, Telangana - 500085
+              </Text>
+            </View>
+
+            <View style={styles.footerContactRow}>
+              <Ionicons name="location-outline" size={15} color="#CF8B17" style={styles.footerContactIcon} />
+              <Text style={styles.footerContactText}>
+                AI Research Center, Entrance D, SE02 Concourse, Miyapur Metro
+                Station, Hyderabad, Telangana 500049
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.footerContactRow} onPress={() => Linking.openURL("tel:+918143271103")}>
+              <Ionicons name="call-outline" size={15} color="#CF8B17" style={styles.footerContactIcon} />
+              <Text style={styles.footerContactText}>+91 81432 71103</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.footerContactRow} onPress={() => Linking.openURL("mailto:support@oxygold.ai")}>
+              <Ionicons name="mail-outline" size={15} color="#CF8B17" style={styles.footerContactIcon} />
+              <Text style={styles.footerContactText}>support@oxygold.ai</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.footerContactRow} onPress={() => navigation.navigate("PgSupport")}>
+              <Ionicons name="chatbubble-ellipses-outline" size={15} color="#CF8B17" style={styles.footerContactIcon} />
+              <Text style={styles.footerContactText}>Contact Support</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.footerDivider} />
+
+          <Text style={styles.footerCopyright}>
+            © 2026 OxyGold by OXYIDEAS PARTNERS LLP. All rights reserved.
+          </Text>
+
+          <View style={styles.footerLinksRow}>
+            <TouchableOpacity onPress={() => navigation.navigate("PgPrivacyPolicy")} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+              <Text style={styles.footerLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerLinkDot}>·</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("PgTerms")} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+              <Text style={styles.footerLink}>Terms & Conditions</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerLinkDot}>·</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("PgCookiePolicy")} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+              <Text style={styles.footerLink}>Cookie Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerLinkDot}>·</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("PgCancellationPolicy")} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+              <Text style={styles.footerLink}>Cancellation Policy</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
 
       {/* Toast */}
@@ -1739,6 +1885,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   rateChangeText: { fontSize: 10.5, fontWeight: "700" },
+  rateChangeMeta: { fontSize: 9, color: C.textMuted, marginTop: 1 },
   ratesLinkRow: {
     borderTopWidth: 1,
     borderTopColor: C.divider,
@@ -1806,6 +1953,91 @@ const styles = StyleSheet.create({
     color: C.textSecondary,
     textAlign: "center",
     lineHeight: 13,
+  },
+
+  // ── Footer ──
+  footer: {
+    alignItems: "center",
+    paddingTop: 30,
+    paddingBottom: 34,
+    paddingHorizontal: 24,
+    backgroundColor: FOOTER_BG,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
+  footerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+  },
+  footerLogoImg: {
+    width: 140,
+    height: 24,
+    marginRight: 12,
+  },
+  footerTagline: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "500",
+    color: C.textSecondary,
+    textAlign: "left",
+    lineHeight: 17,
+  },
+  footerDivider: {
+    width: "100%",
+    height: 1,
+    backgroundColor: C.divider,
+    marginVertical: 20,
+  },
+  footerBlock: {
+    width: "100%",
+    alignItems: "flex-start",
+  },
+  footerHeading: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#CF8B17",
+    letterSpacing: 0.6,
+    marginBottom: 12,
+  },
+  footerContactRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  footerContactIcon: {
+    marginTop: 2,
+    marginRight: 8,
+  },
+  footerContactText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "500",
+    color: C.textPrimary,
+    lineHeight: 19,
+  },
+  footerLinksRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    marginTop: 14,
+  },
+  footerLink: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: C.textSecondary,
+  },
+  footerLinkDot: {
+    fontSize: 11,
+    color: C.textMuted,
+    marginHorizontal: 7,
+  },
+  footerCopyright: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: C.textMuted,
+    textAlign: "center",
   },
 
   sectionHeader: {

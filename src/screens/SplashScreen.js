@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { selectAccessToken } from '../store/authSlice';
 
-const splashVideo = require('../../assets/oxygold_splash_screen.mp4');
+const splashVideo = require('../../assets/OXYGOLD.AI Splash.mp4');
 
 // Safety net in case the video fails to fire its end event on some devices.
 const MAX_DURATION_MS = 6000;
@@ -38,7 +38,7 @@ const SplashScreen = ({ navigation }) => {
       <VideoView
         player={player}
         style={styles.video}
-        contentFit="cover"
+        contentFit="contain"
         nativeControls={false}
       />
     </View>
