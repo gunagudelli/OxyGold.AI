@@ -77,8 +77,11 @@ const C = {
   shimmer: "#F8F7F6",
 };
 
-// Footer — plain white, matches product cards & bottom nav bar.
-const FOOTER_BG = "#FFFFFF";
+// Footer — soft warm ivory, barely a shade off the page's own background
+// (#F8F7F6) so it doesn't read as a jarring color block; the top border and
+// extra padding do the actual separating, which is the more common pattern
+// in polished apps than a distinct footer color.
+const FOOTER_BG = "#F3EFE8";
 
 const WHY_SHOP = [
   {
@@ -1110,6 +1113,10 @@ const PgHomeScreen = ({ navigation }) => {
           <Text style={styles.categoryCardLabel} numberOfLines={2}>
             {item.name}
           </Text>
+          <View style={styles.categoryCardExploreRow}>
+            <Text style={styles.categoryCardExploreText}>Explore collection</Text>
+            <Ionicons name="arrow-forward" size={12} color="#8B5A2B" />
+          </View>
         </View>
       </TouchableOpacity>
     ),
@@ -1601,7 +1608,7 @@ const PgHomeScreen = ({ navigation }) => {
         <View style={styles.footer}>
           <View style={styles.footerTopRow}>
             <Image
-              source={require("../../../assets/logo-wordmark.png")}
+              source={require("../../../assets/logo-header.png")}
               style={styles.footerLogoImg}
               resizeMode="contain"
             />
@@ -1700,13 +1707,6 @@ const PgHomeScreen = ({ navigation }) => {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   scrollFlex: { flex: 1 },
-  plainWhiteSection: { backgroundColor: "#FFFFFF" },
-  // ── The 4-color palette used across Home — Plum (Delivery/Categories),
-  // Lavender (Search/Gold Rates), Burgundy (Banner), Emerald (Why Shop). ──
-  tintPlum: { backgroundColor: "rgba(106,44,110,0.12)" },
-  tintLavender: { backgroundColor: "rgba(150,140,210,0.14)" },
-  tintBurgundy: { backgroundColor: "rgba(140,47,59,0.12)" },
-  tintEmerald: { backgroundColor: "rgba(14,107,87,0.10)" },
   scrollContent: { paddingBottom: 16, backgroundColor: "#F8F7F6" },
 
   combinedTopBar: {
@@ -1718,7 +1718,9 @@ const styles = StyleSheet.create({
   // Flat, not faded to white — so the gold carries straight through into
   // the Banner section below it instead of hitting white and restarting.
   goldFlatTint: { backgroundColor: "rgba(207,139,23,0.08)" },
-  greenFlatTint: { backgroundColor: "rgba(46,204,113,0.05)" },
+  // Brand emerald (matches C.gold/the teal accent used across the rest of
+  // the app), not the mismatched bright generic green this used to be.
+  greenFlatTint: { backgroundColor: "rgba(14,107,87,0.07)" },
   locationBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -1955,7 +1957,7 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
 
-  // ── Footer ──
+  // ── Footer — light brown/tan, so all text below is dark-on-light. ──
   footer: {
     alignItems: "center",
     paddingTop: 30,
@@ -1970,11 +1972,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
   },
-  footerLogoImg: {
-    width: 140,
-    height: 24,
-    marginRight: 12,
-  },
+  footerLogoImg: { width: 140, height: 24, marginRight: 12 },
   footerTagline: {
     flex: 1,
     fontSize: 12,
@@ -2129,13 +2127,26 @@ const styles = StyleSheet.create({
   categoryCardShimmerImg: { width: "100%", aspectRatio: 1 },
   categoryCardImg: { width: "100%", height: "100%" },
   categoryCardLabel: {
-    fontSize: 13,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "700",
     color: C.textPrimary,
-    textAlign: "center",
-    lineHeight: 17,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    textAlign: "left",
+    lineHeight: 19,
+    paddingTop: 12,
+    paddingHorizontal: 12,
+  },
+  categoryCardExploreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    paddingTop: 4,
+  },
+  categoryCardExploreText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#8B5A2B",
   },
 
   grid: {

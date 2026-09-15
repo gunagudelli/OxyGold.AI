@@ -11,6 +11,7 @@ import {
   Modal,
   Dimensions,
   BackHandler,
+  Share,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
@@ -417,6 +418,18 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const hasImages = availableViews.length > 0;
   const hasMultiple = availableViews.length > 1;
 
+  // ─── Share — native OS share sheet (WhatsApp, copy link, etc. all handled
+  // by the OS itself), matching the web app's "Share this product" action. ──
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `Check out ${product.name} on OXYGOLD.AI — ₹${fmt(price)}`,
+      });
+    } catch (err) {
+      console.log("[ProductDetails] Share failed:", err?.message);
+    }
+  };
+
   return (
     <PgLayout
       title={product.name || "Product Details"}
@@ -520,6 +533,14 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                   <Ionicons name="shield-checkmark-outline" size={14} color="#CF8B17" />
                   <Text style={s.trustText}>BIS Hallmarked</Text>
                 </View>
+                <TouchableOpacity
+                  style={s.shareRow}
+                  onPress={handleShare}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="share-social-outline" size={14} color={C.gold} />
+                  <Text style={s.shareText}>Share this product</Text>
+                </TouchableOpacity>
               </View>
               <View style={s.priceBlock}>
                 <Text style={s.priceValue}>₹{fmt(price)}</Text>
@@ -1005,6 +1026,13 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   trustText: { fontSize: 12, fontWeight: "600", color: "#CF8B17" },
+  shareRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 8,
+  },
+  shareText: { fontSize: 11.5, fontWeight: "600", color: C.gold },
 
   // Dots
   dotBar: {

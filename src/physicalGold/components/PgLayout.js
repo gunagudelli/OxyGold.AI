@@ -51,7 +51,7 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
             </TouchableOpacity>
           ) : !hideLogo ? (
             <Image
-              source={require("../../../assets/logo-wordmark.png")}
+              source={require("../../../assets/logo-header.png")}
               style={h.logoImg}
               resizeMode="contain"
             />
@@ -236,7 +236,7 @@ export default PgLayout;
 const h = StyleSheet.create({
   header: {
     backgroundColor: HEADER_COLORS.primary,
-    paddingBottom: 10,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#E7E0DA",
   },
@@ -245,6 +245,7 @@ const h = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 10,
+    paddingTop: 8,
   },
   iconBtn: {
     width: 40,
