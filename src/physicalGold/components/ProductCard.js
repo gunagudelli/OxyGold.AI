@@ -187,14 +187,6 @@ const ProductCard = ({
           </TouchableOpacity>
         )}
 
-        {/* Weight — bottom left, small pill driven by API data (not the
-            product photo itself, which sometimes has its own weight ribbon
-            baked in that gets cropped by the card's aspect ratio). */}
-        {!!weight && (
-          <View style={s.weightChip}>
-            <Text style={s.weightChipText}>{weight}g</Text>
-          </View>
-        )}
       </View>
 
       {/* ── Name, Weight & Price ────────────────────────────────────────────────────── */}
@@ -223,8 +215,8 @@ const ProductCard = ({
         )}
 
         {/* price + offer, with a compact cart action on the right */}
-        <View style={s.bottomRow}>
-          <View style={{ flex: 1, minWidth: 0 }}>
+        <View style={onAddToCart ? s.bottomRow : s.priceOnlyRow}>
+          <View style={s.priceInfoBlock}>
             {priceDisplay ? (
               <View style={s.priceRow}>
                 <Text style={s.priceRupee}>₹</Text>
@@ -236,15 +228,15 @@ const ProductCard = ({
             )}
             {offer && (
               <View style={s.offerRow}>
-                <Text style={s.priceStrike}>₹{offer.mrpDisplay}</Text>
+                <Text style={s.priceStrike} numberOfLines={1}>₹{offer.mrpDisplay}</Text>
                 <View style={s.offerPill}>
-                  <Text style={s.offerPillText}>{offer.discountPct}% OFF</Text>
+                  <Text style={s.offerPillText} numberOfLines={1}>{offer.discountPct}% OFF</Text>
                 </View>
               </View>
             )}
           </View>
 
-          {onAddToCart ? (
+          {onAddToCart && (
             <TouchableOpacity
               style={[s.cartBtn, inCart && s.cartBtnInCart]}
               onPress={() => onAddToCart(product, defaultVariant)}
@@ -266,17 +258,22 @@ const ProductCard = ({
                 </>
               )}
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={s.detailsBtn}
-              onPress={() => onPress?.(product)}
-              activeOpacity={0.8}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={s.detailsBtnText}>View Details</Text>
-            </TouchableOpacity>
           )}
         </View>
+
+        {/* View Details — own full-width row below price/offer instead of
+            squeezed beside them, so a strikethrough price + discount pill
+            never has to fight the button for horizontal space. */}
+        {!onAddToCart && (
+          <TouchableOpacity
+            style={s.detailsBtnFull}
+            onPress={() => onPress?.(product)}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 4, left: 8, right: 8 }}
+          >
+            <Text style={s.detailsBtnText}>View Details</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
     </TouchableOpacity>
@@ -378,22 +375,6 @@ const s = StyleSheet.create({
   },
 
   // ── Weight chip ──────────────────────────────────────────────────────────
-  weightChip: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    backgroundColor: 'rgba(34,30,28,0.65)',
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  weightChipText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-
   // ── Info ───────────────────────────────────────────────────────────────────
   info: {
     paddingHorizontal: 12,
@@ -454,18 +435,21 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 3,
+    maxWidth: '100%',
   },
   priceStrike: {
     fontSize: 11,
     color: '#C0392B',
     textDecorationLine: 'line-through',
     fontWeight: '600',
+    flexShrink: 1,
   },
   offerPill: {
     backgroundColor: 'rgba(14,107,87,0.10)',
     borderRadius: 5,
     paddingHorizontal: 5,
     paddingVertical: 2,
+    flexShrink: 0,
   },
   offerPillText: {
     fontSize: 9.5,
@@ -481,18 +465,23 @@ const s = StyleSheet.create({
     marginTop: 8,
     gap: 6,
   },
-  detailsBtn: {
+  priceInfoBlock: { flex: 1, minWidth: 0 },
+  // View-Details mode has no cart button beside the price, so this is just
+  // the price/offer block with the same top spacing bottomRow would give it.
+  priceOnlyRow: { marginTop: 8 },
+  detailsBtnFull: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    height: 30,
+    width: '100%',
+    height: 32,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#0E6B57',
     backgroundColor: '#fff',
+    marginTop: 10,
   },
   detailsBtnText: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '700',
     color: '#1C1C1E',
   },

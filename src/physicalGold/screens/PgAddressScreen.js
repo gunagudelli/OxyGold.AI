@@ -396,7 +396,10 @@ const PgAddressScreen = ({ navigation, route }) => {
         state: addressForm.state,
         city: addressForm.city,
         area: addressForm.area,
-        pincode: addressForm.pinCode,
+        // camelCase, matching the web app's payload to this same endpoint —
+        // sending lowercase "pincode" here was the bug: the backend doesn't
+        // recognize it, so the pincode silently failed to save on update.
+        pinCode: addressForm.pinCode,
         type: addressForm.type,
         latitude: latitude || "",
         longitude: longitude || "",

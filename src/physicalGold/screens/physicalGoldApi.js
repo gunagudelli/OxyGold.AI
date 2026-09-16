@@ -187,6 +187,39 @@ export const getProductDetails = async (productId) => {
 };
 
 /**
+ * Get "Similar Products" / "Explore More" recommendations for a product.
+ * Matches web's fetchProductRecommendations() in physicalGoldService.ts.
+ * @param {number|string} productId - Product ID
+ * @returns {Promise<{ similarProducts: Array, exploreMoreProducts: Array }>}
+ */
+export const getProductRecommendations = async (productId) => {
+  validateId(productId, 'Product ID');
+
+  try {
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/products/${productId}/recommendations`);
+    const data = extractData(response) || {};
+    const mapItem = (item) => ({
+      id: item.id,
+      productName: item.name || item.productName,
+      imageUrl: item.frontViewurl || item.imageUrl || '',
+      priceRange: item.priceRange || (item.price ? `₹${Number(item.price).toLocaleString('en-IN')}` : ''),
+      description: item.description,
+      subCategoryId: item.categoryId,
+      categoryName: item.categoryName,
+      status: item.status,
+      weight: item.weight || item.weightInGrams || item.grams || null,
+    });
+    return {
+      similarProducts: (data.similarProducts || []).map(mapItem),
+      exploreMoreProducts: (data.exploreMoreProducts || []).map(mapItem),
+    };
+  } catch (error) {
+    console.error('[PhysicalGoldApi] getProductRecommendations failed:', error.message);
+    return { similarProducts: [], exploreMoreProducts: [] };
+  }
+};
+
+/**
  * Get product images (all types)
  * @param {number|string} productId - Product ID
  * @returns {Promise<Object|null>} Image URLs object { frontViewurl, topViewUrl, leftViewUrl, rightViewUrl, backViewUrl, bottomViewUrl, expriesIn } or null

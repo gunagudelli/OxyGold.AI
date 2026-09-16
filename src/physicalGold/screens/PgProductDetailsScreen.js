@@ -23,6 +23,7 @@ import FadeSlideIn from "../components/FadeSlideIn";
 import {
   getProductVariants,
   getProductAllImages,
+  getProductRecommendations,
   addToCart,
   getCart,
   generateModelImage,
@@ -89,6 +90,55 @@ const SpecRow = ({ label, value, accent, last }) => (
   </View>
 );
 
+// ─── Similar Product Card ──────────────────────────────────────────────────
+// Deliberately compact — a browse carousel just needs image + name + price,
+// not the full cart/wishlist/badges treatment the main ProductCard has.
+// Kept local to this screen instead of touching the shared ProductCard.
+const SimilarProductCard = ({ product, onPress }) => {
+  const [imgError, setImgError] = useState(false);
+  const name = product?.productName || product?.name || "Product";
+  const rawPrice = product?.priceRange || product?.price || "";
+  let priceDisplay = null;
+  if (rawPrice) {
+    const num = parseFloat(String(rawPrice).replace(/₹|,/g, ""));
+    priceDisplay = !isNaN(num) ? num.toLocaleString("en-IN") : String(rawPrice).replace(/^₹/, "");
+  }
+
+  return (
+    <TouchableOpacity
+      style={s.similarCard}
+      onPress={() => onPress?.(product)}
+      activeOpacity={0.85}
+    >
+      <View style={s.similarImgWrap}>
+        {product?.imageUrl && !imgError ? (
+          <Image
+            source={{ uri: product.imageUrl }}
+            style={s.similarImg}
+            resizeMode="cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <View style={s.similarImgFallback}>
+            <Ionicons name="diamond-outline" size={24} color="#CF8B17" />
+          </View>
+        )}
+      </View>
+      <Text style={s.similarName} numberOfLines={1} ellipsizeMode="tail">
+        {name}
+      </Text>
+      {!!product?.weight && (
+        <Text style={s.similarWeight}>{product.weight}g</Text>
+      )}
+      {priceDisplay ? (
+        <Text style={s.similarPrice}>₹{priceDisplay}</Text>
+      ) : (
+        <Text style={s.similarPriceNA}>Price on request</Text>
+      )}
+    </TouchableOpacity>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PgProductDetailsScreen = ({ navigation, route }) => {
   const { productId } = route.params;
@@ -111,6 +161,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [cartQuantity, setCartQuantity] = useState(0);
   const [buyNowLoading, setBuyNowLoading] = useState(false);
+  const [similarProducts, setSimilarProducts] = useState([]);
 
   // ── Hardware back
   useEffect(() => {
@@ -200,6 +251,17 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
         setLoading(false);
       }
     })();
+  }, [productId]);
+
+  // Similar Products — matches web's "Similar Products" strip. Fetched
+  // separately (and fails soft) so a recommendations hiccup never blocks
+  // the main product page from loading.
+  useEffect(() => {
+    let alive = true;
+    getProductRecommendations(productId)
+      .then((rec) => { if (alive) setSimilarProducts(rec.similarProducts || []); })
+      .catch(() => {});
+    return () => { alive = false; };
   }, [productId]);
 
   const switchView = (idx) => {
@@ -696,6 +758,32 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                     />
                   </View>
                 )}
+              </View>
+            )}
+
+            {/* ── Similar Products — horizontal scroll (Flipkart-style),
+                so it's not capped at showing just 2 when there are more. ── */}
+            {similarProducts.length > 0 && (
+              <View style={[s.card, s.similarSection]}>
+                <SectionHeader title="Similar Products" />
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={s.similarScrollContent}
+                >
+                  {similarProducts.map((sp) => (
+                    <SimilarProductCard
+                      key={sp.id}
+                      product={sp}
+                      onPress={(p) =>
+                        navigation.push("PgProductDetails", {
+                          productId: p.id,
+                          product: p,
+                        })
+                      }
+                    />
+                  ))}
+                </ScrollView>
               </View>
             )}
 
@@ -1211,6 +1299,43 @@ const s = StyleSheet.create({
     fontWeight: "600",
     color: C.navy,
   },
+
+  // ── Similar Products — horizontal scroll, Flipkart-style ──
+  similarSection: { borderWidth: 0 },
+  similarScrollContent: { paddingRight: 8, paddingVertical: 4 },
+
+  // ── Compact Similar Product card — image + name + price only ──
+  similarCard: { width: 118, marginRight: 14 },
+  similarImgWrap: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 12,
+    backgroundColor: "#F7F4ED",
+    overflow: "hidden",
+    marginBottom: 6,
+  },
+  similarImg: { width: "100%", height: "100%" },
+  similarImgFallback: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(207,139,23,0.06)",
+  },
+  similarName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: C.navy,
+    marginBottom: 2,
+  },
+  similarWeight: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: C.navyLight,
+    marginBottom: 2,
+  },
+  similarPrice: { fontSize: 13, fontWeight: "700", color: C.navy },
+  similarPriceNA: { fontSize: 11, color: C.navyLight, fontStyle: "italic" },
 
   // ── Specifications Dropdown ───────────────────────────────────────────────
   specDropdownBtn: {

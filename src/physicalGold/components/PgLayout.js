@@ -13,7 +13,6 @@ import { useNavigationState, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { selectUserId } from "../../store/authSlice";
 import { selectCartCount, selectWishlistCount, setCartCount, setWishlistCount } from "../../store/cartSlice";
-import { PG_COLORS } from "../constants/physicalGoldColors";
 import { getCart, getWishlist } from "../screens/physicalGoldApi";
 
 // ─── COLORS ─────────────────────────────────────────
@@ -21,7 +20,7 @@ import { getCart, getWishlist } from "../screens/physicalGoldApi";
 // product identity, not an interactive element. `interactive` (deep emerald)
 // is the actual UI accent: active states, badges, buttons, links.
 const HEADER_COLORS = {
-  primary: "#F7F4ED",
+  primary: "#FFFFFF",
   accent: "#CF8B17",
   interactive: "#0E6B57",
   text: "#1C1C1E",
@@ -326,8 +325,11 @@ const l = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
+  // White by default for every screen — Home paints its own cream/tinted
+  // background over this via its own ScrollView content container, so it's
+  // unaffected; every other screen now gets a plain white body instead.
   content: {
     flex: 1,
-    backgroundColor: PG_COLORS.background,
+    backgroundColor: "#FFFFFF",
   },
 });
