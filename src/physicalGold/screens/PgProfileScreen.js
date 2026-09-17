@@ -28,7 +28,7 @@ import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
-import { getUserOrders, getUserAddresses } from "./physicalGoldApi";
+import { getUserOrders, getUserAddresses } from "../api/physicalGoldApi";
 
 // ─── Design Tokens — premium, restrained. One accent, used sparingly. ────────
 const T = {

@@ -175,7 +175,7 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
       <View style={s.overlay}>
         <TouchableOpacity style={s.overlayTap} activeOpacity={1} onPress={handleClose} />
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={s.sheet}
         >
           <View style={s.grabber} />
@@ -194,50 +194,76 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
           </Text>
 
           {step === "phone" ? (
-            <View style={s.inputRow}>
-              <Text style={s.prefix}>+91</Text>
-              <TextInput
-                style={s.input}
-                placeholder="10-digit mobile number"
-                keyboardType="number-pad"
-                maxLength={10}
-                value={phone}
-                onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
-                placeholderTextColor={C.muted}
-              />
-            </View>
+            <>
+              <View style={s.otpRow}>
+                <View style={[s.inputRow, { flex: 1 }]}>
+                  <Text style={s.prefix}>+91</Text>
+                  <TextInput
+                    style={s.input}
+                    placeholder="10-digit mobile number"
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    value={phone}
+                    onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
+                    placeholderTextColor={C.muted}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[s.ctaInline, loading && { opacity: 0.7 }]}
+                  onPress={handleSendOtp}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={s.ctaInlineText}>Send OTP</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {!!error && <Text style={s.errorText}>{error}</Text>}
+            </>
           ) : (
-            <TextInput
-              style={s.otpInput}
-              placeholder="6-digit OTP"
-              keyboardType="number-pad"
-              maxLength={6}
-              value={otp}
-              onChangeText={(t) => setOtp(t.replace(/[^0-9]/g, ""))}
-              placeholderTextColor={C.muted}
-              autoFocus
-            />
-          )}
+            <>
+              {/* Field + button side by side — keeps this step short enough
+                  that the button always stays above the keyboard, instead of
+                  stacking (field, then error, then a full-width button) and
+                  risking the button getting pushed out of view. */}
+              <View style={s.otpRow}>
+                <TextInput
+                  style={s.otpInput}
+                  placeholder="6-digit OTP"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  value={otp}
+                  onChangeText={(t) => setOtp(t.replace(/[^0-9]/g, ""))}
+                  placeholderTextColor={C.muted}
+                  autoFocus
+                  autoComplete="off"
+                  textContentType="oneTimeCode"
+                  importantForAutofill="no"
+                />
+                <TouchableOpacity
+                  style={[s.ctaInline, loading && { opacity: 0.7 }]}
+                  onPress={handleVerifyOtp}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={s.ctaInlineText}>Verify</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
 
-          {!!error && <Text style={s.errorText}>{error}</Text>}
+              {!!error && <Text style={s.errorText}>{error}</Text>}
 
-          <TouchableOpacity
-            style={[s.cta, loading && { opacity: 0.7 }]}
-            onPress={step === "phone" ? handleSendOtp : handleVerifyOtp}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={s.ctaText}>{step === "phone" ? "Send OTP" : "Verify & Continue"}</Text>
-            )}
-          </TouchableOpacity>
-
-          {step === "otp" && (
-            <TouchableOpacity onPress={() => setStep("phone")} style={s.changeNumberBtn}>
-              <Text style={s.changeNumberText}>Change number</Text>
-            </TouchableOpacity>
+              <TouchableOpacity onPress={() => setStep("phone")} style={s.changeNumberBtn}>
+                <Text style={s.changeNumberText}>Change number</Text>
+              </TouchableOpacity>
+            </>
           )}
         </KeyboardAvoidingView>
       </View>
@@ -291,7 +317,9 @@ const s = StyleSheet.create({
     backgroundColor: "#F4F5F7",
   },
   input: { flex: 1, paddingHorizontal: 12, paddingVertical: 14, fontSize: 15, color: C.charcoal },
+  otpRow: { flexDirection: "row", gap: 10 },
   otpInput: {
+    flex: 1,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 12,
@@ -302,6 +330,15 @@ const s = StyleSheet.create({
     color: C.charcoal,
     textAlign: "center",
   },
+  ctaInline: {
+    backgroundColor: C.emerald,
+    borderRadius: 12,
+    height: 50,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaInlineText: { color: "#fff", fontSize: 14, fontWeight: "700" },
   errorText: { color: C.error, fontSize: 12, marginTop: 10 },
   cta: {
     backgroundColor: C.emerald,

@@ -27,7 +27,7 @@ import {
   createOrder,
   deleteAddress,
   getCart,
-} from "./physicalGoldApi";
+} from "../api/physicalGoldApi";
 
 // ─── Design Tokens (mirrors PgCartScreen exactly) ────────────────────────────
 const C = {

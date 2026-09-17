@@ -12,7 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { selectAccessToken, selectUserId } from "../../store/authSlice";
-import { getUserOrders, getOrderDeliveryTracking } from "./physicalGoldApi";
+import { getUserOrders, getOrderDeliveryTracking } from "../api/physicalGoldApi";
 import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";

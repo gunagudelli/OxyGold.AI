@@ -21,7 +21,7 @@ import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
-import { getProductImages, getUserAddresses } from "./physicalGoldApi";
+import { getProductImages, getUserAddresses } from "../api/physicalGoldApi";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { FLATLIST_OPTIMIZATIONS, keyExtractor } from "../../utils/flatListOptimizations";
 

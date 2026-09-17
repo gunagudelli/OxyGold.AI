@@ -24,7 +24,7 @@ import {
   getAllQueries,
   cancelQuery,
   uploadQueryScreenshot,
-} from "./physicalGoldApi";
+} from "../api/physicalGoldApi";
 
 const C = {
   bg: "#FFFFFF",

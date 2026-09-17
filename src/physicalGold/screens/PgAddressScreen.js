@@ -27,7 +27,7 @@ import {
   addAddress,
   updateAddress,
   deleteAddress,
-} from "./physicalGoldApi";
+} from "../api/physicalGoldApi";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { useApiCall } from "../../hooks/useApiCall";
 import { FLATLIST_OPTIMIZATIONS, keyExtractor } from "../../utils/flatListOptimizations";

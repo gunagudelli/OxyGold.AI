@@ -44,7 +44,7 @@ import {
   getUserAddresses,
   addToCart,
   getCart,
-} from "./physicalGoldApi";
+} from "../api/physicalGoldApi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { keyExtractor } from "../../utils/flatListOptimizations";

@@ -28,7 +28,7 @@ import {
   getProductVariants,
   addToCart,
   getCart,
-} from "./physicalGoldApi";
+} from "../api/physicalGoldApi";
 import { debounce } from "../../utils/debounce";
 
 const C = {

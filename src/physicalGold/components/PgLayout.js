@@ -13,7 +13,7 @@ import { useNavigationState, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { selectUserId } from "../../store/authSlice";
 import { selectCartCount, selectWishlistCount, setCartCount, setWishlistCount } from "../../store/cartSlice";
-import { getCart, getWishlist } from "../screens/physicalGoldApi";
+import { getCart, getWishlist } from "../api/physicalGoldApi";
 
 // ─── COLORS ─────────────────────────────────────────
 // `accent` is brand gold — kept only for the OXYGOLD.AI wordmark, which is

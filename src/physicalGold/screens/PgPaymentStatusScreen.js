@@ -8,7 +8,7 @@ import { useSelector } from 'react-redux';
 import PgLayout from '../components/PgLayout';
 import PgLoader from '../components/PgLoader';
 import FadeSlideIn from '../components/FadeSlideIn';
-import { getOrderDetails } from './physicalGoldApi';
+import { getOrderDetails } from '../api/physicalGoldApi';
 import { selectUserId } from '../../store/authSlice';
 
 const PgPaymentStatusScreen = ({ navigation, route }) => {

@@ -28,7 +28,7 @@ import {
   paymentWebhook,
   generateInvoice,
   getInvoicePdfUrl,
-} from "./physicalGoldApi";
+} from "../api/physicalGoldApi";
 
 const C = {
   bg: "#FFFFFF",

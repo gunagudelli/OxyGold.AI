@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getProductImages, getProductVariants } from '../screens/physicalGoldApi';
+import { getProductImages, getProductVariants } from '../api/physicalGoldApi';
 
 const ProductCard = ({
   product,

@@ -12,7 +12,7 @@ import {
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { selectUserId } from '../../store/authSlice';
-import { getWalletBalance, getWalletTransactions } from './physicalGoldApi';
+import { getWalletBalance, getWalletTransactions } from '../api/physicalGoldApi';
 import PgLayout from '../components/PgLayout';
 import PgLoader from '../components/PgLoader';
 import FadeSlideIn from '../components/FadeSlideIn';

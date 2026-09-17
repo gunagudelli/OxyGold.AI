@@ -22,6 +22,7 @@ import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
+import { showCartActionError } from "../utils/cartErrors";
 import {
   getProductVariants,
   getProductAllImages,
@@ -30,7 +31,7 @@ import {
   addToCart,
   getCart,
   generateModelImage,
-} from "./physicalGoldApi";
+} from "../api/physicalGoldApi";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { useApiCall } from "../../hooks/useApiCall";
 
@@ -360,11 +361,15 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     } catch (e) {
       setTimeout(
         () => {
-          setCartMsg({
-            text: e?.message || "Could not add to cart. Try again.",
-            type: "error",
-          });
-          setTimeout(() => setCartMsg({ text: "", type: "" }), 4000);
+          if (/complete your profile/i.test(e?.message || "")) {
+            showCartActionError(e, navigation);
+          } else {
+            setCartMsg({
+              text: e?.message || "Could not add to cart. Try again.",
+              type: "error",
+            });
+            setTimeout(() => setCartMsg({ text: "", type: "" }), 4000);
+          }
         },
         Math.max(0, 700 - (Date.now() - t0)),
       );
@@ -417,7 +422,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
         cartItems,
       });
     } catch (e) {
-      Alert.alert("Error", e?.message || "Could not proceed. Please try again.");
+      showCartActionError(e, navigation);
     } finally {
       setBuyNowLoading(false);
     }

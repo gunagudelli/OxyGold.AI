@@ -14,7 +14,7 @@ import Svg, { Defs, LinearGradient, Stop, Path } from "react-native-svg";
 import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
-import { getAllGoldRates } from "./physicalGoldApi";
+import { getAllGoldRates } from "../api/physicalGoldApi";
 
 const C = {
   bg:           "#FFFFFF",

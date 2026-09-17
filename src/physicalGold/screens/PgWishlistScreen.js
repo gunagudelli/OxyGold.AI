@@ -24,7 +24,7 @@ import {
   getProductAllImages,
   getProductVariants,
   getCart,
-} from "./physicalGoldApi";
+} from "../api/physicalGoldApi";
 
 const C = {
   bg: "#FFFFFF",
