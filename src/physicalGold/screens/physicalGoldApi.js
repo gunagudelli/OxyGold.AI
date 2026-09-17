@@ -56,10 +56,12 @@ const validatePagination = (page, limit) => {
  * @returns {Promise<Array>} List of main categories
  */
 export const getMainCategories = async (userId) => {
-  validateUserId(userId);
+  // Signed-out visitors can still browse categories — apiClient attaches
+  // the guest read key automatically whenever there's no logged-in token,
+  // so this just needs to skip the userId param rather than send it empty.
   try {
     const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/admin/categories/parents`, {
-      params: { userId }
+      params: userId ? { userId } : {},
     });
     return extractData(response) || [];
   } catch (error) {
@@ -187,6 +189,26 @@ export const getProductDetails = async (productId) => {
 };
 
 /**
+ * Get a product with its variants in one call — confirmed to work for both
+ * guests (via the X-API-KEY apiClient attaches automatically) and logged-in
+ * users, unlike /productvariants/getVariantByProduct which currently errors
+ * ("Invalid number format") regardless of auth state.
+ * @param {number|string} productId - Product ID
+ * @returns {Promise<{id, name, description, image, variants: Array<{variantId, size, weight, purity, price}>}|null>}
+ */
+export const getProductWithVariants = async (productId) => {
+  validateId(productId, 'Product ID');
+
+  try {
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/admin/categories/products/${productId}`);
+    return extractData(response) || null;
+  } catch (error) {
+    console.error('[PhysicalGoldApi] getProductWithVariants failed:', error.message);
+    throw error;
+  }
+};
+
+/**
  * Get "Similar Products" / "Explore More" recommendations for a product.
  * Matches web's fetchProductRecommendations() in physicalGoldService.ts.
  * @param {number|string} productId - Product ID
@@ -274,15 +296,58 @@ export const getProductImage = async (productId) => {
 export const getProductVariants = async (productId) => {
   validateId(productId, 'Product ID');
 
+  // /productvariants/getVariantByProduct errors ("Invalid number format")
+  // for every caller regardless of auth or URL variant tried — confirmed
+  // broken server-side. Routed through /admin/categories/products/{id}
+  // instead (confirmed working directly against production), which has
+  // price/stock but not mrp — backfilled below from /search/products,
+  // the only endpoint confirmed to actually return mrp.
   try {
-    // ✅ CORRECT: Use /api/oxygold-api/productvariants/getVariantByProduct with query param
-    const response = await apiGet(
-      `${PHYSICAL_GOLD_BASE_URL}/productvariants/getVariantByProduct`,
-      { params: { productId } }
-    );
-    return extractData(response) || [];
+    const data = await getProductWithVariants(productId);
+    const variants = data?.variants || [];
+
+    let mrpByVariantId = {};
+    if (data?.name) {
+      try {
+        const searchRes = await searchAllProducts({ q: data.name, productType: 'PHYSICAL', pageSize: 5 });
+        const match = (searchRes?.results || []).find((r) => String(r.id) === String(productId));
+        (match?.variants || []).forEach((v) => {
+          if (v?.id != null && v?.mrp) mrpByVariantId[String(v.id)] = v.mrp;
+        });
+      } catch (_) {}
+    }
+
+    return variants.map((v) => ({
+      id: v.variantId,
+      weight: v.weight,
+      purity: v.purity,
+      price: v.price,
+      mrp: mrpByVariantId[String(v.variantId)] || 0,
+      size: v.size,
+      stockQuantity: v.stockQuantity ?? 1,
+    }));
   } catch (error) {
     console.error('[PhysicalGoldApi] getProductVariants failed:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get a variant's price breakup — base price, GST %, GST amount, making
+ * charge %, making charge amount, and the final total.
+ * @param {number|string} variantId - Variant ID
+ * @returns {Promise<Object|null>} { variantPrice, gstPercentage, gstAmount, makingPercentage, makingAmount, totalAmount }
+ */
+export const getVariantPriceBreakup = async (variantId) => {
+  validateId(variantId, 'Variant ID');
+
+  try {
+    const response = await apiGet(
+      `${PHYSICAL_GOLD_BASE_URL}/admin/categories/variants/${variantId}/price-breakup`
+    );
+    return extractData(response) || null;
+  } catch (error) {
+    console.error('[PhysicalGoldApi] getVariantPriceBreakup failed:', error.message);
     throw error;
   }
 };
@@ -1194,12 +1259,15 @@ export const searchAllProducts = async (searchParams) => {
 
     console.log('========================================');
     console.log('[PhysicalGoldApi] searchAllProducts REQUEST');
-    console.log('[PhysicalGoldApi] URL:', `${BASE_URL}/search/products`);
+    console.log('[PhysicalGoldApi] URL:', `${PHYSICAL_GOLD_BASE_URL}/search/products`);
     console.log('[PhysicalGoldApi] Params:', JSON.stringify(params, null, 2));
     console.log('========================================');
 
-    // ✅ CORRECT: GET /api/oxygold-api/search/products
-    const response = await apiGet(`${BASE_URL}/search/products`, { params });
+    // Confirmed via direct testing against the real server: this route is
+    // under /api/oxygold-api/search/products. The old ${BASE_URL} version
+    // (missing that segment) 404'd on every call, silently — offers/mrp
+    // never had a working source because of this.
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/search/products`, { params });
 
     console.log('========================================');
     console.log('[PhysicalGoldApi] searchAllProducts RESPONSE');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import {
   selectUserId,
   selectUserEmail,
+  selectUserPhone,
   selectAccessToken,
   selectRefreshToken,
 } from "../../store/authSlice";
@@ -26,6 +27,7 @@ import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
+import GuestLoginSheet from "../components/GuestLoginSheet";
 import { getUserOrders, getUserAddresses } from "./physicalGoldApi";
 
 // ─── Design Tokens — premium, restrained. One accent, used sparingly. ────────
@@ -51,38 +53,50 @@ const SectionHead = ({ title, subtitle }) => (
 );
 
 // ─── InfoRow — label left, value/input right ─────────────────────────────────
-const InfoRow = ({ label, required, value, placeholder, editing, editable = true, onChangeText, last, verified, ...inputProps }) => (
-  <View style={[styles.infoRow, !last && styles.infoRowDivider]}>
-    <View style={styles.infoRowLeft}>
-      <Text style={styles.infoLabel}>
-        {label}
-        {required && <Text style={styles.fieldLabelRequired}> *</Text>}
-      </Text>
-    </View>
-    {editing && editable ? (
-      <TextInput
-        style={styles.infoInput}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={T.faint}
-        textAlign="right"
-        {...inputProps}
-      />
-    ) : (
-      <View style={styles.infoValueRow}>
-        <Text style={[styles.infoValue, !value && styles.infoValueEmpty]} numberOfLines={1}>
-          {value || "Not provided"}
+// Memoized, and takes a stable field key + a stable onFieldChange callback
+// (instead of a fresh inline onChangeText closure per render) — that's what
+// actually lets React skip re-rendering every OTHER row on each keystroke.
+// Without this, typing into one field re-rendered the whole Personal
+// Information section on every character, which is what felt laggy.
+const InfoRow = React.memo(
+  ({ label, required, value, placeholder, editing, editable = true, fieldKey, onFieldChange, last, verified, ...inputProps }) => {
+    const [focused, setFocused] = useState(false);
+    return (
+    <View style={[styles.infoRow, !last && styles.infoRowDivider]}>
+      <View style={styles.infoRowLeft}>
+        <Text style={styles.infoLabel}>
+          {label}
+          {required && <Text style={styles.fieldLabelRequired}> *</Text>}
         </Text>
-        {verified && value && (
-          <View style={styles.verifiedBadge}>
-            <Ionicons name="checkmark-circle" size={12} color={T.gold} />
-            <Text style={styles.verifiedBadgeText}>Verified</Text>
-          </View>
-        )}
       </View>
-    )}
-  </View>
+      {editing && editable ? (
+        <TextInput
+          style={[styles.infoInput, focused && styles.infoInputFocused]}
+          value={value}
+          onChangeText={(text) => onFieldChange(fieldKey, text)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          placeholderTextColor={T.faint}
+          textAlign="right"
+          {...inputProps}
+        />
+      ) : (
+        <View style={styles.infoValueRow}>
+          <Text style={[styles.infoValue, !value && styles.infoValueEmpty]} numberOfLines={1}>
+            {value || "Not provided"}
+          </Text>
+          {verified && value && (
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark-circle" size={12} color={T.gold} />
+              <Text style={styles.verifiedBadgeText}>Verified</Text>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+    );
+  },
 );
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -90,6 +104,7 @@ const PgProfileScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const userId = useSelector(selectUserId);
   const userEmail = useSelector(selectUserEmail);
+  const userPhone = useSelector(selectUserPhone);
   const refreshToken = useSelector(selectRefreshToken);
   const returnTo = route?.params?.returnTo;
 
@@ -102,15 +117,30 @@ const PgProfileScreen = ({ navigation, route }) => {
   const [saving, setSaving] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [formData, setFormData] = useState({});
+  // Stable across renders (functional update, no `formData` in the
+  // dependency array) — this is what InfoRow relies on to stay memoized.
+  const handleFieldChange = useCallback((key, text) => {
+    setFormData((prev) => ({ ...prev, [key]: text }));
+  }, []);
+  // PAN needs its own stable callback — uppercases the text and resets the
+  // "Verified" badge whenever the number is edited.
+  const handlePanChange = useCallback((key, text) => {
+    setFormData((prev) => ({ ...prev, panNumber: text.toUpperCase() }));
+    setPanVerified(false);
+  }, []);
   const [panVerified, setPanVerified] = useState(false);
   const [verifyingPan, setVerifyingPan] = useState(false);
+  const [showGuestSheet, setShowGuestSheet] = useState(false);
 
   useEffect(() => {
     fetchProfileData();
-  }, []);
+  }, [userId]);
 
   const fetchProfileData = async () => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     const startTime = Date.now();
     try {
       setLoading(true);
@@ -151,7 +181,7 @@ const PgProfileScreen = ({ navigation, route }) => {
         firstName: profileData.firstName || profileData.name || "",
         lastName: profileData.lastName || "",
         email: profileData.email || userEmail || "",
-        mobileNumber: profileData.mobileNumber || profileData.phone || "",
+        mobileNumber: profileData.mobileNumber || profileData.phone || userPhone || "",
         alterMobileNumber:
           profileData.alterMobileNumber || profileData.alternativeNumber || "",
         whatsappNumber: profileData.whatsappNumber || profileData.whatsAppNumber || "",
@@ -208,7 +238,7 @@ const PgProfileScreen = ({ navigation, route }) => {
           firstName: "",
           lastName: "",
           email: userEmail || "",
-          mobileNumber: "",
+          mobileNumber: userPhone || "",
           alterMobileNumber: "",
           whatsappNumber: "",
           gender: "",
@@ -428,6 +458,41 @@ const PgProfileScreen = ({ navigation, route }) => {
     ]);
   };
 
+  // ── Guest — not logged in, nothing to load ──
+  if (!userId) {
+    return (
+      <PgLayout
+        title="My Profile"
+        showBack
+        onBack={() => navigation.goBack()}
+        hideLogo
+      >
+        <View style={styles.guestWrap}>
+          <View style={styles.guestIconWrap}>
+            <Ionicons name="person-circle-outline" size={64} color="#CF8B17" />
+          </View>
+          <Text style={styles.guestTitle}>You're not logged in</Text>
+          <Text style={styles.guestSubtitle}>
+            Login to view your profile, orders, wallet, and wishlist.
+          </Text>
+          <TouchableOpacity
+            style={styles.guestLoginBtn}
+            onPress={() => setShowGuestSheet(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.guestLoginBtnText}>Login</Text>
+          </TouchableOpacity>
+        </View>
+
+        <GuestLoginSheet
+          visible={showGuestSheet}
+          onClose={() => setShowGuestSheet(false)}
+          onSuccess={() => setShowGuestSheet(false)}
+        />
+      </PgLayout>
+    );
+  }
+
   // ── Loading ──
   if (loading) {
     return (
@@ -452,18 +517,14 @@ const PgProfileScreen = ({ navigation, route }) => {
       onBack={() => navigation.goBack()}
       hideLogo
     >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-      >
-        {/* ── Profile Hero — light gold fading to white, same family as
-            Home's Delivery/Banner sections, not a bold solid block. ── */}
-        <FadeSlideIn delay={0}>
+      <View style={{ flex: 1 }}>
+      {/* ── Profile Hero — fixed at the top, doesn't scroll away ── */}
+      <FadeSlideIn delay={0}>
         <LinearGradient
           colors={["rgba(14,107,87,0.32)", "#FFFFFF"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
-          style={styles.hero}
+          style={styles.heroFixed}
         >
           <View style={styles.avatar}>
             <Image source={require("../../../assets/profieicon.png")} style={styles.avatarImg} resizeMode="cover" />
@@ -491,8 +552,12 @@ const PgProfileScreen = ({ navigation, route }) => {
             <Text style={styles.heroEditBtnText}>{editing ? "Cancel" : "Edit"}</Text>
           </TouchableOpacity>
         </LinearGradient>
-        </FadeSlideIn>
+      </FadeSlideIn>
 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
         {/* ── One cohesive panel: Summary, Info, Actions ── */}
         <FadeSlideIn delay={60}>
         <View style={styles.panel}>
@@ -538,6 +603,22 @@ const PgProfileScreen = ({ navigation, route }) => {
             subtitle="Your personal, contact & KYC information"
           />
 
+          <InfoRow
+            label="First Name"
+            required
+            editing={editing}
+            value={formData.firstName}
+            fieldKey="firstName"
+            onFieldChange={handleFieldChange}
+          />
+          <InfoRow
+            label="Last Name"
+            editing={editing}
+            value={formData.lastName}
+            fieldKey="lastName"
+            onFieldChange={handleFieldChange}
+          />
+
           <View style={[styles.infoRow, styles.infoRowDivider]}>
             <View style={styles.infoRowLeft}>
               <Text style={styles.infoLabel}>
@@ -576,7 +657,8 @@ const PgProfileScreen = ({ navigation, route }) => {
             label="WhatsApp Number"
             editing={editing}
             value={formData.whatsappNumber}
-            onChangeText={(text) => setFormData({ ...formData, whatsappNumber: text })}
+            fieldKey="whatsappNumber"
+            onFieldChange={handleFieldChange}
             keyboardType="phone-pad"
           />
           <InfoRow
@@ -584,7 +666,8 @@ const PgProfileScreen = ({ navigation, route }) => {
             required
             editing={editing}
             value={formData.email}
-            onChangeText={(text) => setFormData({ ...formData, email: text })}
+            fieldKey="email"
+            onFieldChange={handleFieldChange}
           />
           <InfoRow
             label="PAN Number"
@@ -594,10 +677,8 @@ const PgProfileScreen = ({ navigation, route }) => {
             editable={!panVerified}
             verified={panVerified}
             value={formData.panNumber}
-            onChangeText={(text) => {
-              setFormData({ ...formData, panNumber: text.toUpperCase() });
-              setPanVerified(false);
-            }}
+            fieldKey="panNumber"
+            onFieldChange={handlePanChange}
             placeholder="ABCDE1234F"
             autoCapitalize="characters"
             maxLength={10}
@@ -715,6 +796,7 @@ const PgProfileScreen = ({ navigation, route }) => {
         </TouchableOpacity>
         </FadeSlideIn>
       </ScrollView>
+      </View>
     </PgLayout>
   );
 };
@@ -739,19 +821,41 @@ const styles = StyleSheet.create({
   // ── Hairline between sections inside the panel ──
   hairline: { height: 1, backgroundColor: T.divider, marginVertical: 18 },
 
-  // ── Profile hero — a full-bleed banner flush with the header, not a
-  // rounded container floating inside the page's side padding ──
-  hero: {
+  // ── Profile hero — fixed at the top (outside the ScrollView), full-bleed
+  // banner flush with the header ──
+  heroFixed: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
-    marginHorizontal: -16,
-    marginTop: -8,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     padding: 18,
     paddingHorizontal: 16 + 18,
   },
+
+  // ── Guest state — not logged in ──
+  guestWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
+  guestIconWrap: { marginBottom: 16 },
+  guestTitle: { fontSize: 17, fontWeight: "700", color: T.ink, marginBottom: 6 },
+  guestSubtitle: {
+    fontSize: 13,
+    color: T.subtle,
+    textAlign: "center",
+    lineHeight: 19,
+    marginBottom: 22,
+  },
+  guestLoginBtn: {
+    backgroundColor: "#0E6B57",
+    borderRadius: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 13,
+  },
+  guestLoginBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   avatar: {
     width: 54,
     height: 54,
@@ -864,7 +968,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: T.ink,
-    paddingVertical: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: T.divider,
+    borderRadius: 8,
+    backgroundColor: "#FAFAF9",
+  },
+  infoInputFocused: {
+    borderColor: T.gold,
+    borderWidth: 1.5,
+    backgroundColor: "#FFFFFF",
   },
   genderRow: { flexDirection: "row", gap: 8 },
   genderOption: {

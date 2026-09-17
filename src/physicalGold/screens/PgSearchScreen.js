@@ -18,6 +18,8 @@ import ProductCard from "../components/ProductCard";
 import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
+import GuestLoginSheet from "../components/GuestLoginSheet";
+import { showCartActionError } from "../utils/cartErrors";
 import {
   searchAllProducts,
   getWishlist,
@@ -60,6 +62,14 @@ const PgSearchScreen = ({ navigation }) => {
   const [cartVariantIds, setCartVariantIds] = useState(new Set());
   const [cartLoadingId, setCartLoadingId] = useState(null);
 
+  // ── Guest gate — same pattern as PgHomeScreen ─────────────────────────────
+  const [showGuestSheet, setShowGuestSheet] = useState(false);
+  const pendingActionRef = useRef(null);
+  const requireAuth = useCallback((type, product, variant) => {
+    pendingActionRef.current = { type, product, variant };
+    setShowGuestSheet(true);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       if (!userId) return;
@@ -87,6 +97,10 @@ const PgSearchScreen = ({ navigation }) => {
 
   const handleCardAddToCart = useCallback(
     async (product, variant) => {
+      if (!userId) {
+        requireAuth("cart", product, variant);
+        return;
+      }
       const variantId = variant?.id;
       const pid = String(product?.id);
       if (cartVariantIds.has(String(variantId))) {
@@ -102,11 +116,12 @@ const PgSearchScreen = ({ navigation }) => {
         if (cartData) dispatch(setCartCount(cartData.totalItemsInCart || 0));
       } catch (e) {
         console.log("[PgSearchScreen] Add to cart failed:", e?.message);
+        showCartActionError(e, navigation);
       } finally {
         setCartLoadingId(null);
       }
     },
-    [userId, cartVariantIds, dispatch, navigation],
+    [userId, cartVariantIds, dispatch, navigation, requireAuth],
   );
 
   // Stable reference so every ProductCard gets the same function instead of
@@ -122,6 +137,10 @@ const PgSearchScreen = ({ navigation }) => {
   );
 
   const handleWishlistToggle = useCallback(async (item) => {
+    if (!userId) {
+      requireAuth("wishlist", item, null);
+      return;
+    }
     const pid = String(item?.id);
     if (wishlistLoading[pid]) return;
     setWishlistLoading((p) => ({ ...p, [pid]: true }));
@@ -148,8 +167,17 @@ const PgSearchScreen = ({ navigation }) => {
       // silent — matches PgHomeScreen's best-effort wishlist toggle
     }
     setWishlistLoading((p) => ({ ...p, [pid]: false }));
-  }, [wishlistMap, wishlistLoading, userId, dispatch]);
-  
+  }, [wishlistMap, wishlistLoading, userId, dispatch, requireAuth]);
+
+  // Resume whatever a guest was doing once they've logged in.
+  useEffect(() => {
+    if (!userId || !pendingActionRef.current) return;
+    const { type, product, variant } = pendingActionRef.current;
+    pendingActionRef.current = null;
+    if (type === "cart") handleCardAddToCart(product, variant);
+    else if (type === "wishlist") handleWishlistToggle(product);
+  }, [userId, handleCardAddToCart, handleWishlistToggle]);
+
   // Filter state
   const [filters, setFilters] = useState({
     purity: "",
@@ -503,6 +531,15 @@ const PgSearchScreen = ({ navigation }) => {
           </View>
         </Modal>
       </View>
+
+      <GuestLoginSheet
+        visible={showGuestSheet}
+        onClose={() => {
+          setShowGuestSheet(false);
+          pendingActionRef.current = null;
+        }}
+        onSuccess={() => setShowGuestSheet(false)}
+      />
     </PgLayout>
   );
 };

@@ -20,16 +20,46 @@ const ProductCard = ({
   onAddToCart,
   addingCart,
   cartVariantIds, // Set<string> of variant ids currently in the cart
+  // When provided, replaces the Add-to-Cart button with a "Buy Now" button
+  // that adds this variant to the cart and jumps straight to Checkout —
+  // takes priority over onAddToCart so a card only ever shows one CTA.
+  onBuyNow,
+  buyingNow,
+  // Optional override for the image box's aspect ratio (default 1, square)
+  // — lets one screen show a smaller image without affecting every other
+  // screen that uses this same card.
+  imageAspectRatio,
 }) => {
   const [imgError, setImgError]   = useState(false);
   const [imageUrl, setImageUrl]   = useState(
     product?.imageUrl || product?.image || null
   );
-  const [offer, setOffer] = useState(null); // { mrpDisplay, discountPct }
+
+  // Some screens (Search) already fetch products with their first variant —
+  // mrp, price, stock, sku — embedded right on the product object. When
+  // that's there, use it directly instead of firing a separate network
+  // request just to re-discover data the caller already handed us.
+  const embeddedVariant = product?.variants?.[0] || null;
+
+  const [offer, setOffer] = useState(() => {
+    const mrp = embeddedVariant?.mrp || 0;
+    const price = embeddedVariant?.price || 0;
+    if (mrp > price && price > 0) {
+      return {
+        mrpDisplay: mrp.toLocaleString('en-IN'),
+        discountPct: Math.round(((mrp - price) / mrp) * 100),
+      };
+    }
+    return null;
+  }); // { mrpDisplay, discountPct }
   // The product itself can have several variants (different weights), each
   // its own price — "Add to Cart" here always adds this one, the cheapest/
   // first variant, and shows its weight so it's never a silent guess.
-  const [defaultVariant, setDefaultVariant] = useState(null); // { id, weight }
+  const [defaultVariant, setDefaultVariant] = useState(() =>
+    embeddedVariant?.id
+      ? { id: embeddedVariant.id, weight: embeddedVariant.weight || null }
+      : null,
+  ); // { id, weight }
   const heartScale = useRef(new Animated.Value(1)).current;
 
   const inCart = !!(defaultVariant && cartVariantIds?.has(String(defaultVariant.id)));
@@ -40,7 +70,9 @@ const ProductCard = ({
                || product?.title
                || 'Gold Product';
 
-  const rawPrice = product?.priceRange
+  const rawPrice = embeddedVariant?.price
+                || product?.minPrice
+                || product?.priceRange
                 || product?.price
                 || product?.basePrice
                 || product?.amount
@@ -97,8 +129,10 @@ const ProductCard = ({
   }, [product?.id]);
 
   // ── Offer badge — MRP vs. selling price lives on the variant, not the product ──
+  // Skipped entirely when the caller already embedded variant data (Search) —
+  // that's already been used to seed state above.
   useEffect(() => {
-    if (!product?.id) return;
+    if (!product?.id || embeddedVariant) return;
     const task = InteractionManager.runAfterInteractions(() => {
       getProductVariants(product.id)
         .then((res) => {
@@ -141,12 +175,12 @@ const ProductCard = ({
     <TouchableOpacity style={s.card} onPress={() => onPress?.(product)} activeOpacity={0.88}>
 
       {/* ── Image — taller, wider, less padding ────────────────────────────── */}
-      <View style={s.imageWrap}>
+      <View style={[s.imageWrap, imageAspectRatio ? { aspectRatio: imageAspectRatio } : null]}>
         {imageUrl && !imgError ? (
           <Image
             source={{ uri: imageUrl }}
             style={s.image}
-            resizeMode="cover"
+            resizeMode="contain"
             onError={() => setImgError(true)}
           />
         ) : (
@@ -214,8 +248,8 @@ const ProductCard = ({
           </View>
         )}
 
-        {/* price + offer, with a compact cart action on the right */}
-        <View style={onAddToCart ? s.bottomRow : s.priceOnlyRow}>
+        {/* price + offer, with a compact cart/buy action on the right */}
+        <View style={onAddToCart || onBuyNow ? s.bottomRow : s.priceOnlyRow}>
           <View style={s.priceInfoBlock}>
             {priceDisplay ? (
               <View style={s.priceRow}>
@@ -236,7 +270,24 @@ const ProductCard = ({
             )}
           </View>
 
-          {onAddToCart && (
+          {onBuyNow ? (
+            <TouchableOpacity
+              style={s.cartBtn}
+              onPress={() => onBuyNow(product, defaultVariant)}
+              disabled={buyingNow || !defaultVariant}
+              activeOpacity={0.82}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {buyingNow ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="flash" size={13} color="#fff" />
+                  <Text style={s.cartBtnText}>Buy Now</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : onAddToCart ? (
             <TouchableOpacity
               style={[s.cartBtn, inCart && s.cartBtnInCart]}
               onPress={() => onAddToCart(product, defaultVariant)}
@@ -258,13 +309,13 @@ const ProductCard = ({
                 </>
               )}
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
 
         {/* View Details — own full-width row below price/offer instead of
             squeezed beside them, so a strikethrough price + discount pill
             never has to fight the button for horizontal space. */}
-        {!onAddToCart && (
+        {!onAddToCart && !onBuyNow && (
           <TouchableOpacity
             style={s.detailsBtnFull}
             onPress={() => onPress?.(product)}
@@ -287,6 +338,8 @@ const s = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#BFE0D6',
     shadowColor: 'rgba(34,30,28,0.09)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
@@ -298,9 +351,10 @@ const s = StyleSheet.create({
   imageWrap: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: '#F7F4ED',
+    backgroundColor: '#FFFFFF',
     position: 'relative',
     overflow: 'hidden',
+    padding: 14,
   },
   image: {
     width: '100%',
@@ -382,6 +436,7 @@ const s = StyleSheet.create({
     paddingBottom: 12,
     gap: 6,
     flex: 1,  // Takes remaining space
+    backgroundColor: 'rgba(14,107,87,0.08)',
   },
   name: {
     fontSize: 13,

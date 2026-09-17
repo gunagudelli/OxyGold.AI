@@ -427,6 +427,8 @@ const s = StyleSheet.create({
     backgroundColor: C.card,
     borderRadius: 16,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#BFE0D6",
     shadowColor: "rgba(34,30,28,0.09)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,

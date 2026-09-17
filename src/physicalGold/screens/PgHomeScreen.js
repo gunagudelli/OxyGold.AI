@@ -14,10 +14,10 @@ import {
   BackHandler,
   RefreshControl,
   Linking,
+  Alert,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "@react-navigation/native";
 import { selectUserId, selectAccessToken } from "../../store/authSlice";
 import {
@@ -27,13 +27,15 @@ import {
 } from "../../store/cartSlice";
 import ProductCard from "../components/ProductCard";
 import PgLayout from "../components/PgLayout";
-import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
+import GuestLoginSheet from "../components/GuestLoginSheet";
+import { showCartActionError } from "../utils/cartErrors";
 import {
   getMainCategories,
   getSubCategories,
   getProducts,
   getProductVariants,
+  searchAllProducts,
   getCategoryImages,
   getWishlist,
   addToWishlist,
@@ -52,7 +54,7 @@ const BANNER_WIDTH = SCREEN_WIDTH - 32;
 
 // ─── Design Tokens — Physical Gold palette (matches oxygold web app) ──
 const C = {
-  bg: "#F8F7F6",
+  bg: "#FFFFFF",
   bgCard: "#FFFFFF",
   bgElevated: "#FFFFFF",
   bgGlass: "rgba(255,255,255,0.92)",
@@ -116,10 +118,6 @@ const IMAGE_CACHE = {};
 const extractDirectImageUrl = (item) =>
   item?.imageUrl || item?.image || item?.categoryImage || null;
 
-// Placeholder URL — lightweight, no external dep
-const placeholder = (text, size = 80) =>
-  `https://via.placeholder.com/${size}?text=${encodeURIComponent(text?.charAt(0) || "G")}`;
-
 // ─── Shimmer ──────────────────────────────────────────────────────────────────
 const ShimmerBox = memo(({ width, height, borderRadius = 8, style }) => {
   const anim = useRef(new Animated.Value(0)).current;
@@ -161,8 +159,6 @@ const LazyImage = memo(
     const [errored, setErrored] = useState(false);
     const fade = useRef(new Animated.Value(0)).current;
 
-    const src = !uri || errored ? placeholder(fallbackText) : uri;
-
     const onLoad = useCallback(() => {
       setLoaded(true);
       Animated.timing(fade, {
@@ -174,13 +170,18 @@ const LazyImage = memo(
 
     const onError = useCallback(() => {
       setErrored(true);
-      setLoaded(true);
-      Animated.timing(fade, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }).start();
-    }, [fade]);
+    }, []);
+
+    // No image at all, or the real one failed to load — an in-app icon,
+    // not a placeholder fetched from an external service (via.placeholder.com
+    // has been unreliable, leaving these blank whenever it's unreachable).
+    if (!uri || errored) {
+      return (
+        <View style={[style, styles.categoryImgFallback]}>
+          <Ionicons name="diamond-outline" size={26} color="#CF8B17" />
+        </View>
+      );
+    }
 
     return (
       <View style={[style, { overflow: "hidden", backgroundColor: C.shimmer }]}>
@@ -190,7 +191,7 @@ const LazyImage = memo(
           />
         )}
         <Animated.Image
-          source={{ uri: src, cache: "force-cache" }}
+          source={{ uri, cache: "force-cache" }}
           style={[style, { opacity: fade }]}
           resizeMode={resizeMode}
           onLoad={onLoad}
@@ -249,6 +250,26 @@ const formatTimeAgo = (ts) => {
   const diffDay = Math.floor(diffHr / 24);
   return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
 };
+
+// ─── Blinking "live" sparkle — a gold twinkling star instead of a plain dot ──
+const LiveBlinkDot = memo(() => {
+  const blink = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(blink, { toValue: 0.25, duration: 650, useNativeDriver: true }),
+        Animated.timing(blink, { toValue: 1, duration: 650, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [blink]);
+  return (
+    <Animated.View style={{ opacity: blink }}>
+      <Ionicons name="sparkles" size={13} color="#CF8B17" />
+    </Animated.View>
+  );
+});
 
 // ─── Rate column — one karat/metal cell inside the live-rates card ────────────
 const RateColumn = memo(({ icon, label, rate, decimals }) => {
@@ -392,6 +413,12 @@ const PgHomeScreen = ({ navigation }) => {
   const [cartVariantIds, setCartVariantIds] = useState(new Set());
   const [cartLoadingId, setCartLoadingId] = useState(null);
 
+  // Gold Products / Silver Products — two separate sections below
+  // Categories, each pulling that metal's real products.
+  const [goldProducts, setGoldProducts] = useState([]);
+  const [silverProducts, setSilverProducts] = useState([]);
+  const [metalProductsLoading, setMetalProductsLoading] = useState(false);
+
   // Live gold / silver rates
   const [goldRate, setGoldRate] = useState({
     price: null,
@@ -447,17 +474,34 @@ const PgHomeScreen = ({ navigation }) => {
   );
 
   // ── Initial load ──────────────────────────────────────────────────────────
+  // Guests can browse Home too — categories/products/rates all work without
+  // a userId (guest read key). Login is only required for cart/wishlist/
+  // checkout actions, gated at the point each of those is used.
   useEffect(() => {
-    // If no userId, navigate to login immediately
-    if (!userId) {
-      console.log("[PgHomeScreen] No userId found, navigating to login");
-      navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-      return;
-    }
-
     performanceMonitor.startMeasure("PgHomeScreen");
     fetchCategories();
   }, [userId]);
+
+  // ── Gold Products / Silver Products — two separate sections below
+  // Categories, each pulling that metal's real products. ──
+  useEffect(() => {
+    if (!categories.length) return;
+    let alive = true;
+    const goldCat = categories.find((c) => detectMetal(c?.name) === "gold");
+    const silverCat = categories.find((c) => detectMetal(c?.name) === "silver");
+    setMetalProductsLoading(true);
+    Promise.allSettled([
+      goldCat ? fetchProductsForCategory(goldCat.id) : Promise.resolve([]),
+      silverCat ? fetchProductsForCategory(silverCat.id) : Promise.resolve([]),
+    ])
+      .then(([goldRes, silverRes]) => {
+        if (!alive) return;
+        setGoldProducts(goldRes.status === "fulfilled" ? goldRes.value.slice(0, 6) : []);
+        setSilverProducts(silverRes.status === "fulfilled" ? silverRes.value.slice(0, 6) : []);
+      })
+      .finally(() => { if (alive) setMetalProductsLoading(false); });
+    return () => { alive = false; };
+  }, [categories]);
 
   // ── Live gold / silver rates — direction is vs. the last rate we saw ───────
   // loadRates is exposed via ref so pull-to-refresh can trigger the same fetch
@@ -522,10 +566,13 @@ const PgHomeScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      // Check if user is logged in on every focus
+      // Wishlist/addresses/cart are per-account — a guest just sees empty
+      // state for these instead of being bounced to Login.
       if (!userId) {
-        console.log("[PgHomeScreen] No userId on focus, navigating to login");
-        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+        setWishlistMap({});
+        setDeliveryAddress(null);
+        setAddressLoading(false);
+        setCartVariantIds(new Set());
         return;
       }
 
@@ -563,10 +610,26 @@ const PgHomeScreen = ({ navigation }) => {
     }, [userId, navigation]),
   );
 
+  // ── Guest gate — Add to Cart / Buy Now / Wishlist all need an account.
+  // A guest gets a half-screen login sheet instead of being bounced to a
+  // full Login screen; whatever they were doing resumes automatically once
+  // they're logged in. ──
+  const [showGuestSheet, setShowGuestSheet] = useState(false);
+  const pendingActionRef = useRef(null);
+
+  const requireAuth = useCallback((type, product, variant) => {
+    pendingActionRef.current = { type, product, variant };
+    setShowGuestSheet(true);
+  }, []);
+
   // ── Add to Cart from a product card — always adds that card's resolved
   // default variant; if already in cart, jumps straight to Cart instead. ──
   const handleCardAddToCart = useCallback(
     async (product, variant) => {
+      if (!userId) {
+        requireAuth("cart", product, variant);
+        return;
+      }
       const variantId = variant?.id;
       const pid = String(product?.id);
       if (cartVariantIds.has(String(variantId))) {
@@ -582,16 +645,56 @@ const PgHomeScreen = ({ navigation }) => {
         if (cartData) dispatch(setCartCount(cartData.totalItemsInCart || 0));
       } catch (e) {
         console.log("[PgHomeScreen] Add to cart failed:", e?.message);
+        showCartActionError(e, navigation);
       } finally {
         setCartLoadingId(null);
       }
     },
-    [userId, cartVariantIds, dispatch, navigation],
+    [userId, cartVariantIds, dispatch, navigation, requireAuth],
+  );
+
+  // ── Buy Now from a product card — adds the card's resolved default
+  // variant to the cart (if not already there) then jumps straight to
+  // Checkout, same as the Buy Now button on Product Details. ──
+  const [buyNowLoadingId, setBuyNowLoadingId] = useState(null);
+  const handleCardBuyNow = useCallback(
+    async (product, variant) => {
+      const variantId = variant?.id;
+      if (!product?.id || !variantId) return;
+      if (!userId) {
+        requireAuth("buyNow", product, variant);
+        return;
+      }
+      setBuyNowLoadingId(String(product.id));
+      try {
+        if (!cartVariantIds.has(String(variantId))) {
+          await addToCart(userId, product.id, variantId, 1);
+          setCartVariantIds((prev) => new Set(prev).add(String(variantId)));
+        }
+        const cart = await getCart(userId);
+        const cartItems = cart?.itemsInCart || [];
+        if (!cartItems.length) {
+          Alert.alert("Cart Empty", "Could not add this item. Please try again.");
+          return;
+        }
+        dispatch(setCartCount(cart?.totalItemsInCart || cartItems.length));
+        navigation.navigate("PgCheckout", {
+          cartTotal: cart?.totalPayableAmount || 0,
+          cartItems,
+        });
+      } catch (e) {
+        showCartActionError(e, navigation);
+      } finally {
+        setBuyNowLoadingId(null);
+      }
+    },
+    [userId, cartVariantIds, dispatch, navigation, requireAuth],
   );
 
   // ── Fetch categories ──────────────────────────────────────────────────────
+  // Works for guests too — getMainCategories falls back to the guest read
+  // key when there's no userId.
   const fetchCategories = async () => {
-    if (!userId || !accessToken) return;
     const t0 = Date.now();
     try {
       setLoading((p) => ({ ...p, categories: true }));
@@ -605,6 +708,76 @@ const PgHomeScreen = ({ navigation }) => {
         Math.max(0, 800 - (Date.now() - t0)),
       );
     }
+  };
+
+  // /search/products embeds each product's first variant — price, mrp,
+  // stockQuantity, sku — right on the result, so cards get offer badges
+  // without a separate per-card fetch.
+  const fetchProductsViaSearch = async (categoryId) => {
+    try {
+      const res = await searchAllProducts({
+        categoryId,
+        productType: "PHYSICAL",
+        sortBy: "NEWEST",
+        pageSize: 12,
+      });
+      return res?.results || [];
+    } catch (_) {
+      return [];
+    }
+  };
+
+  // Fetches a category's products, trying /search/products first (against
+  // the category itself, then each sub-category — products are often tagged
+  // on sub-categories, not the parent Gold/Silver id), falling back to the
+  // older getProducts/getSubCategories chain only if search comes up empty.
+  const fetchProductsForCategory = async (categoryId) => {
+    const viaSearch = await fetchProductsViaSearch(categoryId);
+    if (viaSearch.length) return viaSearch;
+
+    const subsForSearch = await getSubCategories(categoryId).catch(() => []);
+    if (subsForSearch?.length) {
+      const subResults = await Promise.allSettled(
+        subsForSearch.map((s) => fetchProductsViaSearch(s.id)),
+      );
+      const merged = [];
+      const seen = new Set();
+      subResults.forEach((r) => {
+        if (r.status !== "fulfilled") return;
+        r.value.forEach((p) => {
+          if (p?.id && !seen.has(p.id)) {
+            seen.add(p.id);
+            merged.push(p);
+          }
+        });
+      });
+      if (merged.length) return merged;
+    }
+
+    const data = await getProducts(categoryId);
+    let items = data?.items || data || [];
+    if (!items.length) {
+      const subs = await getSubCategories(categoryId).catch(() => []);
+      if (subs?.length) {
+        const results = await Promise.allSettled(
+          subs.map((s) => getProducts(s.id)),
+        );
+        const merged = [];
+        const seen = new Set();
+        results.forEach((r) => {
+          if (r.status !== "fulfilled") return;
+          const subItems = r.value?.items || r.value || [];
+          subItems.forEach((p) => {
+            if (p?.id && !seen.has(p.id)) {
+              seen.add(p.id);
+              merged.push(p);
+            }
+          });
+        });
+        items = merged;
+      }
+    }
+    return items;
   };
 
   // Some categories have products tagged directly on them; others only have
@@ -679,35 +852,6 @@ const PgHomeScreen = ({ navigation }) => {
     if (n.includes("gold")) return "gold";
     if (n.includes("silver")) return "silver";
     return null;
-  };
-
-  // Fetches a category's products, falling back to its subcategories'
-  // products when it has none directly (same rule fetchProductsData uses).
-  const fetchProductsForCategory = async (categoryId) => {
-    const data = await getProducts(categoryId);
-    let items = data?.items || data || [];
-    if (!items.length) {
-      const subs = await getSubCategories(categoryId).catch(() => []);
-      if (subs?.length) {
-        const results = await Promise.allSettled(
-          subs.map((s) => getProducts(s.id)),
-        );
-        const merged = [];
-        const seen = new Set();
-        results.forEach((r) => {
-          if (r.status !== "fulfilled") return;
-          const subItems = r.value?.items || r.value || [];
-          subItems.forEach((p) => {
-            if (p?.id && !seen.has(p.id)) {
-              seen.add(p.id);
-              merged.push(p);
-            }
-          });
-        });
-        items = merged;
-      }
-    }
-    return items;
   };
 
   const loadCrossSell = async (currentCat) => {
@@ -851,14 +995,15 @@ const PgHomeScreen = ({ navigation }) => {
     const promises = toFetch.map((item) =>
       getCategoryImages(item.id)
         .then((imgObj) => {
-          const url = imgObj?.frontViewUrl || placeholder(item.name);
+          // null (not an external placeholder URL) — LazyImage renders its
+          // own in-app icon fallback when there's genuinely no image.
+          const url = imgObj?.frontViewUrl || null;
           IMAGE_CACHE[String(item.id)] = url;
           return { id: String(item.id), url, success: true };
         })
         .catch(() => {
-          const url = placeholder(item.name);
-          IMAGE_CACHE[String(item.id)] = url;
-          return { id: String(item.id), url, success: false };
+          IMAGE_CACHE[String(item.id)] = null;
+          return { id: String(item.id), url: null, success: false };
         })
         .finally(() => fetchingRef.current.delete(String(item.id))),
     );
@@ -950,6 +1095,10 @@ const PgHomeScreen = ({ navigation }) => {
   // ── Wishlist ───────────────────────────────────────────────────────────────
   const handleWishlistToggle = useCallback(
     async (item) => {
+      if (!userId) {
+        requireAuth("wishlist", item, null);
+        return;
+      }
       const pid = String(item?.id);
       if (wishlistLoading[pid]) return;
       setWishlistLoading((p) => ({ ...p, [pid]: true }));
@@ -992,8 +1141,18 @@ const PgHomeScreen = ({ navigation }) => {
       }
       setWishlistLoading((p) => ({ ...p, [pid]: false }));
     },
-    [wishlistMap, wishlistLoading, userId, dispatch, showToast],
+    [wishlistMap, wishlistLoading, userId, dispatch, showToast, requireAuth],
   );
+
+  // Resume whatever a guest was doing once they've logged in.
+  useEffect(() => {
+    if (!userId || !pendingActionRef.current) return;
+    const { type, product, variant } = pendingActionRef.current;
+    pendingActionRef.current = null;
+    if (type === "cart") handleCardAddToCart(product, variant);
+    else if (type === "buyNow") handleCardBuyNow(product, variant);
+    else if (type === "wishlist") handleWishlistToggle(product);
+  }, [userId, handleCardAddToCart, handleCardBuyNow, handleWishlistToggle]);
 
   // Stable reference so every ProductCard in a list gets the same function
   // instead of a fresh closure per item per render (which defeats its
@@ -1106,7 +1265,7 @@ const PgHomeScreen = ({ navigation }) => {
             <LazyImage
               uri={imageUrl}
               style={styles.categoryCardImg}
-              resizeMode="contain"
+              resizeMode="cover"
               fallbackText={item.name}
             />
           </View>
@@ -1278,17 +1437,12 @@ const PgHomeScreen = ({ navigation }) => {
   // ─────────────────────────────────────────────────────────────────────────
   // MAIN RENDER
   // ─────────────────────────────────────────────────────────────────────────
-
-  // Show loading while checking auth
-  if (!userId) {
-    return (
-      <PgLayout title="GoldMart" showBack={false}>
-        <PgLoader />
-      </PgLayout>
-    );
-  }
+  // No more "loading while checking auth" gate here — guests render the
+  // real Home screen straight away; login is only asked for at the point
+  // a cart/wishlist/checkout action needs it (see requireAuth above).
 
   return (
+    <>
     <PgLayout title="GoldMart" showBack={false}>
       {/* ── Delivery location + Search — pinned above the scroll, same cue
           shoppers already read on Amazon/Swiggy/Flipkart, now one combined
@@ -1411,19 +1565,21 @@ const PgHomeScreen = ({ navigation }) => {
                   </Animated.View>
                 </View>
 
-                {/* Live Gold / Silver Rates + Categories — one continuous
-                    light-brown-to-white section, not two separate blocks
-                    that each fade to white and restart the color. */}
-                <LinearGradient
-                  colors={["rgba(139,90,43,0.14)", "#FFFFFF"]}
-                  style={styles.ratesAndCategoriesSection}
-                >
+                {/* Live Gold / Silver Rates + Categories — a flat cool tint
+                    so this block reads as its own section, distinct from
+                    the gold-tinted hero above. */}
+                <View style={[styles.ratesAndCategoriesSection, styles.ratesTint]}>
                   {(goldRate.price || gold22kRate.price || silverRate.price) && (
                     <TouchableOpacity
                       style={styles.ratesCard}
                       onPress={() => navigation.navigate("PgAllRates")}
                       activeOpacity={0.85}
                     >
+                      <View style={styles.ratesTitleRow}>
+                        <LiveBlinkDot />
+                        <Text style={styles.ratesTitleText}>Our Price Today</Text>
+                      </View>
+
                       <View style={styles.ratesRow}>
                         <RateColumn
                           icon={require("../../../assets/Goldrateicon.png")}
@@ -1474,7 +1630,58 @@ const PgHomeScreen = ({ navigation }) => {
                     count={categories.length || null}
                   />
                   {renderCategoriesGrid()}
-                </LinearGradient>
+                </View>
+
+                {/* Gold Products / Silver Products — direct Buy Now on Home,
+                    each card gets its offer badge from the embedded search
+                    variant data when available. */}
+                {!metalProductsLoading && (
+                  <>
+                    {goldProducts.length > 0 && (
+                      <View style={styles.exploreSection}>
+                        <SectionHeader title="Gold Products" />
+                        <View style={styles.grid}>
+                          {goldProducts.map((item) => (
+                            <View key={item?.id} style={styles.gridItem}>
+                              <ProductCard
+                                product={item}
+                                isInWishlist={!!wishlistMap[String(item?.id)]}
+                                onWishlistToggle={handleWishlistToggle}
+                                onBuyNow={handleCardBuyNow}
+                                buyingNow={buyNowLoadingId === String(item?.id)}
+                                cartVariantIds={cartVariantIds}
+                                onPress={handleProductPress}
+                                imageAspectRatio={1}
+                              />
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+
+                    {silverProducts.length > 0 && (
+                      <View style={styles.exploreSection}>
+                        <SectionHeader title="Silver Products" />
+                        <View style={styles.grid}>
+                          {silverProducts.map((item) => (
+                            <View key={item?.id} style={styles.gridItem}>
+                              <ProductCard
+                                product={item}
+                                isInWishlist={!!wishlistMap[String(item?.id)]}
+                                onWishlistToggle={handleWishlistToggle}
+                                onBuyNow={handleCardBuyNow}
+                                buyingNow={buyNowLoadingId === String(item?.id)}
+                                cartVariantIds={cartVariantIds}
+                                onPress={handleProductPress}
+                                imageAspectRatio={1}
+                              />
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </>
+                )}
 
                 {/* Why Shop With Us — flat green, same treatment as the
                     Delivery/Search/Banner gold block. */}
@@ -1701,13 +1908,23 @@ const PgHomeScreen = ({ navigation }) => {
         </Animated.View>
       )}
     </PgLayout>
+
+    <GuestLoginSheet
+      visible={showGuestSheet}
+      onClose={() => {
+        setShowGuestSheet(false);
+        pendingActionRef.current = null;
+      }}
+      onSuccess={() => setShowGuestSheet(false)}
+    />
+    </>
   );
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   scrollFlex: { flex: 1 },
-  scrollContent: { paddingBottom: 16, backgroundColor: "#F8F7F6" },
+  scrollContent: { paddingBottom: 16, backgroundColor: "#FFFFFF" },
 
   combinedTopBar: {
     paddingTop: 10,
@@ -1717,10 +1934,13 @@ const styles = StyleSheet.create({
   },
   // Flat, not faded to white — so the gold carries straight through into
   // the Banner section below it instead of hitting white and restarting.
-  goldFlatTint: { backgroundColor: "rgba(207,139,23,0.08)" },
+  goldFlatTint: { backgroundColor: "#FBEFD9" },
   // Brand emerald (matches C.gold/the teal accent used across the rest of
   // the app), not the mismatched bright generic green this used to be.
-  greenFlatTint: { backgroundColor: "rgba(14,107,87,0.07)" },
+  greenFlatTint: { backgroundColor: "#EAF7F2" },
+  // Gold Rates + Categories — a different, cooler flat tint so this block
+  // reads as its own section instead of blending into the hero above.
+  ratesTint: { backgroundColor: "#FDFBF4" },
   locationBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -1855,6 +2075,18 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 1,
   },
+  ratesTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+  },
+  ratesTitleText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#0E6B57",
+    letterSpacing: 0.2,
+  },
   ratesRow: { flexDirection: "row", alignItems: "center" },
   rateBlock: {
     flex: 1,
@@ -1903,7 +2135,7 @@ const styles = StyleSheet.create({
   ratesLinkText: { fontSize: 12.5, fontWeight: "600", color: C.textPrimary },
   bannerSlide: {
     width: BANNER_WIDTH,
-    height: BANNER_WIDTH * (929 / 1693) * 0.82,
+    height: BANNER_WIDTH * (929 / 1693) * 0.55,
     borderRadius: 18,
     overflow: "hidden",
     backgroundColor: "#1C1C1E",
@@ -1914,7 +2146,6 @@ const styles = StyleSheet.create({
   },
   // ── Why Shop With Us — LinearGradient handles the fade, no flat color here ──
   whyShopSection: {
-    marginBottom: 6,
     paddingHorizontal: 16,
     paddingTop: 18,
     paddingBottom: 28,
@@ -1934,9 +2165,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   whyShopIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     overflow: "hidden",
     backgroundColor: C.bgCard,
     marginBottom: 7,
@@ -1964,8 +2195,6 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     paddingHorizontal: 24,
     backgroundColor: FOOTER_BG,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
   },
   footerTopRow: {
     flexDirection: "row",
@@ -2121,11 +2350,16 @@ const styles = StyleSheet.create({
   },
   categoryCardImgWrap: {
     width: "100%",
-    aspectRatio: 1,
+    aspectRatio: 1.5,
     backgroundColor: C.shimmer,
   },
   categoryCardShimmerImg: { width: "100%", aspectRatio: 1 },
   categoryCardImg: { width: "100%", height: "100%" },
+  categoryImgFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(207,139,23,0.08)",
+  },
   categoryCardLabel: {
     fontSize: 15,
     fontWeight: "700",
@@ -2149,6 +2383,7 @@ const styles = StyleSheet.create({
     color: "#8B5A2B",
   },
 
+  exploreSection: { paddingTop: 8, paddingBottom: 4 },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",

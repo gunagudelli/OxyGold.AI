@@ -3,6 +3,12 @@ import ENV from '../config/env';
 export const BASE_URL        = ENV.BASE_URL;
 export const MARKETING_URL   = ENV.MARKETING_URL;
 export const PHYSICAL_GOLD_BASE_URL = ENV.BASE_URL.replace('/api', '/api/oxygold-api'); // Physical gold base URL
+
+// Public/guest read-access key — lets a signed-out visitor view categories,
+// products, and prices without a login token. Used only for GET calls that
+// should work before registration (browsing); cart/checkout/wishlist still
+// require a real logged-in token.
+export const GUEST_API_KEY = 'bwjpL6+95jM2BFkBQfHteyT7eSVNQpLKBPuHQihGzNo=';
 export const DIGITAL_GOLD_BASE_URL = ENV.BASE_URL.replace('/api', '/api/oxygold-api/digital-gold'); // Digital gold base URL
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────

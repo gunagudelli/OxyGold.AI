@@ -133,7 +133,19 @@ const CartItemRow = ({ item, busy, imageUrl, onRemove, onIncrement, onDecrement,
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.lineTotalValue}>₹{item.totalPrice?.toLocaleString("en-IN") || "0"}</Text>
+        <View style={{ alignItems: "flex-end" }}>
+          <Text style={styles.lineTotalValue}>₹{item.totalPrice?.toLocaleString("en-IN") || "0"}</Text>
+          {/* Offer/MRP — only renders once the cart API actually sends an mrp
+              field on the line item; nothing to show otherwise. */}
+          {!!item.mrp && item.mrp > item.totalPrice && (
+            <View style={styles.offerRow}>
+              <Text style={styles.offerStrike}>₹{item.mrp.toLocaleString("en-IN")}</Text>
+              <Text style={styles.offerPct}>
+                {Math.round(((item.mrp - item.totalPrice) / item.mrp) * 100)}% OFF
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
     </View>
@@ -550,6 +562,14 @@ const styles = StyleSheet.create({
   qtyValue: { fontSize: 14, fontWeight: "600", color: C.navy, minWidth: 18, textAlign: "center" },
 
   lineTotalValue: { fontSize: 15, fontWeight: "700", color: C.green },
+  offerRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
+  offerStrike: {
+    fontSize: 11,
+    color: C.red,
+    textDecorationLine: "line-through",
+    fontWeight: "600",
+  },
+  offerPct: { fontSize: 10, fontWeight: "700", color: C.gold },
 
   // ── Summary card ──
   summaryCard: {

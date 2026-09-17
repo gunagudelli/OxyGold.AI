@@ -5,6 +5,10 @@ const initialState = {
   refreshToken:    null,
   userId:          null,
   userEmail:       null,
+  // The mobile number used at login — the backend's own profile often
+  // doesn't have this set yet (accounts created via OTP with no further
+  // profile step), so this is the fallback Profile shows instead of blank.
+  userPhone:       null,
   tokenType:       'Bearer',
   tokenExpiresAt:  null, // Unix ms timestamp — used for proactive refresh
   isLoggedIn:      false,
@@ -15,12 +19,13 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     setTokens(state, action) {
-      const { accessToken, refreshToken, userId, userEmail, tokenType, expiresIn, tokenExpiresAt } = action.payload;
+      const { accessToken, refreshToken, userId, userEmail, userPhone, tokenType, expiresIn, tokenExpiresAt } = action.payload;
 
       state.accessToken    = accessToken    || state.accessToken;
       state.refreshToken   = refreshToken   || state.refreshToken;
       state.userId         = userId         || state.userId;
       state.userEmail      = userEmail      || state.userEmail;
+      state.userPhone      = userPhone      || state.userPhone;
       state.tokenType      = tokenType      || 'Bearer';
       state.isLoggedIn     = !!accessToken;
 
@@ -58,6 +63,7 @@ export const selectAccessToken    = (s) => s?.auth?.accessToken    || null;
 export const selectRefreshToken   = (s) => s?.auth?.refreshToken   || null;
 export const selectUserId         = (s) => s?.auth?.userId         || null;
 export const selectUserEmail      = (s) => s?.auth?.userEmail      || null;
+export const selectUserPhone      = (s) => s?.auth?.userPhone      || null;
 export const selectIsLoggedIn     = (s) => s?.auth?.isLoggedIn     || false;
 export const selectTokenExpiresAt = (s) => s?.auth?.tokenExpiresAt || null;
 export const selectAuthState      = (s) => s?.auth                 || initialState;

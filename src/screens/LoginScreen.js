@@ -253,6 +253,7 @@ const LoginScreen = ({ navigation, route }) => {
           refreshToken: data.data.refreshToken,
           expiresIn: data.data.expiresIn,
           userId: data.data.userId,
+          userPhone: phone,
           tokenType: data.data.tokenType || "Bearer",
         };
         console.log('[LoginScreen] Token payload:', {
@@ -268,6 +269,7 @@ const LoginScreen = ({ navigation, route }) => {
         const tokenPayload = {
           accessToken: data?.token || data?.accessToken,
           userId,
+          userPhone: phone,
         };
         console.log('[LoginScreen] Fallback token payload:', {
           userId: tokenPayload.userId,

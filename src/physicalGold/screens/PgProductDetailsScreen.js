@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Animated,
   Alert,
   Modal,
   Dimensions,
@@ -20,10 +21,12 @@ import { setCartCount } from "../../store/cartSlice";
 import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
+import GuestLoginSheet from "../components/GuestLoginSheet";
 import {
   getProductVariants,
   getProductAllImages,
   getProductRecommendations,
+  getVariantPriceBreakup,
   addToCart,
   getCart,
   generateModelImage,
@@ -162,6 +165,9 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const [cartQuantity, setCartQuantity] = useState(0);
   const [buyNowLoading, setBuyNowLoading] = useState(false);
   const [similarProducts, setSimilarProducts] = useState([]);
+  const [priceBreakup, setPriceBreakup] = useState(null);
+  const [showGuestSheet, setShowGuestSheet] = useState(false);
+  const pendingActionRef = useRef(null); // 'cart' | 'buyNow'
 
   // ── Hardware back
   useEffect(() => {
@@ -196,18 +202,29 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
         setProductImages(imgs);
         setSelectedViewIdx(0);
 
-        const mapped = rawList.map((v) => ({
-          id: v.id?.toString(),
-          price: v.price || 0,
-          mrp: v.mrp || 0,
-          imageUrl: v.imageUrl || imgs.frontViewUrl || "",
-          purity: v.purity || "",
-          size: v.size || "",
-          sku: v.sku || "",
-          status: v.status || "",
-          stockQuantity: v.stockQuantity ?? 0,
-          weight: v.weight || 0,
-        }));
+        // The card that navigated here (Home/Search) often already has this
+        // exact product's variant — including mrp — embedded from
+        // /search/products, which is the only endpoint that reliably
+        // returns mrp at all. The per-product endpoints here don't, so
+        // backfill from that instead of leaving offers silently missing.
+        const navVariants = route.params?.product?.variants || [];
+        const mapped = rawList.map((v) => {
+          const navMatch =
+            navVariants.find((nv) => String(nv.id) === String(v.id)) ||
+            navVariants[0];
+          return {
+            id: v.id?.toString(),
+            price: v.price || 0,
+            mrp: v.mrp || navMatch?.mrp || 0,
+            imageUrl: v.imageUrl || imgs.frontViewUrl || "",
+            purity: v.purity || "",
+            size: v.size || "",
+            sku: v.sku || "",
+            status: v.status || "",
+            stockQuantity: v.stockQuantity ?? 0,
+            weight: v.weight || 0,
+          };
+        });
         setVariants(mapped);
         if (mapped.length) setSelectedVariant(mapped[0]);
 
@@ -224,7 +241,11 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
           });
         }
         performanceMonitor.endMeasure('PgProductDetailsScreen');
-      } catch (_) {
+      } catch (err) {
+        // Falling back to route.params leaves variants empty, which makes
+        // Buy Now/Add to Cart look "stuck" (they just show the "select a
+        // variant" alert forever) — log why so that's traceable.
+        console.error('[PgProductDetailsScreen] Variant/product fetch failed:', err?.message, err?.data);
         const fb = route.params?.product;
         if (fb) {
           let imgUrl = fb.imageUrl || "";
@@ -264,8 +285,27 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     return () => { alive = false; };
   }, [productId]);
 
+  // Price breakup (GST + making charges) — refetched whenever the selected
+  // variant changes, since each variant has its own price and so its own
+  // breakup. Fails soft so a breakup hiccup never blocks the main price.
+  useEffect(() => {
+    let alive = true;
+    if (!selectedVariant?.id) {
+      setPriceBreakup(null);
+      return;
+    }
+    getVariantPriceBreakup(selectedVariant.id)
+      .then((data) => { if (alive) setPriceBreakup(data); })
+      .catch(() => { if (alive) setPriceBreakup(null); });
+    return () => { alive = false; };
+  }, [selectedVariant?.id]);
+
+  const imageFade = useRef(new Animated.Value(1)).current;
   const switchView = (idx) => {
-    setSelectedViewIdx(idx);
+    Animated.timing(imageFade, { toValue: 0, duration: 100, useNativeDriver: true }).start(() => {
+      setSelectedViewIdx(idx);
+      Animated.timing(imageFade, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+    });
   };
 
   // How many units of the currently selected variant are already sitting in
@@ -301,9 +341,8 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
       return false;
     }
     if (!userId) {
-      Alert.alert("Session Expired", "Please login again.", [
-        { text: "OK", onPress: () => navigation.replace("Login") },
-      ]);
+      pendingActionRef.current = "cart";
+      setShowGuestSheet(true);
       return false;
     }
     const t0 = Date.now();
@@ -357,9 +396,8 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
       return;
     }
     if (!userId) {
-      Alert.alert("Session Expired", "Please login again.", [
-        { text: "OK", onPress: () => navigation.replace("Login") },
-      ]);
+      pendingActionRef.current = "buyNow";
+      setShowGuestSheet(true);
       return;
     }
     setBuyNowLoading(true);
@@ -384,6 +422,16 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
       setBuyNowLoading(false);
     }
   };
+
+  // Resume whatever a guest was doing (Add to Cart / Buy Now) once they've
+  // logged in via the sheet above.
+  useEffect(() => {
+    if (!userId || !pendingActionRef.current) return;
+    const type = pendingActionRef.current;
+    pendingActionRef.current = null;
+    if (type === "cart") handleAddToCart();
+    else if (type === "buyNow") handleBuyNow();
+  }, [userId]);
 
   const handleGenerateModelPreview = async () => {
     if (!currentImageUrl) {
@@ -514,6 +562,16 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
               </View>
             )}
 
+            {/* Share — overlaid on the image instead of a separate row below the title */}
+            <TouchableOpacity
+              style={s.shareOnImage}
+              onPress={handleShare}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="share-social-outline" size={20} color="#0E6B57" />
+            </TouchableOpacity>
+
             {/* Image */}
             {hasImages ? (
               <TouchableOpacity
@@ -521,9 +579,9 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                 onPress={() => setShowModal(true)}
                 activeOpacity={0.95}
               >
-                <Image
+                <Animated.Image
                   source={{ uri: currentImageUrl }}
-                  style={StyleSheet.absoluteFill}
+                  style={[StyleSheet.absoluteFill, { opacity: imageFade }]}
                   resizeMode="contain"
                 />
               </TouchableOpacity>
@@ -551,7 +609,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                 }
                 activeOpacity={0.75}
               >
-                <Ionicons name="chevron-back" size={18} color={C.navyLight} />
+                <Ionicons name="chevron-back" size={26} color={C.navy} />
               </TouchableOpacity>
             )}
             {hasMultiple && (
@@ -562,7 +620,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                 }
                 activeOpacity={0.75}
               >
-                <Ionicons name="chevron-forward" size={18} color={C.navyLight} />
+                <Ionicons name="chevron-forward" size={26} color={C.navy} />
               </TouchableOpacity>
             )}
           </View>
@@ -587,30 +645,18 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
 
           {/* ──────────────── BODY ──────────────── */}
           <View style={s.body}>
-            {/* Title + price row */}
+            {/* Title, then price below it — full width, never squeezed
+                into a corner regardless of title length. */}
             <View style={s.titleRow}>
-              <View style={s.titleRowLeft}>
-                <Text style={s.name}>{product.name}</Text>
-                <View style={s.trustRow}>
-                  <Ionicons name="shield-checkmark-outline" size={14} color="#CF8B17" />
-                  <Text style={s.trustText}>BIS Hallmarked</Text>
-                </View>
-                <TouchableOpacity
-                  style={s.shareRow}
-                  onPress={handleShare}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                >
-                  <Ionicons name="share-social-outline" size={14} color={C.gold} />
-                  <Text style={s.shareText}>Share this product</Text>
-                </TouchableOpacity>
-              </View>
+              <Text style={s.name} numberOfLines={2} ellipsizeMode="tail">{product.name}</Text>
+
               <View style={s.priceBlock}>
-                <Text style={s.priceValue}>₹{fmt(price)}</Text>
+                <Text style={s.priceValue} numberOfLines={1} adjustsFontSizeToFit>₹{fmt(price)}</Text>
                 {mrp > price && (
                   <View style={s.priceStrikeRow}>
-                    <Text style={s.priceStrike}>₹{fmt(mrp)}</Text>
+                    <Text style={s.priceStrike} numberOfLines={1}>₹{fmt(mrp)}</Text>
                     <View style={s.discPill}>
-                      <Text style={s.discPillText}>{discount}% OFF</Text>
+                      <Text style={s.discPillText} numberOfLines={1}>{discount}% OFF</Text>
                     </View>
                   </View>
                 )}
@@ -758,6 +804,35 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                     />
                   </View>
                 )}
+              </View>
+            )}
+
+            {/* ── Price Breakup — base price, GST, making charges, total ── */}
+            {priceBreakup && (
+              <View style={s.card}>
+                <Text style={s.specDropdownTitle}>Price Breakup</Text>
+                <View style={s.specDropdownContent}>
+                  <SpecRow
+                    label="Variant Price"
+                    value={`₹${fmt(priceBreakup.variantPrice)}`}
+                  />
+                  <SpecRow
+                    label={`GST (${priceBreakup.gstPercentage}%)`}
+                    value={`₹${fmt(priceBreakup.gstAmount)}`}
+                  />
+                  {priceBreakup.makingAmount > 0 && (
+                    <SpecRow
+                      label={`Making Charges (${priceBreakup.makingPercentage}%)`}
+                      value={`₹${fmt(priceBreakup.makingAmount)}`}
+                    />
+                  )}
+                  <SpecRow
+                    label="Total Amount"
+                    value={`₹${fmt(priceBreakup.totalAmount)}`}
+                    accent
+                    last
+                  />
+                </View>
               </View>
             )}
 
@@ -1039,6 +1114,15 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
+
+      <GuestLoginSheet
+        visible={showGuestSheet}
+        onClose={() => {
+          setShowGuestSheet(false);
+          pendingActionRef.current = null;
+        }}
+        onSuccess={() => setShowGuestSheet(false)}
+      />
     </PgLayout>
   );
 };
@@ -1052,7 +1136,7 @@ const s = StyleSheet.create({
   hero: {
     marginHorizontal: 16,
     marginTop: 18,
-    marginBottom: 10,
+    marginBottom: 18,
     aspectRatio: 1,
     borderRadius: 20,
     backgroundColor: "#FFFFFF",
@@ -1064,10 +1148,10 @@ const s = StyleSheet.create({
   },
   heroImageWrap: {
     position: "absolute",
-    top: 16,
-    left: 16,
-    right: 16,
-    bottom: 16,
+    top: 14,
+    left: 14,
+    right: 14,
+    bottom: 14,
   },
 
   // Offer badge — only shown when the API returns a real discount
@@ -1084,43 +1168,27 @@ const s = StyleSheet.create({
   badgeOfferText: { fontSize: 11, fontWeight: "700", color: "#fff" },
 
   // Arrows
+  // Arrows — plain icon mark, no circle/background
   arrow: {
     position: "absolute",
     top: "50%",
-    marginTop: -18,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E7E0DA",
+    marginTop: -16,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 5,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
   },
   arrowLeft: { left: 10 },
   arrowRight: { right: 10 },
 
-  // Trust row — small BIS line under the title
-  trustRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 4,
+  // Share — plain icon overlaid on the hero image, bottom-right, no background
+  shareOnImage: {
+    position: "absolute",
+    bottom: 12,
+    right: 12,
+    zIndex: 5,
   },
-  trustText: { fontSize: 12, fontWeight: "600", color: "#CF8B17" },
-  shareRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 8,
-  },
-  shareText: { fontSize: 11.5, fontWeight: "600", color: C.gold },
 
   // Dots
   dotBar: {
@@ -1167,23 +1235,20 @@ const s = StyleSheet.create({
   // ── Body ─────────────────────────────────────────────────────────────────
   body: { paddingHorizontal: 16 },
   name: {
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: "700",
     color: C.navy,
-    lineHeight: 28,
-    letterSpacing: -0.4,
+    lineHeight: 24,
+    letterSpacing: -0.3,
     marginBottom: 4,
   },
   desc: { fontSize: 13, color: C.navyLight, lineHeight: 20, marginBottom: 14 },
 
   // ── Title + Price row ──────────────────────────────────────────────────────
   titleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
     marginBottom: 10,
   },
-  titleRowLeft: { flex: 1, marginRight: 12 },
-  priceBlock: { alignItems: "flex-end" },
+  priceBlock: { alignItems: "flex-start", marginTop: 8, marginBottom: 8 },
   priceValue: {
     fontSize: 24,
     fontWeight: "700",
@@ -1517,7 +1582,7 @@ const s = StyleSheet.create({
   buyNowBtn: {
     flex: 1,
     flexDirection: "row",
-    backgroundColor: "#CF8B17",
+    backgroundColor: "#0E6B57",
     borderRadius: 14,
     height: 50,
     justifyContent: "center",

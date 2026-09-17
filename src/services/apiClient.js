@@ -13,7 +13,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_REFRESH_TOKEN } from '../constants/api';
+import { API_REFRESH_TOKEN, GUEST_API_KEY } from '../constants/api';
 import { setTokens, clearTokens, selectTokenExpiresAt } from '../store/authSlice';
 import { SESSION_EXPIRED, AUTH_STORAGE_KEY } from '../constants/authConstants';
 
@@ -216,9 +216,12 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
   const token = getToken();
   console.log(`[apiClient] ${options.method || 'GET'} ${url} | token: ${token ? 'present (***' + token.slice(-6) + ')' : 'MISSING'}`);
 
+  // No token → guest. Send the read-only guest key so browsing (categories,
+  // products, images, rates) still works before login, instead of every
+  // physicalGoldApi.js call needing to remember to add this itself.
   const headers = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : { 'X-API-KEY': GUEST_API_KEY }),
     ...options.headers,
   };
 
@@ -257,8 +260,12 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
       throw new ApiError('Invalid server response', res.status, null);
     }
 
-    // 401 → attempt refresh then retry once
-    if (res.status === 401 && !options._retry) {
+    // 401 → attempt refresh then retry once. Only meaningful if there was a
+    // session to begin with — a guest who never logged in hitting a 401 on
+    // a protected endpoint isn't a "session expired" event, just a normal
+    // auth-required failure, so it falls through to the regular error below
+    // instead of clearing tokens and kicking them to Login.
+    if (res.status === 401 && !options._retry && token) {
       console.log('[apiClient] Got 401, attempting reactive token refresh');
       const newToken = await refreshAccessToken();
       if (!newToken) {
