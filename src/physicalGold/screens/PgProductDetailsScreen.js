@@ -22,7 +22,9 @@ import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
+import PgActionButton from "../components/PgActionButton";
 import { showCartActionError } from "../utils/cartErrors";
+import { resolveImageUrl } from "../utils/resolveImageUrl";
 import {
   getProductVariants,
   getProductAllImages,
@@ -41,15 +43,15 @@ const { width: SW, height: SH } = Dimensions.get("window");
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#0E6B57",
+  gold: "#6C4AB6",
   goldLight: "#F7F4ED",
-  goldMid: "#2FA085",
-  goldDim: "rgba(14,107,87,0.10)",
+  goldMid: "#9A80DA",
+  goldDim: "rgba(108,74,182,0.10)",
   navy: "#1C1C1E",
   navyMid: "#48484C",
   navyLight: "#7A7A80",
-  green: "#1F8A4C",
-  greenDark: "#1F8A4C",
+  green: "#146C3B",
+  greenDark: "#146C3B",
   greenLight: "#E8F5E9",
   red: "#C0392B",
   redDark: "#C0392B",
@@ -100,7 +102,12 @@ const SpecRow = ({ label, value, accent, last }) => (
 // Kept local to this screen instead of touching the shared ProductCard.
 const SimilarProductCard = ({ product, onPress }) => {
   const [imgError, setImgError] = useState(false);
-  const name = product?.productName || product?.name || "Product";
+  // Every product name starts with the same "OXYGOLD.AIJewellers" brand
+  // prefix, which is exactly what a 1-2 line truncated name has room to
+  // show — leaving every card reading as the same cut-off text. Strip it
+  // so the part that actually distinguishes the product is visible.
+  const rawName = product?.productName || product?.name || "Product";
+  const name = rawName.replace(/^OXYGOLD\.AI\s*Jewellers\s*/i, "").trim() || rawName;
   const rawPrice = product?.priceRange || product?.price || "";
   let priceDisplay = null;
   if (rawPrice) {
@@ -124,11 +131,11 @@ const SimilarProductCard = ({ product, onPress }) => {
           />
         ) : (
           <View style={s.similarImgFallback}>
-            <Ionicons name="diamond-outline" size={24} color="#CF8B17" />
+            <Ionicons name="diamond-outline" size={24} color={C.gold} />
           </View>
         )}
       </View>
-      <Text style={s.similarName} numberOfLines={1} ellipsizeMode="tail">
+      <Text style={s.similarName} numberOfLines={2} ellipsizeMode="tail">
         {name}
       </Text>
       {!!product?.weight && (
@@ -167,6 +174,9 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const [buyNowLoading, setBuyNowLoading] = useState(false);
   const [similarProducts, setSimilarProducts] = useState([]);
   const [priceBreakup, setPriceBreakup] = useState(null);
+  const [priceBreakupLoading, setPriceBreakupLoading] = useState(false);
+  const [priceBreakupError, setPriceBreakupError] = useState(false);
+  const [priceBreakupRetry, setPriceBreakupRetry] = useState(0);
   const [showGuestSheet, setShowGuestSheet] = useState(false);
   const pendingActionRef = useRef(null); // 'cart' | 'buyNow'
 
@@ -217,7 +227,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
             id: v.id?.toString(),
             price: v.price || 0,
             mrp: v.mrp || navMatch?.mrp || 0,
-            imageUrl: v.imageUrl || imgs.frontViewUrl || "",
+            imageUrl: resolveImageUrl(v.imageUrl) || imgs.frontViewUrl || "",
             purity: v.purity || "",
             size: v.size || "",
             sku: v.sku || "",
@@ -234,7 +244,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
           setProduct({
             id: src.id?.toString(),
             name: src.name || src.productName || "",
-            imageUrl: src.imageUrl || imgs.frontViewUrl || "",
+            imageUrl: resolveImageUrl(src.imageUrl) || imgs.frontViewUrl || "",
             description: src.description || "",
             status: src.status || "",
             gstPercentage: parseFloat(src.gstPercentage) || 0,
@@ -249,7 +259,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
         console.error('[PgProductDetailsScreen] Variant/product fetch failed:', err?.message, err?.data);
         const fb = route.params?.product;
         if (fb) {
-          let imgUrl = fb.imageUrl || "";
+          let imgUrl = resolveImageUrl(fb.imageUrl) || "";
           if (!imgUrl) {
             try {
               const r2 = await getProductAllImages(productId);
@@ -293,13 +303,26 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     let alive = true;
     if (!selectedVariant?.id) {
       setPriceBreakup(null);
+      setPriceBreakupLoading(false);
+      setPriceBreakupError(false);
       return;
     }
+    setPriceBreakup(null);
+    setPriceBreakupError(false);
+    setPriceBreakupLoading(true);
     getVariantPriceBreakup(selectedVariant.id)
-      .then((data) => { if (alive) setPriceBreakup(data); })
-      .catch(() => { if (alive) setPriceBreakup(null); });
+      .then((data) => {
+        if (!alive) return;
+        if (data && data.variantPrice != null && data.totalAmount != null) {
+          setPriceBreakup(data);
+        } else {
+          setPriceBreakupError(true);
+        }
+      })
+      .catch(() => { if (alive) setPriceBreakupError(true); })
+      .finally(() => { if (alive) setPriceBreakupLoading(false); });
     return () => { alive = false; };
-  }, [selectedVariant?.id]);
+  }, [selectedVariant?.id, priceBreakupRetry]);
 
   const imageFade = useRef(new Animated.Value(1)).current;
   const switchView = (idx) => {
@@ -503,7 +526,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
       >
         <View style={s.empty}>
           <View style={s.emptyIcon}>
-            <Ionicons name="diamond-outline" size={32} color="#CF8B17" />
+          <Ionicons name="diamond-outline" size={32} color={C.gold} />
           </View>
           <Text style={s.emptyTitle}>Product Not Found</Text>
           <Text style={s.emptySub}>This item may no longer be available.</Text>
@@ -574,7 +597,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               activeOpacity={0.8}
             >
-              <Ionicons name="share-social-outline" size={20} color="#0E6B57" />
+              <Ionicons name="share-social-outline" size={20} color="#6C4AB6" />
             </TouchableOpacity>
 
             {/* Image */}
@@ -677,7 +700,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
               {TRUST_ICONS.map((t, i) => (
                 <React.Fragment key={t.label}>
                   <View style={s.trustGridItem}>
-                    <Ionicons name={t.icon} size={20} color="#CF8B17" />
+                    <Ionicons name={t.icon} size={20} color={C.gold} />
                     <Text style={s.trustGridLabel}>{t.label}</Text>
                   </View>
                   {i < TRUST_ICONS.length - 1 && <View style={s.trustGridDivider} />}
@@ -813,31 +836,49 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
             )}
 
             {/* ── Price Breakup — base price, GST, making charges, total ── */}
-            {priceBreakup && (
+            {selectedVariant?.id && (
               <View style={s.card}>
                 <Text style={s.specDropdownTitle}>Price Breakup</Text>
-                <View style={s.specDropdownContent}>
-                  <SpecRow
-                    label="Variant Price"
-                    value={`₹${fmt(priceBreakup.variantPrice)}`}
-                  />
-                  <SpecRow
-                    label={`GST (${priceBreakup.gstPercentage}%)`}
-                    value={`₹${fmt(priceBreakup.gstAmount)}`}
-                  />
-                  {priceBreakup.makingAmount > 0 && (
+                {priceBreakupLoading ? (
+                  <View style={s.priceBreakupState}>
+                    <ActivityIndicator size="small" color={C.gold} />
+                    <Text style={s.priceBreakupStateText}>Updating price breakdown…</Text>
+                  </View>
+                ) : priceBreakupError ? (
+                  <View style={s.priceBreakupState}>
+                    <Text style={s.priceBreakupErrorText}>Price breakdown is temporarily unavailable.</Text>
+                    <TouchableOpacity
+                      onPress={() => setPriceBreakupRetry((attempt) => attempt + 1)}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                    >
+                      <Text style={s.priceBreakupRetry}>Retry</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : priceBreakup ? (
+                  <View style={s.specDropdownContent}>
                     <SpecRow
-                      label={`Making Charges (${priceBreakup.makingPercentage}%)`}
-                      value={`₹${fmt(priceBreakup.makingAmount)}`}
+                      label="Variant Price"
+                      value={`₹${fmt(priceBreakup.variantPrice)}`}
                     />
-                  )}
-                  <SpecRow
-                    label="Total Amount"
-                    value={`₹${fmt(priceBreakup.totalAmount)}`}
-                    accent
-                    last
-                  />
-                </View>
+                    <SpecRow
+                      label={`GST (${priceBreakup.gstPercentage ?? 0}%)`}
+                      value={`₹${fmt(priceBreakup.gstAmount)}`}
+                    />
+                    {Number(priceBreakup.makingAmount) > 0 && (
+                      <SpecRow
+                        label={`Making Charges (${priceBreakup.makingPercentage ?? 0}%)`}
+                        value={`₹${fmt(priceBreakup.makingAmount)}`}
+                      />
+                    )}
+                    <SpecRow
+                      label="Total Amount"
+                      value={`₹${fmt(priceBreakup.totalAmount)}`}
+                      accent
+                      last
+                    />
+                  </View>
+                ) : null}
               </View>
             )}
 
@@ -957,42 +998,21 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
             </View>
           ) : (
             <View style={s.footerActions}>
-              <TouchableOpacity
-                style={s.cartBtnOutline}
+              <PgActionButton
+                size="lg"
+                label={cartQuantity > 0 ? `In Cart (${cartQuantity})` : "Add to Cart"}
                 onPress={cartQuantity > 0 ? () => navigation.navigate("PgCart") : handleAddToCart}
-                disabled={!selectedVariant || cartLoading || buyNowLoading}
-                activeOpacity={0.85}
-              >
-                {cartLoading ? (
-                  <ActivityIndicator size="small" color={C.gold} />
-                ) : cartQuantity > 0 ? (
-                  <>
-                    <Ionicons name="checkmark-circle" size={16} color={C.gold} style={{ marginRight: 6 }} />
-                    <Text style={s.cartBtnTextOutline}>Qty {cartQuantity}</Text>
-                  </>
-                ) : (
-                  <>
-                    <Ionicons name="cart-outline" size={16} color={C.gold} style={{ marginRight: 6 }} />
-                    <Text style={s.cartBtnTextOutline}>Add to Cart</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                disabled={!selectedVariant || buyNowLoading}
+                loading={cartLoading}
+              />
 
-              <TouchableOpacity
-                style={s.buyNowBtn}
+              <PgActionButton
+                size="lg"
+                label="Buy Now"
                 onPress={handleBuyNow}
-                disabled={!selectedVariant || cartLoading || buyNowLoading}
-                activeOpacity={0.85}
-              >
-                {buyNowLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="flash" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={s.cartBtnText}>Buy Now</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                disabled={!selectedVariant || cartLoading}
+                loading={buyNowLoading}
+              />
             </View>
           )}
         </View>
@@ -1137,33 +1157,29 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   scroll: { paddingBottom: 40 },
 
-  // ── Hero ─────────────────────────────────────────────────────────────────
+  // ── Hero — full-bleed, edge-to-edge like a marketplace product page
+  // (no card border/box), instead of a small inset image on a white card. ──
   hero: {
-    marginHorizontal: 16,
-    marginTop: 18,
-    marginBottom: 18,
-    aspectRatio: 1,
-    borderRadius: 20,
+    width: "100%",
+    aspectRatio: 0.95,
     backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E7E0DA",
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
   heroImageWrap: {
     position: "absolute",
-    top: 14,
-    left: 14,
-    right: 14,
-    bottom: 14,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 
   // Offer badge — only shown when the API returns a real discount
   badgeOffer: {
     position: "absolute",
-    top: 12,
-    right: 12,
+    top: 14,
+    right: 14,
     backgroundColor: C.redDark,
     borderRadius: 8,
     paddingHorizontal: 9,
@@ -1172,27 +1188,45 @@ const s = StyleSheet.create({
   },
   badgeOfferText: { fontSize: 11, fontWeight: "700", color: "#fff" },
 
-  // Arrows
-  // Arrows — plain icon mark, no circle/background
+  // Arrows — circular translucent-white buttons so they stay visible over
+  // any image content now that the hero is full-bleed.
   arrow: {
     position: "absolute",
     top: "50%",
-    marginTop: -16,
-    width: 32,
-    height: 32,
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.88)",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  arrowLeft: { left: 10 },
-  arrowRight: { right: 10 },
+  arrowLeft: { left: 12 },
+  arrowRight: { right: 12 },
 
-  // Share — plain icon overlaid on the hero image, bottom-right, no background
+  // Share — same circular translucent-white treatment as the arrows.
   shareOnImage: {
     position: "absolute",
-    bottom: 12,
-    right: 12,
+    bottom: 14,
+    right: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.88)",
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
 
   // Dots
@@ -1201,7 +1235,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: 5,
-    marginBottom: 10,
+    marginTop: 14,
   },
   dot: {
     width: 5,
@@ -1213,32 +1247,32 @@ const s = StyleSheet.create({
 
   // Coin fallback
   coinFallback: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 168,
+    height: 168,
+    borderRadius: 84,
     backgroundColor: C.goldLight,
     borderWidth: 2,
-    borderColor: "#CF8B17",
+    borderColor: C.gold,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
   },
   coinWeight: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: "700",
-    color: "#CF8B17",
-    lineHeight: 30,
+    color: C.gold,
+    lineHeight: 36,
   },
   coinLine: {
     width: 44,
     height: 1,
-    backgroundColor: "rgba(14,107,87,0.3)",
+    backgroundColor: "rgba(108,74,182,0.3)",
     marginVertical: 4,
   },
-  coinSub: { fontSize: 10, fontWeight: "600", color: "#CF8B17" },
+  coinSub: { fontSize: 10, fontWeight: "600", color: C.gold },
 
   // ── Body ─────────────────────────────────────────────────────────────────
-  body: { paddingHorizontal: 16 },
+  body: { paddingHorizontal: 16, paddingTop: 14 },
   name: {
     fontSize: 19,
     fontWeight: "700",
@@ -1256,7 +1290,7 @@ const s = StyleSheet.create({
   priceBlock: { alignItems: "flex-start", marginTop: 8, marginBottom: 8 },
   priceValue: {
     fontSize: 24,
-    fontWeight: "700",
+    fontWeight: "800",
     color: C.green,
     letterSpacing: -0.5,
   },
@@ -1315,7 +1349,7 @@ const s = StyleSheet.create({
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "rgba(14,107,87,0.20)",
+    borderTopColor: C.divider,
   },
   variantInPriceLabel: {
     fontSize: 10,
@@ -1325,7 +1359,7 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
 
-  // Total charges row in green
+  // Total charges row
   totalChargesRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1333,16 +1367,16 @@ const s = StyleSheet.create({
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "rgba(14,107,87,0.20)",
+    borderTopColor: C.divider,
   },
   totalChargesLabel: {
     fontSize: 13,
     fontWeight: "700",
-    color: C.greenDark,
+    color: C.navy,
   },
   totalChargesValue: {
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "800",
     color: C.green,
     letterSpacing: -0.3,
   },
@@ -1375,7 +1409,7 @@ const s = StyleSheet.create({
   similarScrollContent: { paddingRight: 8, paddingVertical: 4 },
 
   // ── Compact Similar Product card — image + name + price only ──
-  similarCard: { width: 118, marginRight: 14 },
+  similarCard: { width: 140, marginRight: 14 },
   similarImgWrap: {
     width: "100%",
     aspectRatio: 1,
@@ -1390,12 +1424,13 @@ const s = StyleSheet.create({
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(207,139,23,0.06)",
+    backgroundColor: "rgba(108,74,182,0.06)",
   },
   similarName: {
     fontSize: 12,
     fontWeight: "600",
     color: C.navy,
+    lineHeight: 16,
     marginBottom: 2,
   },
   similarWeight: {
@@ -1404,7 +1439,7 @@ const s = StyleSheet.create({
     color: C.navyLight,
     marginBottom: 2,
   },
-  similarPrice: { fontSize: 13, fontWeight: "700", color: C.navy },
+  similarPrice: { fontSize: 13, fontWeight: "800", color: C.green },
   similarPriceNA: { fontSize: 11, color: C.navyLight, fontStyle: "italic" },
 
   // ── Specifications Dropdown ───────────────────────────────────────────────
@@ -1426,6 +1461,18 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: C.divider,
   },
+  priceBreakupState: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: C.divider,
+  },
+  priceBreakupStateText: { flex: 1, fontSize: 12, color: C.navyLight },
+  priceBreakupErrorText: { flex: 1, fontSize: 12, color: C.navyLight },
+  priceBreakupRetry: { fontSize: 12, fontWeight: "700", color: C.gold },
 
   // ── Variant Chips ─────────────────────────────────────────────────────────
   chipScroll: { paddingRight: 4, paddingTop: 2, paddingBottom: 4 },
@@ -1450,14 +1497,14 @@ const s = StyleSheet.create({
   chipWeight: { fontSize: 15, fontWeight: "700", color: C.navy },
   chipWeightActive: { color: C.navy },
   chipPurity: { fontSize: 10, color: C.navyLight, marginTop: 1 },
-  chipPurityActive: { color: "#CF8B17" },
+  chipPurityActive: { color: C.gold },
   chipPrice: {
     fontSize: 11,
     fontWeight: "700",
     color: C.navyMid,
     marginTop: 3,
   },
-  chipPriceActive: { color: C.navy },
+  chipPriceActive: { color: C.green },
   chipOosText: { fontSize: 9, color: C.red, marginTop: 3, fontWeight: "700" },
   chipDot: {
     width: 4,
@@ -1484,7 +1531,7 @@ const s = StyleSheet.create({
     flex: 1,
     textAlign: "right",
   },
-  specAccent: { color: "#CF8B17" },
+  specAccent: { color: C.gold },
 
   // ── Cart Message ──────────────────────────────────────────────────────────
   cartMsg: { flexDirection: "row", alignItems: "center", borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1 },
@@ -1538,8 +1585,13 @@ const s = StyleSheet.create({
   footer: {
     backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: "#E7E0DA",
+    borderTopColor: C.border,
     paddingBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 4,
   },
   footerPriceRow: {
     flexDirection: "row",
@@ -1556,7 +1608,7 @@ const s = StyleSheet.create({
   },
   footerPrice: {
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: "800",
     color: C.green,
     letterSpacing: -0.5,
   },
@@ -1566,32 +1618,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     gap: 10,
-  },
-  cartBtnOutline: {
-    flex: 1,
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderWidth: 1.5,
-    borderColor: C.gold,
-    borderRadius: 14,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cartBtnTextOutline: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: C.gold,
-    letterSpacing: 0.2,
-  },
-  buyNowBtn: {
-    flex: 1,
-    flexDirection: "row",
-    backgroundColor: "#0E6B57",
-    borderRadius: 14,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
   },
 
   outOfStockBtn: {

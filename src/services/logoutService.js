@@ -54,9 +54,9 @@ export const performLogout = async ({
     if (navigationRef?.isReady?.()) {
       navigationRef.reset({
         index: 0,
-        routes: [{ name: 'Login' }],
+        routes: [{ name: 'PgHome' }],
       });
-      console.log('[logout] Navigation reset to Login');
+      console.log('[logout] Navigation reset to PgHome');
     }
 
     return { success: true };
@@ -70,7 +70,7 @@ export const performLogout = async ({
       if (navigationRef?.isReady?.()) {
         navigationRef.reset({
           index: 0,
-          routes: [{ name: 'Home' }],
+          routes: [{ name: 'PgHome' }],
         });
       }
     } catch (fallbackError) {

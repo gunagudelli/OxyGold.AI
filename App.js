@@ -27,8 +27,8 @@ const AppWithHydration = () => {
     // Register the global session-expired handler.
     // When refresh token fails anywhere in the app, this resets the stack to Login.
     const handleSessionExpired = () => {
-      console.log("[App] Session expired handler called, resetting to Login");
-      navRef.current?.reset({ index: 0, routes: [{ name: "Login" }] });
+      console.log("[App] Session expired handler called, resetting to PgHome");
+      navRef.current?.reset({ index: 0, routes: [{ name: "PgHome" }] });
       Alert.alert(
         "Session Expired",
         "You've been logged out because your session expired. Please log in again.",

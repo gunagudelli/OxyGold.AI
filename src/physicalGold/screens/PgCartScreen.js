@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+ import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -28,11 +28,11 @@ import { FLATLIST_OPTIMIZATIONS, keyExtractor } from "../../utils/flatListOptimi
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#0E6B57",
+  gold: "#6C4AB6",
   goldLight: "#F7F4ED",
-  goldMid: "#2FA085",
-  goldDim: "rgba(14,107,87,0.10)",
-  goldDimBorder: "rgba(14,107,87,0.25)",
+  goldMid: "#9A80DA",
+  goldDim: "rgba(108,74,182,0.10)",
+  goldDimBorder: "rgba(108,74,182,0.25)",
   navy: "#1C1C1E",
   navyMid: "#48484C",
   navyLight: "#7A7A80",
@@ -58,6 +58,18 @@ const SummaryRow = ({ label, value, isFree }) => (
     <Text style={isFree ? styles.specFree : styles.specValue}>{value}</Text>
   </View>
 );
+
+const getCartItemTotal = (item) => {
+  const explicitTotal = Number(item?.totalPrice);
+  if (item?.totalPrice != null && Number.isFinite(explicitTotal)) return explicitTotal;
+
+  const unitPrice = Number(item?.price ?? item?.unitPrice ?? item?.variantPrice);
+  if (!Number.isFinite(unitPrice)) return 0;
+  const quantity = Number(item?.quantity);
+  return unitPrice * (Number.isFinite(quantity) && quantity > 0 ? quantity : 1);
+};
+
+const getCartItemMrpTotal = (item) => Number(item?.mrp || 0) * (Number(item?.quantity) || 1);
 
 // ── Cart Item Row — Image LEFT, Details RIGHT ─────────────────────────────────
 const CartItemRow = ({ item, busy, imageUrl, onRemove, onIncrement, onDecrement, onImagePress }) => (
@@ -127,21 +139,21 @@ const CartItemRow = ({ item, busy, imageUrl, onRemove, onIncrement, onDecrement,
           <TouchableOpacity style={[styles.stepBtn, busy && styles.stepBtnOff]} onPress={onDecrement} disabled={busy} activeOpacity={0.8}>
             <Text style={styles.stepBtnText}>−</Text>
           </TouchableOpacity>
-          <Text style={styles.qtyValue}>{item.quantity}</Text>
+          <Text style={styles.qtyValue}>{item.quantity ?? 1}</Text>
           <TouchableOpacity style={[styles.stepBtn, busy && styles.stepBtnOff]} onPress={onIncrement} disabled={busy} activeOpacity={0.8}>
             <Text style={styles.stepBtnText}>+</Text>
           </TouchableOpacity>
         </View>
 
         <View style={{ alignItems: "flex-end" }}>
-          <Text style={styles.lineTotalValue}>₹{item.totalPrice?.toLocaleString("en-IN") || "0"}</Text>
+          <Text style={styles.lineTotalValue}>₹{getCartItemTotal(item).toLocaleString("en-IN")}</Text>
           {/* Offer/MRP — only renders once the cart API actually sends an mrp
               field on the line item; nothing to show otherwise. */}
-          {!!item.mrp && item.mrp > item.totalPrice && (
+          {!!item.mrp && getCartItemMrpTotal(item) > getCartItemTotal(item) && (
             <View style={styles.offerRow}>
-              <Text style={styles.offerStrike}>₹{item.mrp.toLocaleString("en-IN")}</Text>
+              <Text style={styles.offerStrike}>₹{getCartItemMrpTotal(item).toLocaleString("en-IN")}</Text>
               <Text style={styles.offerPct}>
-                {Math.round(((item.mrp - item.totalPrice) / item.mrp) * 100)}% OFF
+                {Math.round(((getCartItemMrpTotal(item) - getCartItemTotal(item)) / getCartItemMrpTotal(item)) * 100)}% OFF
               </Text>
             </View>
           )}
@@ -343,10 +355,10 @@ const PgCartScreen = ({ navigation }) => {
     );
   }
 
-  const subtotal = totalCartValue || cartItems.reduce((s, i) => s + (i.totalPrice || 0), 0);
+  const subtotal = totalCartValue || cartItems.reduce((sum, item) => sum + getCartItemTotal(item), 0);
   const gst = totalGstCharges || 0;
   const making = totalMakingCharges || 0;
-  const grand = totalPayableAmount || (subtotal + gst + making);
+  const grand = totalPayableAmount || (subtotal + gst + making + deliveryFee);
 
   return (
     <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()}>
@@ -561,7 +573,7 @@ const styles = StyleSheet.create({
   stepBtnText: { fontSize: 16, fontWeight: "600", color: C.navy, lineHeight: 18 },
   qtyValue: { fontSize: 14, fontWeight: "600", color: C.navy, minWidth: 18, textAlign: "center" },
 
-  lineTotalValue: { fontSize: 15, fontWeight: "700", color: C.green },
+  lineTotalValue: { fontSize: 15, fontWeight: "800", color: C.green },
   offerRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
   offerStrike: {
     fontSize: 11,
@@ -591,7 +603,7 @@ const styles = StyleSheet.create({
     marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.divider,
   },
   grandLabel: { fontSize: 15, fontWeight: "700", color: C.navy },
-  grandValue: { fontSize: 20, fontWeight: "700", color: C.green },
+  grandValue: { fontSize: 20, fontWeight: "800", color: C.green },
   secureNoteRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 5, marginTop: 12,
@@ -609,7 +621,7 @@ const styles = StyleSheet.create({
   footerInner: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 16 },
   footerLeft: { flex: 1 },
   footerLabel: { fontSize: 11, fontWeight: "600", color: C.navyLight, letterSpacing: 0.3, marginBottom: 1 },
-  footerAmount: { fontSize: 22, fontWeight: "700", color: C.green, letterSpacing: -0.5 },
+  footerAmount: { fontSize: 22, fontWeight: "800", color: C.green, letterSpacing: -0.5 },
   footerSub: { fontSize: 11, color: C.navyLight, marginTop: 2 },
   checkoutBtn: {
     flex: 1,

@@ -29,7 +29,10 @@ import ProductCard from "../components/ProductCard";
 import PgLayout from "../components/PgLayout";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
+import CurtainEdge, { CURTAIN_HEIGHT } from "../components/CurtainEdge";
+import { PG_HOME_THEME } from "../constants/physicalGoldColors";
 import { showCartActionError } from "../utils/cartErrors";
+import { resolveImageUrl } from "../utils/resolveImageUrl";
 import {
   getMainCategories,
   getSubCategories,
@@ -58,32 +61,40 @@ const C = {
   bgCard: "#FFFFFF",
   bgElevated: "#FFFFFF",
   bgGlass: "rgba(255,255,255,0.92)",
-  gold: "#0E6B57",
-  goldBright: "#14876D",
-  goldSoft: "#0E6B57",
-  goldMuted: "rgba(14,107,87,0.10)",
-  goldBorder: "rgba(14,107,87,0.20)",
-  goldText: "#0E6B57",
+  gold: "#6C4AB6",
+  goldBright: "#8466C9",
+  goldSoft: "#6C4AB6",
+  goldMuted: "rgba(108,74,182,0.10)",
+  goldBorder: "rgba(108,74,182,0.20)",
+  goldText: "#6C4AB6",
   white: "#FFFFFF",
   textPrimary: "#1C1C1E",
   textSecondary: "#7A7A80",
   textMuted: "#A79C93",
-  green: "#2ECC71",
-  greenBg: "rgba(46,204,113,0.08)",
+  green: "#146C3B",
+  greenBg: "rgba(20,108,59,0.08)",
   red: "#C85A54",
   border: "#E7E0DA",
   borderStrong: "#D8CFC3",
   divider: "#EEEBE8",
-  shadowGold: "rgba(14,107,87,0.15)",
+  shadowGold: "rgba(108,74,182,0.15)",
   shadowDark: "rgba(34,30,28,0.10)",
   shimmer: "#F8F7F6",
 };
 
-// Footer — soft warm ivory, barely a shade off the page's own background
-// (#F8F7F6) so it doesn't read as a jarring color block; the top border and
-// extra padding do the actual separating, which is the more common pattern
-// in polished apps than a distinct footer color.
-const FOOTER_BG = "#F3EFE8";
+// Deep aubergine keeps the footer premium and aligned with the purple brand.
+const FOOTER_BG = "#2A1F4A";
+const FOOTER_ACCENT = "#D6C7F2";
+// Deliver-to, search and the banner share one flat band (the header
+// above is the app-wide purple gradient from PgLayout).
+// Bright champagne sampled from the light top of the banner image's
+// background, so the banner blends into the band.
+const HOME_BAND = "#FBF3E9";
+// Orange highlight for the "Deliver to" row and the "Our Price Today" title.
+const ORANGE = "#E8630A";
+// Thin line tracing the curtain's scalloped edge — the rich gold of the
+// banner's "Pure Gold" heading and underline.
+const CURTAIN_BORDER = "#C8962E";
 
 const WHY_SHOP = [
   {
@@ -108,15 +119,13 @@ const WHY_SHOP = [
   },
 ];
 
-// Cross-promo banner to the Digital Gold dashboard — hidden per request.
-const SHOW_DIGITAL_GOLD_BANNER = false;
 
 // ─── Global image cache (persists across renders) ─────────────────────────────
 const IMAGE_CACHE = {};
 
 // Extract image URL from category/subcat data without API call
 const extractDirectImageUrl = (item) =>
-  item?.imageUrl || item?.image || item?.categoryImage || null;
+  resolveImageUrl(item?.imageUrl || item?.image || item?.categoryImage);
 
 // ─── Shimmer ──────────────────────────────────────────────────────────────────
 const ShimmerBox = memo(({ width, height, borderRadius = 8, style }) => {
@@ -204,7 +213,7 @@ const LazyImage = memo(
 );
 
 // ─── Section Header ───────────────────────────────────────────────────────────
-const SectionHeader = memo(({ title, count, onViewAll, onBack, showBack }) => (
+const SectionHeader = memo(({ title, count, onViewAll, onBack, showBack, titleStyle }) => (
   <View style={styles.sectionHeader}>
     <View style={styles.sectionTitleRow}>
       {showBack && (
@@ -217,7 +226,7 @@ const SectionHeader = memo(({ title, count, onViewAll, onBack, showBack }) => (
           <Ionicons name="chevron-back" size={18} color={C.textPrimary} />
         </TouchableOpacity>
       )}
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={[styles.sectionTitle, titleStyle]}>{title}</Text>
       {count != null && count > 0 && (
         <View style={styles.countPill}>
           <Text style={styles.countPillText}>{count}</Text>
@@ -251,7 +260,7 @@ const formatTimeAgo = (ts) => {
   return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
 };
 
-// ─── Blinking "live" sparkle — a gold twinkling star instead of a plain dot ──
+// ─── Blinking "live" sparkle — green, the usual "live" cue ──
 const LiveBlinkDot = memo(() => {
   const blink = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -266,7 +275,7 @@ const LiveBlinkDot = memo(() => {
   }, [blink]);
   return (
     <Animated.View style={{ opacity: blink }}>
-      <Ionicons name="sparkles" size={13} color="#CF8B17" />
+      <Ionicons name="sparkles" size={13} color="#16A765" />
     </Animated.View>
   );
 });
@@ -1455,7 +1464,7 @@ const PgHomeScreen = ({ navigation }) => {
           activeOpacity={0.7}
           onPress={() => navigation.navigate("PgAddress")}
         >
-          <Ionicons name="location" size={16} color={C.gold} />
+          <Ionicons name="location" size={16} color={ORANGE} />
           <View style={styles.locationTextWrap}>
             <Text style={styles.locationLabel}>Deliver to</Text>
             <Text style={styles.locationValue} numberOfLines={1}>
@@ -1483,7 +1492,7 @@ const PgHomeScreen = ({ navigation }) => {
         <Animated.View
           style={[styles.searchBarWrap, styles.searchBarWrapFixed]}
         >
-          <Ionicons name="search" size={17} color={C.textMuted} />
+          <Ionicons name="search" size={17} color={C.gold} />
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
@@ -1509,11 +1518,20 @@ const PgHomeScreen = ({ navigation }) => {
         </Animated.View>
       </View>
 
+      {/* The scroll sits under a curtain edge pinned to the bottom of the
+          search band: at rest it melts into the cream banner band, and as the
+          banner scrolls up the scallops hang over the content below. */}
+      <View style={styles.scrollFlex}>
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollFlex}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          // Only the Home banner band sits under the curtain; everything else
+          // (product list, search results) starts below it so it isn't covered.
+          (isSearchActive || viewMode !== "categories") && styles.scrollContentBelowCurtain,
+        ]}
         overScrollMode="never"
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -1532,8 +1550,8 @@ const PgHomeScreen = ({ navigation }) => {
             {/* ── CATEGORIES VIEW ── */}
             {viewMode === "categories" && (
               <FadeSlideIn key="categories">
-                {/* Banner Carousel — same flat gold all the way through,
-                    no fade to white at the bottom either. */}
+                {/* Banner Carousel — same flat cream as the search band
+                    above, so it reads as one block under the curtain. */}
                 <View style={[styles.bannerSection, styles.goldFlatTint]}>
                   <Animated.View
                     style={[
@@ -1639,7 +1657,7 @@ const PgHomeScreen = ({ navigation }) => {
                   <>
                     {goldProducts.length > 0 && (
                       <View style={styles.exploreSection}>
-                        <SectionHeader title="Gold Products" />
+                        <SectionHeader title="Gold Products" titleStyle={styles.goldProductsTitle} />
                         <View style={styles.grid}>
                           {goldProducts.map((item) => (
                             <View key={item?.id} style={styles.gridItem}>
@@ -1661,7 +1679,7 @@ const PgHomeScreen = ({ navigation }) => {
 
                     {silverProducts.length > 0 && (
                       <View style={styles.exploreSection}>
-                        <SectionHeader title="Silver Products" />
+                        <SectionHeader title="Silver Products" titleStyle={styles.silverProductsTitle} />
                         <View style={styles.grid}>
                           {silverProducts.map((item) => (
                             <View key={item?.id} style={styles.gridItem}>
@@ -1708,33 +1726,6 @@ const PgHomeScreen = ({ navigation }) => {
                   </View>
                 </View>
 
-                {/* Digital Gold Banner — hidden per request; SHOW_DIGITAL_GOLD_BANNER flips it back on */}
-                {SHOW_DIGITAL_GOLD_BANNER && (
-                  <TouchableOpacity
-                    style={styles.digitalBanner}
-                    onPress={() => navigation.navigate("Dashboard")}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.digitalIconWrap}>
-                      <Ionicons
-                        name="trending-up-outline"
-                        size={19}
-                        color={C.light}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.digitalTitle}>Try Digital Gold</Text>
-                      <Text style={styles.digitalSubtitle}>
-                        Start from ₹100 · Buy, sell anytime
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={C.textMuted}
-                    />
-                  </TouchableOpacity>
-                )}
               </FadeSlideIn>
             )}
 
@@ -1832,7 +1823,7 @@ const PgHomeScreen = ({ navigation }) => {
             <Text style={styles.footerHeading}>CONTACT US</Text>
 
             <View style={styles.footerContactRow}>
-              <Ionicons name="location-outline" size={15} color="#CF8B17" style={styles.footerContactIcon} />
+              <Ionicons name="location-outline" size={15} color={FOOTER_ACCENT} style={styles.footerContactIcon} />
               <Text style={styles.footerContactText}>
                 OXYIDEAS PARTNERS LLP, CC-03, Indu Fortune Fields, KPHB,
                 Hyderabad, Telangana - 500085
@@ -1840,7 +1831,7 @@ const PgHomeScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.footerContactRow}>
-              <Ionicons name="location-outline" size={15} color="#CF8B17" style={styles.footerContactIcon} />
+              <Ionicons name="location-outline" size={15} color={FOOTER_ACCENT} style={styles.footerContactIcon} />
               <Text style={styles.footerContactText}>
                 AI Research Center, Entrance D, SE02 Concourse, Miyapur Metro
                 Station, Hyderabad, Telangana 500049
@@ -1848,17 +1839,17 @@ const PgHomeScreen = ({ navigation }) => {
             </View>
 
             <TouchableOpacity style={styles.footerContactRow} onPress={() => Linking.openURL("tel:+918143271103")}>
-              <Ionicons name="call-outline" size={15} color="#CF8B17" style={styles.footerContactIcon} />
+              <Ionicons name="call-outline" size={15} color={FOOTER_ACCENT} style={styles.footerContactIcon} />
               <Text style={styles.footerContactText}>+91 81432 71103</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.footerContactRow} onPress={() => Linking.openURL("mailto:support@oxygold.ai")}>
-              <Ionicons name="mail-outline" size={15} color="#CF8B17" style={styles.footerContactIcon} />
+              <Ionicons name="mail-outline" size={15} color={FOOTER_ACCENT} style={styles.footerContactIcon} />
               <Text style={styles.footerContactText}>support@oxygold.ai</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.footerContactRow} onPress={() => navigation.navigate("PgSupport")}>
-              <Ionicons name="chatbubble-ellipses-outline" size={15} color="#CF8B17" style={styles.footerContactIcon} />
+              <Ionicons name="chatbubble-ellipses-outline" size={15} color={FOOTER_ACCENT} style={styles.footerContactIcon} />
               <Text style={styles.footerContactText}>Contact Support</Text>
             </TouchableOpacity>
           </View>
@@ -1888,6 +1879,10 @@ const PgHomeScreen = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+      <View style={styles.curtainPin} pointerEvents="none">
+        <CurtainEdge color={HOME_BAND} borderColor={CURTAIN_BORDER} />
+      </View>
+      </View>
 
       {/* Toast */}
       {wishlistToast.visible && (
@@ -1925,22 +1920,20 @@ const PgHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   scrollFlex: { flex: 1 },
   scrollContent: { paddingBottom: 16, backgroundColor: "#FFFFFF" },
+  scrollContentBelowCurtain: { paddingTop: CURTAIN_HEIGHT + 4 },
 
   combinedTopBar: {
     paddingTop: 10,
     paddingBottom: 10,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
   },
-  // Flat, not faded to white — so the gold carries straight through into
-  // the Banner section below it instead of hitting white and restarting.
-  goldFlatTint: { backgroundColor: "#FBEFD9" },
-  // Brand emerald (matches C.gold/the teal accent used across the rest of
-  // the app), not the mismatched bright generic green this used to be.
-  greenFlatTint: { backgroundColor: "#EAF7F2" },
+  // Flat cream behind Deliver-to, search and the banner.
+  goldFlatTint: { backgroundColor: HOME_BAND },
+  curtainPin: { position: "absolute", top: 0, left: 0, right: 0 },
+  // Soft lavender — the brand purple's tint.
+  greenFlatTint: { backgroundColor: PG_HOME_THEME.tint },
   // Gold Rates + Categories — a different, cooler flat tint so this block
   // reads as its own section instead of blending into the hero above.
-  ratesTint: { backgroundColor: "#FDFBF4" },
+  ratesTint: { backgroundColor: "#FFFFFF" },
   locationBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -1952,8 +1945,8 @@ const styles = StyleSheet.create({
   locationTextWrap: { flex: 1 },
   locationLabel: {
     fontSize: 10,
-    fontWeight: "600",
-    color: C.textMuted,
+    fontWeight: "700",
+    color: ORANGE,
     letterSpacing: 0.2,
   },
   locationValue: {
@@ -2014,7 +2007,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#F7F4ED",
+    backgroundColor: "#F3ECFA",
     borderWidth: 1.5,
     borderColor: C.goldBorder,
     overflow: "hidden",
@@ -2054,7 +2047,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  bannerSection: { paddingTop: 8, paddingBottom: 10 },
+  // Top padding clears the curtain hanging over the band.
+  bannerSection: { paddingTop: CURTAIN_HEIGHT + 4, paddingBottom: 10 },
   bannerCarouselWrap: {
     marginHorizontal: 16,
     borderRadius: 18,
@@ -2084,7 +2078,7 @@ const styles = StyleSheet.create({
   ratesTitleText: {
     fontSize: 11.5,
     fontWeight: "700",
-    color: "#0E6B57",
+    color: ORANGE,
     letterSpacing: 0.2,
   },
   ratesRow: { flexDirection: "row", alignItems: "center" },
@@ -2188,7 +2182,7 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
 
-  // ── Footer — light brown/tan, so all text below is dark-on-light. ──
+  // ── Footer — deep evergreen with soft neutral text and muted gold accents. ──
   footer: {
     alignItems: "center",
     paddingTop: 30,
@@ -2201,19 +2195,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
   },
-  footerLogoImg: { width: 140, height: 24, marginRight: 12 },
+  footerLogoImg: { width: 168, height: 29, marginRight: 12 },
   footerTagline: {
     flex: 1,
     fontSize: 12,
     fontWeight: "500",
-    color: C.textSecondary,
+    color: "#DCD3F0",
     textAlign: "left",
     lineHeight: 17,
   },
   footerDivider: {
     width: "100%",
     height: 1,
-    backgroundColor: C.divider,
+    backgroundColor: "rgba(255,255,255,0.15)",
     marginVertical: 20,
   },
   footerBlock: {
@@ -2223,7 +2217,7 @@ const styles = StyleSheet.create({
   footerHeading: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#CF8B17",
+    color: FOOTER_ACCENT,
     letterSpacing: 0.6,
     marginBottom: 12,
   },
@@ -2240,7 +2234,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: "500",
-    color: C.textPrimary,
+    color: "#F4F0FB",
     lineHeight: 19,
   },
   footerLinksRow: {
@@ -2253,17 +2247,17 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 11,
     fontWeight: "600",
-    color: C.textSecondary,
+    color: "#DCD3F0",
   },
   footerLinkDot: {
     fontSize: 11,
-    color: C.textMuted,
+    color: "#A89CC8",
     marginHorizontal: 7,
   },
   footerCopyright: {
     fontSize: 11,
     fontWeight: "500",
-    color: C.textMuted,
+    color: "#A89CC8",
     textAlign: "center",
   },
 
@@ -2281,6 +2275,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: C.textPrimary,
     letterSpacing: -0.2,
+  },
+  goldProductsTitle: {
+    color: "#A85B00",
+    fontSize: 20,
+    fontWeight: "800",
+    fontStyle: "italic",
+    letterSpacing: 0,
+  },
+  silverProductsTitle: {
+    color: "#536575",
+    fontSize: 20,
+    fontWeight: "800",
+    fontStyle: "italic",
+    letterSpacing: 0,
   },
   countPill: {
     backgroundColor: "#F5F4F1",
@@ -2390,8 +2398,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginBottom: 12,
   },
-  gridItem: { width: "50%", padding: 6 },
-  gridItemFull: { width: "100%", padding: 6 },
+  gridItem: { width: "50%", padding: 0 },
+  gridItemFull: { width: "100%", padding: 0 },
 
   // ── Cross-sell strip — "Explore Gold"/"Explore Silver" below the results ──
   crossSellSection: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: C.divider },
@@ -2463,34 +2471,6 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   emptySubtitle: { fontSize: 12, color: C.textMuted },
-
-  digitalBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginHorizontal: 16,
-    marginTop: 4,
-    backgroundColor: C.bgCard,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  digitalIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: C.greenBg,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  digitalTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: C.textPrimary,
-    marginBottom: 2,
-  },
-  digitalSubtitle: { fontSize: 12, color: C.textMuted },
 
   toast: {
     position: "absolute",

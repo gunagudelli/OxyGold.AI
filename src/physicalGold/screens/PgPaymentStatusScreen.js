@@ -193,7 +193,7 @@ const C = {
   bg: '#FFFFFF',
   surface: '#FFFFFF',
   border: '#E7E0DA',
-  gold: '#0E6B57',
+  gold: '#6C4AB6',
   textPri: '#1C1C1E',
   textSec: '#7A7A80',
   textTer: '#A79C93',
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   primaryBtn: {
     flex: 1,
     maxWidth: 160,
-    backgroundColor: '#0E6B57',
+    backgroundColor: '#6C4AB6',
     paddingVertical: 11,
     borderRadius: 10,
     justifyContent: 'center',

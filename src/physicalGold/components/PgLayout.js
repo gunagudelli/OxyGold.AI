@@ -11,42 +11,67 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigationState, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { selectUserId } from "../../store/authSlice";
 import { selectCartCount, selectWishlistCount, setCartCount, setWishlistCount } from "../../store/cartSlice";
 import { getCart, getWishlist } from "../api/physicalGoldApi";
+import { PG_HEADER_GRADIENT } from "../constants/physicalGoldColors";
 
 // ─── COLORS ─────────────────────────────────────────
 // `accent` is brand gold — kept only for the OXYGOLD.AI wordmark, which is
-// product identity, not an interactive element. `interactive` (deep emerald)
-// is the actual UI accent: active states, badges, buttons, links.
+// product identity, not an interactive element. `interactive`
+// is the actual UI accent: active states, badges, buttons, links — now the
+// ASKOXY.AI "Grocery" purple.
 const HEADER_COLORS = {
   primary: "#FFFFFF",
   accent: "#CF8B17",
-  interactive: "#0E6B57",
+  interactive: "#6C4AB6",
   text: "#1C1C1E",
   textSecondary: "#7A7A80",
 };
 
 // ─── HEADER ─────────────────────────────────────────
-const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, onCartPress }) => {
+// Every screen gets the deep-purple gradient header (PG_HEADER_GRADIENT) with
+// light icons/title. A screen can still pass `headerBg` for a flat colour
+// instead, and `headerDark={false}` for dark icons on a light one.
+const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, onCartPress, headerBg, headerDark = true, headerGradient = headerBg ? undefined : PG_HEADER_GRADIENT }) => {
   const insets = useSafeAreaInsets();
+  const bg = headerGradient?.[0] || headerBg || HEADER_COLORS.primary;
+  const fg = headerDark ? "#FFFFFF" : HEADER_COLORS.text;
+  const tinted = !!(headerGradient || headerBg);
+  const Wrap = headerGradient ? LinearGradient : View;
+  const wrapProps = headerGradient
+    ? { colors: headerGradient, start: { x: 0, y: 0 }, end: { x: 0, y: 1 } }
+    : { style: { backgroundColor: bg } };
 
   return (
-    <View style={{ backgroundColor: HEADER_COLORS.primary }}>
+    <Wrap {...wrapProps}>
       <StatusBar
-        backgroundColor={HEADER_COLORS.primary}
-        barStyle="dark-content"
+        backgroundColor={bg}
+        barStyle={headerDark ? "light-content" : "dark-content"}
         translucent={false}
       />
 
-      <View style={[h.header, { paddingTop: insets.top }]}>
+      <View
+        style={[
+          h.header,
+          {
+            paddingTop: insets.top,
+            backgroundColor: headerGradient ? "transparent" : bg,
+            // A tinted header flows straight into the screen's own band, so
+            // it drops the divider line.
+            borderBottomWidth: tinted ? 0 : 1,
+            borderBottomColor: headerDark ? "rgba(255,255,255,0.12)" : "#E7E0DA",
+          },
+        ]}
+      >
         <View style={h.inner}>
           {/* LEFT — logo sits here now, not centered, when there's no back
               button. A left-aligned logo next to the actions on the right
               is the standard, professional header layout. */}
           {showBack ? (
             <TouchableOpacity style={h.iconBtn} onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="arrow-back" size={22} color={HEADER_COLORS.text} />
+              <Ionicons name="arrow-back" size={22} color={fg} />
             </TouchableOpacity>
           ) : !hideLogo ? (
             <Image
@@ -60,7 +85,7 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
 
           {/* CENTER */}
           {showBack && (
-            <Text style={h.title} numberOfLines={1}>
+            <Text style={[h.title, { color: fg }]} numberOfLines={1}>
               {title}
             </Text>
           )}
@@ -73,9 +98,9 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
           ) : (
             <TouchableOpacity style={h.iconBtn} onPress={onCartPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <View>
-                <Ionicons name="cart-outline" size={23} color={HEADER_COLORS.text} />
+                <Ionicons name="cart-outline" size={23} color={fg} />
                 {cartCount > 0 && (
-                  <View style={h.cartBadge}>
+                  <View style={[h.cartBadge, headerDark && { backgroundColor: HEADER_COLORS.accent }]}>
                     <Text style={h.cartBadgeText}>{cartCount > 99 ? "99+" : cartCount}</Text>
                   </View>
                 )}
@@ -84,7 +109,7 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
           )}
         </View>
       </View>
-    </View>
+    </Wrap>
   );
 };
 
@@ -185,7 +210,7 @@ const PgBottomBarConnected = () => {
 };
 
 // ─── HEADER, CONNECTED ────────────────────────────────
-const PgHeaderConnected = ({ title, showBack, onBack, hideLogo, hideCart }) => {
+const PgHeaderConnected = ({ title, showBack, onBack, hideLogo, hideCart, headerBg, headerDark, headerGradient }) => {
   const navigation = useNavigation();
   const cartCount = useSelector(selectCartCount);
 
@@ -198,6 +223,9 @@ const PgHeaderConnected = ({ title, showBack, onBack, hideLogo, hideCart }) => {
       hideCart={hideCart}
       cartCount={cartCount}
       onCartPress={() => navigation.navigate("PgCart")}
+      headerBg={headerBg}
+      headerDark={headerDark}
+      headerGradient={headerGradient}
     />
   );
 };
@@ -211,6 +239,9 @@ const PgLayout = ({
   hideBottomBar = false,
   hideLogo = false,
   hideCart = false,
+  headerBg,
+  headerDark,
+  headerGradient,
 }) => {
   return (
     <View style={l.root}>
@@ -220,6 +251,9 @@ const PgLayout = ({
         onBack={onBack}
         hideLogo={hideLogo}
         hideCart={hideCart}
+        headerBg={headerBg}
+        headerDark={headerDark}
+        headerGradient={headerGradient}
       />
 
       <View style={l.content}>{children}</View>
@@ -260,7 +294,7 @@ const h = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     paddingHorizontal: 3,
-    backgroundColor: "#0E6B57",
+    backgroundColor: "#6C4AB6",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -315,7 +349,7 @@ const b = StyleSheet.create({
   dot: {
     width: 4,
     height: 4,
-    backgroundColor: "#0E6B57",
+    backgroundColor: "#6C4AB6",
     borderRadius: 2,
   },
 });

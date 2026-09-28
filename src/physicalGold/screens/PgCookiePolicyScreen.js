@@ -6,7 +6,7 @@ import FadeSlideIn from "../components/FadeSlideIn";
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#0E6B57",
+  gold: "#6C4AB6",
   goldLight: "#F7F4ED",
   navy: "#1C1C1E",
   navyMid: "#48484C",

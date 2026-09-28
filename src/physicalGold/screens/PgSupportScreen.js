@@ -29,9 +29,9 @@ import {
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#0E6B57",
+  gold: "#6C4AB6",
   goldLight: "#F7F4ED",
-  goldTint: "rgba(14,107,87,0.08)",
+  goldTint: "rgba(108,74,182,0.08)",
   navy: "#1C1C1E",
   navyMid: "#48484C",
   navyLight: "#7A7A80",

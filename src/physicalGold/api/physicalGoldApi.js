@@ -21,6 +21,7 @@
 
 import { apiGet, apiPost, apiPatch, apiDelete, extractData } from '../../services/apiClient';
 import { PHYSICAL_GOLD_BASE_URL, BASE_URL } from '../../constants/api';
+import { resolveImageUrl } from '../utils/resolveImageUrl';
 
 // ─────────────────────────────────────────────────────────────────────────
 // VALIDATION HELPERS
@@ -107,12 +108,12 @@ export const getCategoryImages = async (categoryId) => {
     if (!data) return null;
 
     return {
-      frontViewUrl: data?.frontViewurl || null,
-      topViewUrl: data?.topViewUrl || null,
-      leftViewUrl: data?.leftViewUrl || null,
-      rightViewUrl: data?.rightViewUrl || null,
-      backViewUrl: data?.backViewUrl || null,
-      bottomViewUrl: data?.bottomViewUrl || null,
+      frontViewUrl: resolveImageUrl(data?.frontViewurl),
+      topViewUrl: resolveImageUrl(data?.topViewUrl),
+      leftViewUrl: resolveImageUrl(data?.leftViewUrl),
+      rightViewUrl: resolveImageUrl(data?.rightViewUrl),
+      backViewUrl: resolveImageUrl(data?.backViewUrl),
+      bottomViewUrl: resolveImageUrl(data?.bottomViewUrl),
       expiresIn: data?.expriesIn || 3600,
     };
   } catch (error) {
@@ -223,7 +224,7 @@ export const getProductRecommendations = async (productId) => {
     const mapItem = (item) => ({
       id: item.id,
       productName: item.name || item.productName,
-      imageUrl: item.frontViewurl || item.imageUrl || '',
+      imageUrl: resolveImageUrl(item.frontViewurl || item.imageUrl) || '',
       priceRange: item.priceRange || (item.price ? `₹${Number(item.price).toLocaleString('en-IN')}` : ''),
       description: item.description,
       subCategoryId: item.categoryId,
@@ -259,12 +260,12 @@ export const getProductImages = async (productId) => {
     if (!data) return null;
 
     return {
-      frontViewUrl: data?.frontViewurl || null,
-      topViewUrl: data?.topViewUrl || null,
-      leftViewUrl: data?.leftViewUrl || null,
-      rightViewUrl: data?.rightViewUrl || null,
-      backViewUrl: data?.backViewUrl || null,
-      bottomViewUrl: data?.bottomViewUrl || null,
+      frontViewUrl: resolveImageUrl(data?.frontViewurl),
+      topViewUrl: resolveImageUrl(data?.topViewUrl),
+      leftViewUrl: resolveImageUrl(data?.leftViewUrl),
+      rightViewUrl: resolveImageUrl(data?.rightViewUrl),
+      backViewUrl: resolveImageUrl(data?.backViewUrl),
+      bottomViewUrl: resolveImageUrl(data?.bottomViewUrl),
       expiresIn: data?.expriesIn || 3600,
     };
   } catch (error) {
@@ -370,12 +371,12 @@ export const getVariantImages = async (variantId) => {
     if (!data) return null;
 
     return {
-      frontViewUrl: data?.frontViewurl || null,
-      topViewUrl: data?.topViewUrl || null,
-      leftViewUrl: data?.leftViewUrl || null,
-      rightViewUrl: data?.rightViewUrl || null,
-      backViewUrl: data?.backViewUrl || null,
-      bottomViewUrl: data?.bottomViewUrl || null,
+      frontViewUrl: resolveImageUrl(data?.frontViewurl),
+      topViewUrl: resolveImageUrl(data?.topViewUrl),
+      leftViewUrl: resolveImageUrl(data?.leftViewUrl),
+      rightViewUrl: resolveImageUrl(data?.rightViewUrl),
+      backViewUrl: resolveImageUrl(data?.backViewUrl),
+      bottomViewUrl: resolveImageUrl(data?.bottomViewUrl),
       expiresIn: data?.expriesIn || 3600,
     };
   } catch (error) {

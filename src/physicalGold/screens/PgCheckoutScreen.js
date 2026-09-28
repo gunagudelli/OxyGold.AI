@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
@@ -21,23 +22,27 @@ import { useFocusEffect } from "@react-navigation/native";
 import { selectUserId, selectAccessToken } from "../../store/authSlice";
 import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
+import { apiPost, apiDelete } from "../../services/apiClient";
+import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import {
   getUserProfile,
   getUserAddresses,
   createOrder,
   deleteAddress,
   getCart,
+  getProductImages,
 } from "../api/physicalGoldApi";
+import { resolveImageUrl } from "../utils/resolveImageUrl";
 
 // ─── Design Tokens (mirrors PgCartScreen exactly) ────────────────────────────
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#0E6B57",
+  gold: "#6C4AB6",
   goldLight: "#F7F4ED",
-  goldMid: "#2FA085",
-  goldDim: "rgba(14,107,87,0.10)",
-  goldDimBorder: "rgba(14,107,87,0.25)",
+  goldMid: "#9A80DA",
+  goldDim: "rgba(108,74,182,0.10)",
+  goldDimBorder: "rgba(108,74,182,0.25)",
   navy: "#1C1C1E",
   navyMid: "#48484C",
   navyLight: "#7A7A80",
@@ -63,6 +68,27 @@ const SectionHeader = ({ title }) => (
   </View>
 );
 
+const getCheckoutItemTotal = (item) => {
+  const total = Number(item?.totalPrice);
+  if (item?.totalPrice != null && Number.isFinite(total)) return total;
+  const price = Number(item?.price ?? item?.unitPrice ?? item?.variantPrice);
+  if (!Number.isFinite(price)) return 0;
+  const quantity = Number(item?.quantity);
+  return price * (Number.isFinite(quantity) && quantity > 0 ? quantity : 1);
+};
+
+const getCheckoutItemName = (item) =>
+  item?.productName || item?.name || item?.product?.productName || item?.product?.name || "Gold product";
+
+const getCheckoutItemDetails = (item) => {
+  const weight = item?.weight ?? item?.variant?.weight;
+  const purity = item?.purity ?? item?.variant?.purity;
+  const size = item?.size ?? item?.variant?.size;
+  return [purity, weight != null ? `${weight}g` : null, size || null]
+    .filter(Boolean)
+    .join(" · ");
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PgCheckoutScreen = ({ navigation, route }) => {
   const userId = useSelector(selectUserId);
@@ -76,8 +102,8 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [showAllAddresses, setShowAllAddresses] = useState(false);
   const [deletingAddressId, setDeletingAddressId] = useState(null);
-  // COD or online payment (Cashfree — UPI/Cards/Net Banking), matching web.
-  const [paymentMode, setPaymentMode] = useState("COD");
+  // Physical gold and silver checkout always uses online payment.
+  const paymentMode = "CASHFREE";
   const [profileComplete, setProfileComplete] = useState(false);
   
   // Store cart data in state so it persists when navigating back
@@ -86,6 +112,8 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   const [cartSubtotal, setCartSubtotal] = useState(0);
   const [cartGst, setCartGst] = useState(0);
   const [cartMaking, setCartMaking] = useState(0);
+  const [cartItemImages, setCartItemImages] = useState({});
+  const [cartUpdating, setCartUpdating] = useState({});
 
   // Distance-based delivery — same as PgCartScreen: recomputed by the
   // backend whenever we pass the currently-selected address's id, so this
@@ -93,6 +121,24 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryDistanceKm, setDeliveryDistanceKm] = useState(null);
   const [ratePerKm, setRatePerKm] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    cartItems.forEach((item) => {
+      const productId = item?.productId ?? item?.product?.id;
+      const inlineImage = item?.imageUrl || item?.productImage || item?.frontViewurl || item?.product?.imageUrl || item?.product?.image || item?.product?.frontViewurl;
+      if (!productId || inlineImage) return;
+      getProductImages(productId)
+        .then((images) => {
+          const imageUrl = images?.frontViewUrl || images?.topViewUrl || images?.backViewUrl || null;
+          if (active && imageUrl) {
+            setCartItemImages((current) => ({ ...current, [String(productId)]: imageUrl }));
+          }
+        })
+        .catch(() => {});
+    });
+    return () => { active = false; };
+  }, [cartItems]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -102,6 +148,66 @@ const PgCheckoutScreen = ({ navigation, route }) => {
       loadCheckoutData();
     }, [userId]),
   );
+
+  const refreshCartAfterEdit = async () => {
+    const cart = await getCart(userId, selectedAddressId);
+    setCartItems(cart?.itemsInCart || []);
+    setCartTotal(cart?.totalPayableAmount || 0);
+    setCartSubtotal(cart?.totalCartValue || 0);
+    setCartGst(cart?.totalGstCharges || 0);
+    setCartMaking(cart?.totalMakingCharges || 0);
+    setDeliveryFee(cart?.deliveryFee || 0);
+    setDeliveryDistanceKm(cart?.deliveryDistanceKm ?? null);
+    setRatePerKm(cart?.ratePerKm ?? null);
+  };
+
+  const updateCheckoutItem = async (item, action) => {
+    const itemKey = String(item?.cartId ?? item?.productVariantId ?? item?.id);
+    const quantity = Number(item?.quantity) || 1;
+    if (!itemKey || itemKey === "undefined") return;
+    setCartUpdating((current) => ({ ...current, [itemKey]: true }));
+    try {
+      if (action === "remove") {
+        if (!item?.cartId) throw new Error("This cart item cannot be removed right now.");
+        await apiDelete(`${PHYSICAL_GOLD_BASE_URL}/cart/${item.cartId}`, { params: { userId } });
+      } else if (action === "increment") {
+        const productId = item?.productId ?? item?.product?.id;
+        const variantId = item?.productVariantId ?? item?.variantId ?? item?.variant?.id;
+        if (!productId || !variantId) throw new Error("Product details are missing. Please refresh the cart.");
+        await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/AddItemToCart`, {
+          userId,
+          productId,
+          productVariantId: variantId,
+          quantity: 1,
+        });
+      } else {
+        if (quantity <= 1) return;
+        await apiPost(`${PHYSICAL_GOLD_BASE_URL}/cart/decrementCartItems`, {
+          userId,
+          id: item.cartId,
+          productId: item.productId ?? item?.product?.id,
+          productVariantId: item.productVariantId ?? item.variantId ?? item?.variant?.id,
+          quantity: 1,
+        });
+      }
+      await refreshCartAfterEdit();
+    } catch (error) {
+      Alert.alert("Cart Update Failed", error?.message || "Please try again.");
+    } finally {
+      setCartUpdating((current) => ({ ...current, [itemKey]: false }));
+    }
+  };
+
+  const confirmRemoveCheckoutItem = (item) => {
+    Alert.alert(
+      "Remove Item",
+      `Remove "${getCheckoutItemName(item)}" from your cart?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: () => updateCheckoutItem(item, "remove") },
+      ],
+    );
+  };
 
   const loadCheckoutData = async () => {
     if (!userId) return;
@@ -331,7 +437,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     }
     Alert.alert(
       "Confirm Order",
-      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(cartTotal || 0).toLocaleString("en-IN")}\nPayment: ${paymentMode === "COD" ? "Cash on Delivery" : "Online Payment"}`,
+      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(cartTotal || 0).toLocaleString("en-IN")}\nPayment: Online Payment`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Confirm Order", onPress: () => processOrder() },
@@ -356,29 +462,14 @@ const PgCheckoutScreen = ({ navigation, route }) => {
       const txnId = orderRes?.txnId;
       const totalAmount = orderRes?.totalAmount;
 
-      if (paymentMode === "CASHFREE") {
-        // Online payment — hand off to the Cashfree SDK screen; it verifies
-        // via webhook and generates the invoice once payment completes.
-        navigation.navigate("PgPaymentHandler", {
-          orderId,
-          orderNumber,
-          txnId,
-          paymentSessionId: orderRes?.paymentSessionId,
-          totalAmount,
-          paymentMode,
-        });
-        return;
-      }
-
-      // COD orders are auto-confirmed by the backend on creation — calling
-      // confirmOrder here is rejected with "Order already confirmed", so
-      // it's skipped entirely.
-      navigation.navigate("PgPaymentStatus", {
+      // Send every physical gold/silver order through online payment.
+      navigation.navigate("PgPaymentHandler", {
         orderId,
         orderNumber,
         txnId,
-        paymentMode,
+        paymentSessionId: orderRes?.paymentSessionId,
         totalAmount,
+        paymentMode,
       });
     } catch (err) {
       console.error("[Checkout Error]", err.message);
@@ -587,37 +678,90 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             )}
           </View>
 
+          {cartItems?.length > 0 && (
+            <View style={styles.card}>
+              <SectionHeader title={`YOUR ITEMS (${cartItems.length})`} />
+              {cartItems.map((item, index) => {
+                const quantity = Number(item?.quantity) > 0 ? Number(item.quantity) : 1;
+                const details = getCheckoutItemDetails(item);
+                const productId = item?.productId ?? item?.product?.id;
+                const inlineImage = item?.imageUrl || item?.productImage || item?.frontViewurl || item?.product?.imageUrl || item?.product?.image || item?.product?.frontViewurl;
+                const imageUrl = resolveImageUrl(inlineImage) || cartItemImages[String(productId)];
+                return (
+                  <View key={item?.cartId ?? item?.productVariantId ?? item?.id ?? index}>
+                    {index > 0 && <View style={styles.itemDivider} />}
+                    <View style={styles.checkoutProductRow}>
+                      <View style={styles.checkoutProductImageBox}>
+                        {imageUrl ? (
+                          <Image source={{ uri: imageUrl }} style={styles.checkoutProductImage} resizeMode="contain" />
+                        ) : (
+                          <Ionicons name="diamond-outline" size={18} color={C.gold} />
+                        )}
+                      </View>
+                      <View style={styles.checkoutProductInfo}>
+                        <Text style={styles.checkoutProductName} numberOfLines={2}>
+                          {getCheckoutItemName(item)}
+                        </Text>
+                        {!!details && (
+                          <Text style={styles.checkoutProductDetails} numberOfLines={1}>
+                            {details}
+                          </Text>
+                        )}
+                        <View style={styles.checkoutProductActions}>
+                          <TouchableOpacity
+                            style={styles.quantityAction}
+                            onPress={() => updateCheckoutItem(item, "decrement")}
+                            disabled={quantity <= 1 || !!cartUpdating[String(item?.cartId ?? item?.productVariantId ?? item?.id ?? index)]}
+                            accessibilityLabel="Decrease quantity"
+                          >
+                            <Ionicons name="remove" size={15} color={quantity <= 1 ? C.border : C.navy} />
+                          </TouchableOpacity>
+                          {cartUpdating[String(item?.cartId ?? item?.productVariantId ?? item?.id ?? index)] ? (
+                            <ActivityIndicator size="small" color={C.gold} />
+                          ) : (
+                            <Text style={styles.checkoutProductQuantity}>Qty {quantity}</Text>
+                          )}
+                          <TouchableOpacity
+                            style={styles.quantityAction}
+                            onPress={() => updateCheckoutItem(item, "increment")}
+                            disabled={!!cartUpdating[String(item?.cartId ?? item?.productVariantId ?? item?.id ?? index)]}
+                            accessibilityLabel="Increase quantity"
+                          >
+                            <Ionicons name="add" size={15} color={C.navy} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.removeProductAction}
+                            onPress={() => confirmRemoveCheckoutItem(item)}
+                            disabled={!!cartUpdating[String(item?.cartId ?? item?.productVariantId ?? item?.id ?? index)]}
+                            accessibilityLabel="Remove item from cart"
+                          >
+                            <Ionicons name="trash-outline" size={14} color={C.red} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      <Text style={styles.checkoutProductPrice}>
+                        ₹{getCheckoutItemTotal(item).toLocaleString("en-IN")}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
           {/* ── Payment Method ── */}
           <View style={styles.card}>
             <SectionHeader title="PAYMENT METHOD" />
-
-            {[
-              { id: "COD", icon: "cash-outline", label: "Cash on Delivery", sub: "Pay at your doorstep" },
-              { id: "CASHFREE", icon: "card-outline", label: "Online Payment", sub: "UPI, Cards, Net Banking" },
-            ].map((opt, i) => {
-              const selected = paymentMode === opt.id;
-              return (
-                <TouchableOpacity
-                  key={opt.id}
-                  style={[styles.codRow, !selected && styles.codRowUnselected, i > 0 && { marginTop: 10 }]}
-                  onPress={() => setPaymentMode(opt.id)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.payIconBoxSelected, !selected && styles.payIconBoxUnselected]}>
-                    <Ionicons name={opt.icon} size={18} color={selected ? "#fff" : C.navyLight} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.payLabelSelected}>{opt.label}</Text>
-                    <Text style={styles.paySub}>{opt.sub}</Text>
-                  </View>
-                  <Ionicons
-                    name={selected ? "checkmark-circle" : "ellipse-outline"}
-                    size={20}
-                    color={selected ? C.gold : C.border}
-                  />
-                </TouchableOpacity>
-              );
-            })}
+            <View style={styles.codRow}>
+              <View style={styles.payIconBoxSelected}>
+                <Ionicons name="card-outline" size={18} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.payLabelSelected}>Online Payment</Text>
+                <Text style={styles.paySub}>UPI, Cards, Net Banking</Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={20} color={C.gold} />
+            </View>
           </View>
 
           {/* ── Order Summary — gold card matching PgCartScreen summaryCard ── */}
@@ -676,7 +820,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             <View style={styles.specRow}>
               <Text style={styles.specLabel}>Payment Method</Text>
               <Text style={styles.specValue}>
-                {paymentMode === "COD" ? "Cash on Delivery" : "Online Payment"}
+                "Online Payment"
               </Text>
             </View>
 
@@ -707,11 +851,11 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             <TouchableOpacity
               style={[
                 styles.checkoutBtn,
-                (checkoutLoading || !selectedAddressId || !profileComplete) &&
+              (checkoutLoading || !selectedAddressId || !profileComplete || Object.values(cartUpdating).some(Boolean)) &&
                   styles.checkoutBtnDisabled,
               ]}
               disabled={
-                checkoutLoading || !selectedAddressId || !profileComplete
+                checkoutLoading || !selectedAddressId || !profileComplete || Object.values(cartUpdating).some(Boolean)
               }
               activeOpacity={0.85}
               onPress={handlePay}
@@ -796,6 +940,41 @@ const styles = StyleSheet.create({
   // ── Address ──
   addressList: { gap: 0 },
   itemDivider: { height: 1, backgroundColor: C.divider, marginVertical: 12 },
+
+  checkoutProductRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  checkoutProductImageBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: C.goldLight,
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkoutProductImage: { width: "100%", height: "100%" },
+  checkoutProductInfo: { flex: 1, minWidth: 0 },
+  checkoutProductName: { fontSize: 13, fontWeight: "700", color: C.navy, lineHeight: 17 },
+  checkoutProductDetails: { fontSize: 11, color: C.navyLight, marginTop: 3 },
+  checkoutProductQuantity: { fontSize: 11, color: C.navyMid, marginTop: 3 },
+  checkoutProductPrice: { fontSize: 13, fontWeight: "700", color: C.gold, marginLeft: 4 },
+  checkoutProductActions: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 5 },
+  quantityAction: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    backgroundColor: C.goldLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removeProductAction: {
+    width: 26,
+    height: 24,
+    borderRadius: 7,
+    backgroundColor: "#FDECEA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 3,
+  },
 
   emptyAddressBox: {
     flexDirection: "row",
@@ -968,7 +1147,7 @@ const styles = StyleSheet.create({
     borderTopColor: C.divider,
   },
   grandTotalLabel: { fontSize: 15, fontWeight: "700", color: C.navy },
-  grandTotalValue: { fontSize: 20, fontWeight: "700", color: C.green },
+  grandTotalValue: { fontSize: 20, fontWeight: "800", color: C.green },
 
   // ── Footer (mirrors PgCartScreen footer exactly) ──
   footer: {
@@ -995,7 +1174,7 @@ const styles = StyleSheet.create({
   },
   footerPriceValue: {
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: "800",
     color: C.green,
     letterSpacing: -0.5,
   },

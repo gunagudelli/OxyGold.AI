@@ -68,7 +68,7 @@ export const SessionProvider = ({ children, navigationRef }) => {
               if (autoRedirect && navigationRef?.current) {
                 navigationRef.current.reset({
                   index: 0,
-                  routes: [{ name: 'Login' }],
+                  routes: [{ name: 'PgHome' }],
                 });
               }
             },
@@ -83,7 +83,7 @@ export const SessionProvider = ({ children, navigationRef }) => {
         setSessionExpired(false);
         navigationRef.current.reset({
           index: 0,
-          routes: [{ name: 'Login' }],
+          routes: [{ name: 'PgHome' }],
         });
       }, 100);
     }

@@ -3,33 +3,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSelector } from 'react-redux';
 import { selectAccessToken } from '../store/authSlice';
-import { GoldProvider } from '../context/GoldContext';
-
-// ── Onboarding ────────────────────────────────────────────────────────────────
-import DigitalGoldFlowScreen   from '../screens/DigitalGoldFlowScreen';
-import HomeScreen              from '../screens/HomeScreen';
-import FAQScreen               from '../screens/FAQScreen';
-
-// ── Auth ──────────────────────────────────────────────────────────────────────
-import LoginScreen             from '../screens/LoginScreen';
-import RegisterScreen          from '../screens/RegisterScreen';
-
-// ── Dashboard ─────────────────────────────────────────────────────────────────
-import DigitalGoldScreen       from '../screens/DigitalGoldScreen';
-import TransactionsScreen      from '../screens/TransactionsScreen';
-
-// ── Buy Flow ──────────────────────────────────────────────────────────────────
-import PaymentReviewScreen     from '../screens/PaymentReviewScreen';
-import PaymentScreen           from '../screens/PaymentScreen';
-import PaymentProcessingScreen from '../screens/PaymentProcessingScreen';
-import PaymentSuccessScreen    from '../screens/PaymentSuccessScreen';
-
-// ── Sell Flow ─────────────────────────────────────────────────────────────────
-import SellGoldScreen          from '../screens/SellGoldScreen';
-import SellSummaryScreen       from '../screens/SellSummaryScreen';
-import BankAccountScreen       from '../screens/BankAccountScreen';
-import SellProcessingScreen    from '../screens/SellProcessingScreen';
-import SellSuccessScreen       from '../screens/SellSuccessScreen';
 
 // ── Physical Gold ─────────────────────────────────────────────────────────────
 import SplashScreen            from '../screens/SplashScreen';
@@ -75,35 +48,10 @@ const SCREEN = { headerShown: false, animation: 'slide_from_right' };
 const AppNavigator = ({ navigationRef }) => {
   return (
     <NavigationContainer ref={navigationRef}>
-      <GoldProvider navigationRef={navigationRef}>
         <Stack.Navigator initialRouteName="Splash" screenOptions={SCREEN}>
 
         {/* ── SPLASH ── */}
         <Stack.Screen name="Splash" component={SplashScreen} />
-
-        {/* ── LANDING ── */}
-        <Stack.Screen name="Home"       component={HomeScreen} />
-        <Stack.Screen name="FAQ"        component={FAQScreen} />
-        <Stack.Screen name="HowItWorks" component={DigitalGoldFlowScreen} />
-
-        {/* ── AUTH ── */}
-        <Stack.Screen name="Login"    component={LoginScreen} />
-        <Stack.Screen name="Register" component={RegisterScreen} />
-
-        {/* ── DIGITAL GOLD ── */}
-        <Stack.Screen name="Dashboard"      component={DigitalGoldScreen} />
-        <Stack.Screen name="Transactions"   component={TransactionsScreen} />
-        <Stack.Screen name="PaymentReview"  component={PaymentReviewScreen} />
-        <Stack.Screen name="Payment"        component={PaymentScreen} />
-        <Stack.Screen name="PaymentProcess" component={PaymentProcessingScreen} />
-        <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
-
-        {/* ── SELL FLOW ── */}
-        <Stack.Screen name="SellGold"    component={SellGoldScreen} />
-        <Stack.Screen name="SellSummary" component={SellSummaryScreen} />
-        <Stack.Screen name="BankAccount" component={BankAccountScreen} />
-        <Stack.Screen name="SellProcess" component={SellProcessingScreen} />
-        <Stack.Screen name="SellSuccess" component={SellSuccessScreen} />
 
         {/* ── PHYSICAL GOLD ──
             Home/Wishlist/Profile are the bottom-tab destinations — they get
@@ -137,8 +85,7 @@ const AppNavigator = ({ navigationRef }) => {
         <Stack.Screen name="PgSupport"              component={PgSupportScreen} />
 
       </Stack.Navigator>
-    </GoldProvider>
-  </NavigationContainer>
+    </NavigationContainer>
   );
 };
 

@@ -10,7 +10,7 @@ import PgLoader from '../components/PgLoader';
 const C = {
   bg: '#FFFFFF',
   card: '#FFFFFF',
-  gold: '#0E6B57',
+  gold: '#6C4AB6',
   navy: '#1C1C1E',
   navyLight: '#7A7A80',
   textMuted: '#A79C93',
@@ -462,8 +462,8 @@ const styles = StyleSheet.create({
 
   spinnerOuter: { width: 110, height: 110, justifyContent: 'center', alignItems: 'center', marginBottom: 36 },
   spinner: { position: 'absolute', width: 110, height: 110, borderRadius: 55 },
-  spinnerArc: { width: 110, height: 110, borderRadius: 55, borderWidth: 4, borderColor: 'transparent', borderTopColor: C.gold, borderRightColor: 'rgba(14,107,87,0.25)' },
-  spinnerInner: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(14,107,87,0.08)', borderWidth: 1, borderColor: 'rgba(14,107,87,0.20)', justifyContent: 'center', alignItems: 'center' },
+  spinnerArc: { width: 110, height: 110, borderRadius: 55, borderWidth: 4, borderColor: 'transparent', borderTopColor: C.gold, borderRightColor: 'rgba(108,74,182,0.25)' },
+  spinnerInner: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(108,74,182,0.08)', borderWidth: 1, borderColor: 'rgba(108,74,182,0.20)', justifyContent: 'center', alignItems: 'center' },
 
   title: { fontSize: 22, fontWeight: '700', color: C.navy, marginBottom: 10 },
   statusText: { fontSize: 14, color: C.navyLight, marginBottom: 32, textAlign: 'center' },
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: { color: C.navy, fontSize: 15, fontWeight: '800' },
 
-  errorBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 32, backgroundColor: '#0E6B57', borderRadius: 8 },
+  errorBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 32, backgroundColor: '#6C4AB6', borderRadius: 8 },
   errorBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });
 

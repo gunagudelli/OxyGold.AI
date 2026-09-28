@@ -8,8 +8,8 @@ import { View, Text, StyleSheet, Animated, Easing } from "react-native";
 const RADIUS = 16;
 const DOTS = [
   { angle: -90, size: 13, color: "#CF8B17" }, // gold — lead dot
-  { angle: -20, size: 11, color: "#14876D" }, // bright emerald
-  { angle: 50, size: 9, color: "#0E6B57" }, // emerald
+  { angle: -20, size: 11, color: "#8466C9" }, // bright emerald
+  { angle: 50, size: 9, color: "#6C4AB6" }, // emerald
   { angle: 120, size: 7, color: "#0B5245" }, // deep emerald — trailing dot
 ];
 

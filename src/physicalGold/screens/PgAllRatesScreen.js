@@ -20,13 +20,13 @@ const C = {
   bg:           "#FFFFFF",
   bgCard:       "#FFFFFF",
   navy:         "#15151A",
-  gold:         "#0E6B57",
-  goldBright:   "#14876D",
-  goldMuted:    "rgba(14,107,87,0.08)",
+  gold:         "#6C4AB6",
+  goldBright:   "#8466C9",
+  goldMuted:    "rgba(108,74,182,0.08)",
   textPrimary:  "#1C1C1E",
   textSecondary:"#7A7A80",
   textMuted:    "#A79C93",
-  green:        "#1F8A4C",
+  green:        "#146C3B",
   red:          "#C0392B",
   border:       "#E7E0DA",
   divider:      "#EEEBE8",
@@ -34,6 +34,16 @@ const C = {
 };
 
 const OUR_COMPANY = "OXYGOLD.AI";
+
+// Only these reference/competitor brands are shown — we have the right to
+// display these specifically. IBJA and anything else the rates API returns
+// is hidden from this page entirely. Matched as a substring, case-insensitive,
+// so "Kalyan Jewellers" / "Kalyan" / "KALYAN JEWELLERS LTD" all match.
+const ALLOWED_COMPETITORS = ["joyalukkas", "bhima", "kalyan", "lalitha"];
+const isAllowedCompetitor = (name) => {
+  const n = (name || "").toLowerCase();
+  return ALLOWED_COMPETITORS.some((brand) => n.includes(brand));
+};
 
 // Broad substring match (not an exact-name match) — catches companyUrl,
 // siteLink, redirectUrl, webLink, etc., not just a field literally named "url".
@@ -151,67 +161,91 @@ const HeroRate = ({ row, updatedLabel }) => {
   );
 };
 
-// ─── All 6 rate cells for one provider — nothing hidden behind a toggle ─────
-const readRates = (row) => {
-  const gold22g = Number(row?.rate22kt) || 0;
-  const gold24g = Number(row?.rate24kt) || 0;
-  const silverG = Number(row?.silverprice1g) || 0;
-  // Always computed as a straight ×1000 unit conversion of the real per-gram
-  // rate, rather than trusting a raw /kg field — some providers' own /kg
-  // figures are internally inconsistent with their /gm figures.
-  return {
-    gold22g, gold24g, silverG,
-    gold22kg: gold22g * 1000,
-    gold24kg: gold24g * 1000,
-    silverKg: silverG * 1000,
-  };
+// ─── Per-gram rates only — 24K, 22K, Silver ────────────────────────────────
+const readRates = (row) => ({
+  gold22g: Number(row?.rate22kt) || 0,
+  gold24g: Number(row?.rate24kt) || 0,
+  silverG: Number(row?.silverprice1g) || 0,
+});
+
+// ─── One comparison row — reference price on the left, OxyGold.ai on the
+// right, with a clear +/- difference badge in between. ─────────────────────
+const CompareRow = ({ label, theirValue, ourValue, decimals = 0, last }) => {
+  const diff = getDiff(ourValue, theirValue);
+  return (
+    <View style={[styles.compareRow, !last && styles.compareRowDivider]}>
+      <Text style={styles.compareLabel}>{label}</Text>
+      <View style={styles.compareValuesRow}>
+        <View style={styles.compareValueCol}>
+          {theirValue > 0 ? (
+            <Text style={styles.compareTheirValue}>₹{fmt(theirValue, decimals)}</Text>
+          ) : (
+            <Text style={styles.rowDash}>—</Text>
+          )}
+        </View>
+
+        {diff ? (
+          <View style={[
+            styles.diffBadge,
+            diff.tone === "lower" ? styles.diffBadgeLower : diff.tone === "higher" ? styles.diffBadgeHigher : styles.diffBadgeNeutral,
+          ]}>
+            {diff.tone !== "neutral" && (
+              <Ionicons
+                name={diff.tone === "higher" ? "arrow-up" : "arrow-down"}
+                size={10}
+                color={diff.tone === "higher" ? C.red : C.green}
+                style={styles.diffBadgeArrow}
+              />
+            )}
+            <Text style={[
+              styles.diffBadgeText,
+              diff.tone === "lower" ? { color: C.green } : diff.tone === "higher" ? { color: C.red } : { color: C.textMuted },
+            ]}>
+              {diff.tone === "neutral" ? "0" : `₹${fmt(Math.abs(theirValue - ourValue), decimals)}`}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.diffBadge} />
+        )}
+
+        <View style={styles.compareValueCol}>
+          {ourValue > 0 ? (
+            <Text style={styles.compareOurValue}>₹{fmt(ourValue, decimals)}</Text>
+          ) : (
+            <Text style={styles.rowDash}>—</Text>
+          )}
+        </View>
+      </View>
+    </View>
+  );
 };
 
-const RateCell = ({ label, value, decimals = 0, unit }) => (
-  <View style={styles.rateCell}>
-    <Text style={styles.rateCellLabel}>{label}</Text>
-    {value > 0 ? (
-      <Text style={styles.rateCellValue}>
-        ₹{fmt(value, decimals)}<Text style={styles.rateCellUnit}> {unit}</Text>
-      </Text>
-    ) : (
-      <Text style={styles.rowDash}>—</Text>
-    )}
-  </View>
-);
-
-// ─── One provider card — all 6 prices at once, plus the delta vs you ───────
-const ProviderCard = ({ row, ourGold24, isUs, isLast }) => {
+// ─── One competitor card — 24K/22K/Silver per gram, side by side with our
+// OxyGold.ai rate, plus a clear +/- difference per row. ─────────────────────
+const ProviderCard = ({ row, ourRates, isLast }) => {
   const companyName = row?.companyName || row?.company || row?.name || "Unknown";
   const rates = readRates(row);
-  const diff = !isUs ? getDiff(ourGold24, rates.gold24g) : null;
   const websiteUrl = findWebsiteUrl(row);
-  const nameColor = isUs ? C.gold : brandColor(companyName);
+  const nameColor = brandColor(companyName);
 
   return (
-    <View style={[styles.card, isUs && styles.cardUs, !isLast && styles.cardDivider]}>
+    <View style={[styles.card, !isLast && styles.cardDivider]}>
       <View style={styles.cardTopRow}>
-        <View style={styles.cardNameWrap}>
-          <View style={{ minWidth: 0 }}>
-            <Text style={[styles.rowName, { color: nameColor }, isUs && styles.rowNameUs]} numberOfLines={1}>{companyName}</Text>
-            {isUs && <Text style={styles.rowYours}>YOUR RATE</Text>}
-          </View>
-        </View>
-        {diff && (
-          <Text style={[styles.rowDiff, diff.tone === "lower" ? { color: C.green } : diff.tone === "higher" ? { color: C.red } : { color: C.textMuted }]}>
-            {diff.text}
-          </Text>
-        )}
+        <Text style={[styles.rowName, { color: nameColor }]} numberOfLines={1}>{companyName}</Text>
       </View>
 
-      <View style={styles.rateGrid}>
-        <RateCell label="24K Gold /g"  value={rates.gold24g}  unit="/gm" />
-        <RateCell label="24K Gold /kg" value={rates.gold24kg} unit="/kg" />
-        <RateCell label="22K Gold /g"  value={rates.gold22g}  unit="/gm" />
-        <RateCell label="22K Gold /kg" value={rates.gold22kg} unit="/kg" />
-        <RateCell label="Silver /g"    value={rates.silverG}  unit="/gm" decimals={2} />
-        <RateCell label="Silver /kg"   value={rates.silverKg} unit="/kg" />
+      <View style={styles.compareHeaderRow}>
+        <Text style={styles.compareHeaderLabel} />
+        <View style={styles.compareValuesRow}>
+          <Text style={[styles.compareHeaderCol, { color: nameColor }]}>{companyName}</Text>
+          <View style={styles.diffBadge} />
+          <Text style={[styles.compareHeaderCol, { color: C.gold }]}>OXYGOLD.AI</Text>
+        </View>
       </View>
+
+      <CompareRow label="24K Gold /gm" theirValue={rates.gold24g} ourValue={ourRates.gold24g} />
+      <CompareRow label="22K Gold /gm" theirValue={rates.gold22g} ourValue={ourRates.gold22g} />
+      <CompareRow label="Silver /gm" theirValue={rates.silverG} ourValue={ourRates.silverG} decimals={2} last />
 
       {websiteUrl && (
         <TouchableOpacity
@@ -265,8 +299,11 @@ const PgAllRatesScreen = ({ navigation }) => {
   }, []);
 
   const ourRow    = rows.find((r) => r?.companyName === OUR_COMPANY);
-  const others    = rows.filter((r) => r?.companyName !== OUR_COMPANY);
-  const ourGold24 = Number(ourRow?.rate24kt) || 0;
+  // Only the competitor brands we have the right to display — this also
+  // quietly hides IBJA (and anything else the API returns) since it's not
+  // in the allow-list.
+  const others    = rows.filter((r) => r?.companyName !== OUR_COMPANY && isAllowedCompetitor(r?.companyName));
+  const ourRates  = readRates(ourRow || {});
 
   if (error && !rows.length) {
     return (
@@ -312,22 +349,18 @@ const PgAllRatesScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.list}>
-          {!rows.length ? (
+          {!others.length ? (
             <View style={styles.centerState}>
               <Ionicons name="business-outline" size={26} color={C.textMuted} />
               <Text style={styles.emptyTitle}>No rate data to show right now</Text>
             </View>
           ) : (
             <>
-              {ourRow && (
-                <ProviderCard row={ourRow} ourGold24={ourGold24} isUs isLast={!others.length} />
-              )}
               {others.map((row, i) => (
                 <ProviderCard
                   key={row?.companyName || i}
                   row={row}
-                  ourGold24={ourGold24}
-                  isUs={false}
+                  ourRates={ourRates}
                   isLast={i === others.length - 1}
                 />
               ))}
@@ -383,22 +416,34 @@ const styles = StyleSheet.create({
   },
   card: { padding: 14 },
   cardDivider: { borderBottomWidth: 1, borderBottomColor: C.divider },
-  cardUs: { backgroundColor: C.goldMuted },
-  cardTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  cardNameWrap: { flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 },
+  cardTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
 
   rowName: { fontSize: 13, fontWeight: "700", color: C.textPrimary },
-  rowNameUs: { color: C.textPrimary, fontWeight: "800" },
-  rowYours: { fontSize: 9.5, fontWeight: "800", color: C.textPrimary, opacity: 0.8, marginTop: 1, letterSpacing: 0.3 },
-  rowDiff: { fontSize: 10, fontWeight: "700", marginLeft: 8 },
   rowDash: { fontSize: 13, color: C.textMuted },
 
-  // ── 2-column rate grid — all 6 prices, nothing hidden ──
-  rateGrid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -8 },
-  rateCell: { width: "50%", paddingHorizontal: 8, marginBottom: 10 },
-  rateCellLabel: { fontSize: 10, fontWeight: "600", color: C.textSecondary, marginBottom: 2 },
-  rateCellValue: { fontSize: 13, fontWeight: "800", color: C.textPrimary },
-  rateCellUnit: { fontSize: 9, fontWeight: "700", color: C.textMuted },
+  // ── Comparison header — brand name left, "OXYGOLD.AI" right ──
+  compareHeaderRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
+  compareHeaderLabel: { flex: 1 },
+  compareHeaderCol: { flex: 1, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.4, textAlign: "center" },
+
+  // ── One row per metal — label left, [their price | diff | our price] right ──
+  compareRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8 },
+  compareRowDivider: { borderBottomWidth: 1, borderBottomColor: C.divider },
+  compareLabel: { flex: 1, fontSize: 12, fontWeight: "600", color: C.textSecondary },
+  compareValuesRow: { flex: 2, flexDirection: "row", alignItems: "center" },
+  compareValueCol: { flex: 1, alignItems: "center" },
+  compareTheirValue: { fontSize: 13.5, fontWeight: "700", color: C.textPrimary },
+  compareOurValue: { fontSize: 13.5, fontWeight: "800", color: C.gold },
+
+  diffBadge: {
+    minWidth: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2,
+    borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3,
+  },
+  diffBadgeLower: { backgroundColor: "rgba(20,108,59,0.10)" },
+  diffBadgeHigher: { backgroundColor: "rgba(192,57,43,0.10)" },
+  diffBadgeNeutral: { backgroundColor: C.divider },
+  diffBadgeArrow: { marginTop: -1 },
+  diffBadgeText: { fontSize: 10.5, fontWeight: "800" },
 
   visitBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,

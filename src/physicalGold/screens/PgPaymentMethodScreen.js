@@ -7,15 +7,19 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Alert, SafeAreaView, StatusBar
+  ActivityIndicator, Alert, StatusBar
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PG_HEADER_GRADIENT } from '../constants/physicalGoldColors';
 import FadeSlideIn from '../components/FadeSlideIn';
 
 const PgPaymentMethodScreen = ({ navigation, route }) => {
   const { userId, accessToken, cartTotal, cartItems } = route?.params || {};
   const [selectedMethod, setSelectedMethod] = useState('CASHFREE');
   const [loading, setLoading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const paymentMethods = [
     {
@@ -64,17 +68,20 @@ const PgPaymentMethodScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
-      {/* Header */}
-      <View style={styles.header}>
+    <SafeAreaView style={styles.root} edges={['bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={PG_HEADER_GRADIENT[0]} />
+
+      {/* Header — same purple gradient as every other screen's header */}
+      <LinearGradient
+        colors={PG_HEADER_GRADIENT}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
+      >
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#1C1C1E" />
+          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Payment Method</Text>
         <View style={{ width: 24 }} />
-      </View>
+      </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FadeSlideIn>
@@ -145,7 +152,7 @@ const PgPaymentMethodScreen = ({ navigation, route }) => {
 
         {/* Info Box */}
         <View style={styles.infoBox}>
-          <Ionicons name="information-circle" size={20} color="#0E6B57" />
+          <Ionicons name="information-circle" size={20} color="#6C4AB6" />
           <Text style={styles.infoText}>
             Your payment is secure and encrypted. We accept all major payment methods.
           </Text>
@@ -187,11 +194,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E7E0DA',
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
 
   content: { paddingHorizontal: 16, paddingVertical: 20, paddingBottom: 100 },
 
@@ -227,7 +231,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   methodCardActive: {
-    borderColor: '#0E6B57',
+    borderColor: '#6C4AB6',
     backgroundColor: '#F7F4ED',
   },
 
@@ -272,13 +276,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radioButtonActive: {
-    borderColor: '#0E6B57',
+    borderColor: '#6C4AB6',
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#0E6B57',
+    backgroundColor: '#6C4AB6',
   },
 
   infoBox: {
@@ -315,7 +319,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   continueBtn: {
-    backgroundColor: '#0E6B57',
+    backgroundColor: '#6C4AB6',
     paddingVertical: 16,
     borderRadius: 12,
     justifyContent: 'center',

@@ -13,7 +13,6 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   selectUserId,
   selectUserEmail,
@@ -38,9 +37,9 @@ const T = {
   bg: "#FFFFFF",
   surface: "#FFFFFF",
   divider: "#EDEBE7",
-  gold: "#0E6B57",
-  goldTint: "rgba(14,107,87,0.08)",
-  goldBorder: "rgba(14,107,87,0.24)",
+  gold: "#6C4AB6",
+  goldTint: "rgba(108,74,182,0.08)",
+  goldBorder: "rgba(108,74,182,0.24)",
   danger: "#C0392B",
 };
 
@@ -520,12 +519,7 @@ const PgProfileScreen = ({ navigation, route }) => {
       <View style={{ flex: 1 }}>
       {/* ── Profile Hero — fixed at the top, doesn't scroll away ── */}
       <FadeSlideIn delay={0}>
-        <LinearGradient
-          colors={["rgba(14,107,87,0.32)", "#FFFFFF"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.heroFixed}
-        >
+        <View style={styles.heroFixed}>
           <View style={styles.avatar}>
             <Image source={require("../../../assets/profieicon.png")} style={styles.avatarImg} resizeMode="cover" />
           </View>
@@ -547,11 +541,11 @@ const PgProfileScreen = ({ navigation, route }) => {
             <Ionicons
               name={editing ? "close" : "pencil-outline"}
               size={13}
-              color={T.ink}
+              color="#FFFFFF"
             />
             <Text style={styles.heroEditBtnText}>{editing ? "Cancel" : "Edit"}</Text>
           </TouchableOpacity>
-        </LinearGradient>
+        </View>
       </FadeSlideIn>
 
       <ScrollView
@@ -822,7 +816,8 @@ const styles = StyleSheet.create({
   hairline: { height: 1, backgroundColor: T.divider, marginVertical: 18 },
 
   // ── Profile hero — fixed at the top (outside the ScrollView), full-bleed
-  // banner flush with the header ──
+  // banner flush with the header. Solid brown block, matching the header/
+  // footer, not a fading gradient. ──
   heroFixed: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -831,6 +826,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
     padding: 18,
     paddingHorizontal: 16 + 18,
+    backgroundColor: "#6C4AB6",
   },
 
   // ── Guest state — not logged in ──
@@ -850,7 +846,7 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   guestLoginBtn: {
-    backgroundColor: "#0E6B57",
+    backgroundColor: "#6C4AB6",
     borderRadius: 12,
     paddingHorizontal: 32,
     paddingVertical: 13,
@@ -864,43 +860,43 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "rgba(28,28,30,0.18)",
+    borderColor: "rgba(255,255,255,0.35)",
   },
   avatarImg: { width: "100%", height: "100%" },
   heroInfo: { flex: 1, minWidth: 0 },
   heroName: {
     fontSize: 15.5,
     fontWeight: "700",
-    color: T.ink,
+    color: "#FFFFFF",
     marginBottom: 2,
     letterSpacing: -0.2,
   },
-  heroEmail: { fontSize: 11.5, fontWeight: "400", color: T.subtle },
+  heroEmail: { fontSize: 11.5, fontWeight: "400", color: "#E0D2C8" },
   idBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(28,28,30,0.06)",
+    backgroundColor: "rgba(255,255,255,0.16)",
     borderRadius: 20,
     paddingHorizontal: 9,
     paddingVertical: 3,
     marginTop: 6,
   },
-  idBadgeText: { fontSize: 10.5, fontWeight: "700", color: T.ink, letterSpacing: 0.2 },
+  idBadgeText: { fontSize: 10.5, fontWeight: "700", color: "#FFFFFF", letterSpacing: 0.2 },
   heroEditBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(28,28,30,0.2)",
+    borderColor: "rgba(255,255,255,0.4)",
     paddingHorizontal: 11,
     paddingVertical: 7,
   },
-  heroEditBtnText: { fontSize: 12, fontWeight: "600", color: T.ink },
+  heroEditBtnText: { fontSize: 12, fontWeight: "600", color: "#FFFFFF" },
 
   // ── Account summary — three plain columns, small icon chips ──
   statsRow: { flexDirection: "row" },
   statsRowTinted: {
-    backgroundColor: "rgba(14,107,87,0.16)",
+    backgroundColor: "rgba(108,74,182,0.16)",
     borderRadius: 14,
     paddingVertical: 6,
   },

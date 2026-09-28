@@ -34,9 +34,9 @@ import { debounce } from "../../utils/debounce";
 const C = {
   bg: "#FFFFFF",
   bgCard: "#FFFFFF",
-  gold: "#0E6B57",
-  goldBright: "#14876D",
-  goldText: "#0E6B57",
+  gold: "#6C4AB6",
+  goldBright: "#8466C9",
+  goldText: "#6C4AB6",
   textPrimary: "#1C1C1E",
   textSecondary: "#7A7A80",
   textMuted: "#A79C93",
@@ -577,9 +577,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "rgba(14,107,87,0.08)",
+    backgroundColor: "rgba(108,74,182,0.08)",
     borderWidth: 1,
-    borderColor: "rgba(14,107,87,0.20)",
+    borderColor: "rgba(108,74,182,0.20)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     paddingHorizontal: 12,
   },
-  gridItem: { width: "50%", padding: 5 },
+  gridItem: { width: "50%", padding: 0 },
 
   // Modal
   modalOverlay: {
@@ -695,7 +695,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   sortOptionActive: {
-    backgroundColor: "rgba(14,107,87,0.08)",
+    backgroundColor: "rgba(108,74,182,0.08)",
     borderColor: C.gold,
   },
   sortOptionText: {
@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   purityChipActive: {
-    backgroundColor: "rgba(14,107,87,0.08)",
+    backgroundColor: "rgba(108,74,182,0.08)",
     borderColor: C.gold,
   },
   purityChipText: {

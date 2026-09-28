@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImages, getProductVariants } from '../api/physicalGoldApi';
+import { resolveImageUrl } from '../utils/resolveImageUrl';
+import PgActionButton from './PgActionButton';
 
 const ProductCard = ({
   product,
@@ -32,7 +34,7 @@ const ProductCard = ({
 }) => {
   const [imgError, setImgError]   = useState(false);
   const [imageUrl, setImageUrl]   = useState(
-    product?.imageUrl || product?.image || null
+    resolveImageUrl(product?.imageUrl || product?.image)
   );
 
   // Some screens (Search) already fetch products with their first variant —
@@ -78,7 +80,6 @@ const ProductCard = ({
                 || product?.amount
                 || '';
 
-  const weight = product?.weight || product?.weightInGrams || defaultVariant?.weight || null;
   const purity = product?.purity || product?.goldPurity || null;
 
   const status = product?.status || product?.productStatus || '';
@@ -185,7 +186,7 @@ const ProductCard = ({
           />
         ) : (
           <View style={s.fallback}>
-            <Ionicons name="diamond-outline" size={34} color="#CF8B17" />
+            <Ionicons name="diamond-outline" size={34} color="#6C4AB6" />
           </View>
         )}
 
@@ -230,21 +231,13 @@ const ProductCard = ({
           {name}
         </Text>
 
-        {/* weight & purity badges */}
-        {(weight || purity) && (
+        {/* purity badge — weight chip removed per request (already shown in the name/title) */}
+        {purity && (
           <View style={s.metaRow}>
-            {weight && (
-              <View style={s.metaBadge}>
-                <Ionicons name="scale-outline" size={10} color="#0E6B57" style={{ marginRight: 3 }} />
-                <Text style={s.metaText}>{weight}g</Text>
-              </View>
-            )}
-            {purity && (
-              <View style={s.metaBadge}>
-                <Ionicons name="sparkles-outline" size={10} color="#CF8B17" style={{ marginRight: 3 }} />
-                <Text style={s.metaText}>{purity}</Text>
-              </View>
-            )}
+            <View style={s.metaBadge}>
+              <Ionicons name="sparkles-outline" size={10} color="#6C4AB6" style={{ marginRight: 3 }} />
+              <Text style={s.metaText}>{purity}</Text>
+            </View>
           </View>
         )}
 
@@ -271,22 +264,19 @@ const ProductCard = ({
           </View>
 
           {onBuyNow ? (
-            <TouchableOpacity
-              style={s.cartBtn}
+            <PgActionButton
+              label="Buy Now"
               onPress={() => onBuyNow(product, defaultVariant)}
-              disabled={buyingNow || !defaultVariant}
-              activeOpacity={0.82}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              {buyingNow ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="flash" size={13} color="#fff" />
-                  <Text style={s.cartBtnText}>Buy Now</Text>
-                </>
-              )}
-            </TouchableOpacity>
+              disabled={!defaultVariant}
+              loading={buyingNow}
+            />
+          ) : onAddToCart && !inCart ? (
+            <PgActionButton
+              label="Add"
+              onPress={() => onAddToCart(product, defaultVariant)}
+              disabled={!defaultVariant}
+              loading={addingCart}
+            />
           ) : onAddToCart ? (
             <TouchableOpacity
               style={[s.cartBtn, inCart && s.cartBtnInCart]}
@@ -296,16 +286,11 @@ const ProductCard = ({
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               {addingCart ? (
-                <ActivityIndicator size="small" color={inCart ? '#0E6B57' : '#fff'} />
-              ) : inCart ? (
-                <>
-                  <Ionicons name="checkmark-circle" size={13} color="#0E6B57" />
-                  <Text style={[s.cartBtnText, s.cartBtnTextInCart]}>In Cart</Text>
-                </>
+                <ActivityIndicator size="small" color="#176B4D" />
               ) : (
                 <>
-                  <Ionicons name="cart-outline" size={13} color="#fff" />
-                  <Text style={s.cartBtnText}>Add</Text>
+                  <Ionicons name="checkmark-circle" size={13} color="#176B4D" />
+                  <Text style={[s.cartBtnText, s.cartBtnTextInCart]}>In Cart</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -336,15 +321,12 @@ const s = StyleSheet.create({
   // ── Card shell ─────────────────────────────────────────────────────────────
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 0,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#BFE0D6',
-    shadowColor: 'rgba(34,30,28,0.09)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: '#E5E7EB',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 
   // ── Image area — square, so it scales correctly with the card's real width ──
@@ -375,20 +357,20 @@ const s = StyleSheet.create({
     left: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
     backgroundColor: '#E8F5E9',
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderRadius: 16,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   greenDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: '#2ECC71',
   },
   badgeActiveText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
     color: '#1F8A4C',
   },
@@ -436,14 +418,14 @@ const s = StyleSheet.create({
     paddingBottom: 12,
     gap: 6,
     flex: 1,  // Takes remaining space
-    backgroundColor: 'rgba(14,107,87,0.08)',
+    backgroundColor: '#FFFFFF',
   },
   name: {
     fontSize: 13,
     fontWeight: '600',
     color: '#1C1C1E',
     lineHeight: 18,
-    height: 36,  // Fixed height for 2 lines (18 * 2)
+    minHeight: 36,  // Reserves space for 2 lines (18 * 2) but doesn't clip if a line needs a touch more
   },
   metaRow: {
     flexDirection: 'row',
@@ -471,14 +453,14 @@ const s = StyleSheet.create({
   },
   priceRupee: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#1C1C1E',
+    fontWeight: '700',
+    color: '#0E6B57',
   },
   priceAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    lineHeight: 20,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0E6B57',
+    lineHeight: 19,
   },
   priceNA: {
     fontSize: 11,
@@ -500,7 +482,7 @@ const s = StyleSheet.create({
     flexShrink: 1,
   },
   offerPill: {
-    backgroundColor: 'rgba(14,107,87,0.10)',
+    backgroundColor: 'rgba(108,74,182,0.10)',
     borderRadius: 5,
     paddingHorizontal: 5,
     paddingVertical: 2,
@@ -528,38 +510,38 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    height: 32,
-    borderRadius: 8,
+    height: 34,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#0E6B57',
-    backgroundColor: '#fff',
+    borderColor: '#D5E7E1',
+    backgroundColor: '#F3ECFA',
     marginTop: 10,
   },
   detailsBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: '#6C4AB6',
   },
 
-  // ── Add to Cart chip — same footprint as detailsBtn, same pattern used
-  // on the Wishlist screen's cards ──
+  // ── "In Cart" chip — Buy Now / Add use the shared PgActionButton ──
   cartBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    height: 30,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: '#0E6B57',
+    height: 32,
+    paddingHorizontal: 13,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#C9B7EE',
+    backgroundColor: '#F3ECFA',
   },
-  cartBtnText: { fontSize: 11.5, fontWeight: '700', color: '#fff' },
+  cartBtnText: { fontSize: 11.5, fontWeight: '700', color: '#6C4AB6', textTransform: 'uppercase' },
   cartBtnInCart: {
-    backgroundColor: 'rgba(14,107,87,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(14,107,87,0.20)',
+    backgroundColor: '#EAF3EE',
+    borderColor: '#B7D2C2',
   },
-  cartBtnTextInCart: { color: '#0E6B57' },
+  cartBtnTextInCart: { color: '#176B4D' },
 });
 
 export default React.memo(ProductCard);

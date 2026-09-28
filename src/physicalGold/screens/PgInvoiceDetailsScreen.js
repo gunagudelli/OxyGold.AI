@@ -19,9 +19,9 @@ const C = {
   bg: '#FFFFFF',
   surface: '#FFFFFF',
   border: '#E7E0DA',
-  gold: '#0E6B57',
-  goldDim: 'rgba(14,107,87,0.10)',
-  goldDimBorder: 'rgba(14,107,87,0.22)',
+  gold: '#6C4AB6',
+  goldDim: 'rgba(108,74,182,0.10)',
+  goldDimBorder: 'rgba(108,74,182,0.22)',
   textPri: '#1C1C1E',
   textSec: '#7A7A80',
   textTer: '#A79C93',
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 14,
     fontWeight: '800',
-    color: C.textPri,
+    color: '#6C4AB6',
   },
 
   itemDetails: {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   Modal,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
+  ScrollView,
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,7 +19,7 @@ import { persistTokens } from "../../services/apiClient";
 import { API_AUTH, API_ROLE } from "../../constants/api";
 
 const C = {
-  emerald: "#0E6B57",
+  emerald: "#6C4AB6",
   charcoal: "#1C1C1E",
   muted: "#7A7A80",
   border: "#E7E0DA",
@@ -39,8 +41,11 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
   const [authMode, setAuthMode] = useState("Login"); // 'Login' | 'Register' — whichever the send-OTP step succeeded with
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const requestRef = useRef(0);
 
   const reset = () => {
+    requestRef.current += 1;
+    Keyboard.dismiss();
     setStep("phone");
     setPhone("");
     setOtp("");
@@ -69,7 +74,11 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
       }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data?.message || "Failed to send OTP");
+    if (!res.ok) {
+      const error = new Error(data?.message || "Failed to send OTP");
+      error.status = res.status;
+      throw error;
+    }
     return data;
   };
 
@@ -79,6 +88,7 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
       setError("Enter a valid 10-digit mobile number");
       return;
     }
+    const requestId = ++requestRef.current;
     setLoading(true);
     try {
       // We don't know upfront whether this number already has an account —
@@ -89,17 +99,23 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
       let mode = "Login";
       try {
         data = await sendOtpAs("Login");
-      } catch (_) {
+      } catch (loginError) {
+        const accountMissing = loginError?.status === 404 ||
+          /user (is )?(not found|not registered)|user (does not|doesn't) exist|no account|account does not exist/i.test(loginError?.message || "");
+        if (!accountMissing) throw loginError;
         mode = "Register";
         data = await sendOtpAs("Register");
       }
+      if (requestId !== requestRef.current) return;
+      const nextSessionId = data?.mobileOtpSessionId || data?.data?.mobileOtpSessionId || "";
+      if (!nextSessionId) throw new Error("We couldn't start OTP verification. Please try again.");
       setAuthMode(mode);
-      setSessionId(data?.mobileOtpSessionId || data?.data?.mobileOtpSessionId || "");
+      setSessionId(nextSessionId);
       setStep("otp");
     } catch (err) {
-      setError(err.message || "Something went wrong. Please try again.");
+      if (requestId === requestRef.current) setError(err.message || "Something went wrong. Please try again.");
     } finally {
-      setLoading(false);
+      if (requestId === requestRef.current) setLoading(false);
     }
   };
 
@@ -109,6 +125,7 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
       setError("Enter the 6-digit OTP");
       return;
     }
+    const requestId = ++requestRef.current;
     setLoading(true);
     try {
       const res = await fetch(API_AUTH, {
@@ -125,6 +142,7 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Invalid OTP");
+      if (requestId !== requestRef.current) return;
 
       const tokenPayload = data?.data?.accessToken
         ? {
@@ -164,22 +182,33 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
       reset();
       onSuccess?.();
     } catch (err) {
-      setError(err.message || "OTP verification failed. Please try again.");
+      if (requestId === requestRef.current) setError(err.message || "OTP verification failed. Please try again.");
     } finally {
-      setLoading(false);
+      if (requestId === requestRef.current) setLoading(false);
     }
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={s.overlay}>
+      <KeyboardAvoidingView
+        style={s.overlay}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
+      >
         <TouchableOpacity style={s.overlayTap} activeOpacity={1} onPress={handleClose} />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={s.sheet}
-        >
+          <View style={s.sheet}>
           <View style={s.grabber} />
 
+          {/* Scrollable — a safety net so the button is always reachable by
+              scrolling even on devices/keyboards where the automatic
+              keyboard-avoidance doesn't fully clear it. */}
+          <ScrollView
+            style={s.sheetScroll}
+            contentContainerStyle={s.sheetScrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            showsVerticalScrollIndicator={false}
+          >
           <View style={s.headerRow}>
             <Text style={s.title}>{step === "phone" ? "Login to continue" : "Enter OTP"}</Text>
             <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -205,6 +234,9 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
                     maxLength={10}
                     value={phone}
                     onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
+                    autoComplete="tel"
+                    returnKeyType="done"
+                    onSubmitEditing={handleSendOtp}
                     placeholderTextColor={C.muted}
                   />
                 </View>
@@ -243,6 +275,8 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
                   autoComplete="off"
                   textContentType="oneTimeCode"
                   importantForAutofill="no"
+                  returnKeyType="done"
+                  onSubmitEditing={handleVerifyOtp}
                 />
                 <TouchableOpacity
                   style={[s.ctaInline, loading && { opacity: 0.7 }]}
@@ -265,8 +299,9 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
               </TouchableOpacity>
             </>
           )}
-        </KeyboardAvoidingView>
-      </View>
+          </ScrollView>
+          </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -275,16 +310,18 @@ export default GuestLoginSheet;
 
 const s = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
-  overlayTap: { flex: 1 },
+  overlayTap: { ...StyleSheet.absoluteFillObject },
   sheet: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 32,
-    minHeight: "48%",
+    paddingBottom: 24,
+    maxHeight: "88%",
   },
+  sheetScroll: { flexShrink: 1 },
+  sheetScrollContent: { flexGrow: 1, paddingBottom: 8 },
   grabber: {
     width: 40,
     height: 4,

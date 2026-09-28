@@ -20,7 +20,7 @@ const C = {
   bg: '#FFFFFF',
   surface: '#FFFFFF',
   border: '#E7E0DA',
-  gold: '#0E6B57',
+  gold: '#6C4AB6',
   textPri: '#1C1C1E',
   textSec: '#7A7A80',
   textTer: '#A79C93',
