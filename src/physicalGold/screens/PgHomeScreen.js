@@ -29,7 +29,7 @@ import ProductCard from "../components/ProductCard";
 import PgLayout from "../components/PgLayout";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
-import CurtainEdge, { CURTAIN_HEIGHT } from "../components/CurtainEdge";
+import CurtainEdge from "../components/CurtainEdge";
 import { PG_HOME_THEME } from "../constants/physicalGoldColors";
 import { showCartActionError } from "../utils/cartErrors";
 import { resolveImageUrl } from "../utils/resolveImageUrl";
@@ -464,6 +464,13 @@ const PgHomeScreen = ({ navigation }) => {
   const heroAnim = useRef(new Animated.Value(0)).current;
   const fadeInAnim = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef(null);
+  // True once the banner band has scrolled up under the search bar — the bar
+  // then lifts off the content with a soft shadow.
+  const [topBarRaised, setTopBarRaised] = useState(false);
+  const handleScroll = useCallback((e) => {
+    const raised = e.nativeEvent.contentOffset.y > 4;
+    setTopBarRaised((prev) => (prev === raised ? prev : raised));
+  }, []);
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const showToast = useCallback((text, added) => {
@@ -1458,7 +1465,16 @@ const PgHomeScreen = ({ navigation }) => {
           bar instead of two separate sections. The location row reuses the
           address the delivery-fee calc treats as default so it's never out
           of sync with checkout. ── */}
-      <View style={[styles.combinedTopBar, styles.goldFlatTint]}>
+      <View
+        style={[
+          styles.combinedTopBar,
+          styles.goldFlatTint,
+          // Clean straight edge + soft shadow whenever content sits right
+          // under the bar (product list, search, or Home scrolled down).
+          (topBarRaised || isSearchActive || viewMode !== "categories") &&
+            styles.combinedTopBarRaised,
+        ]}
+      >
         <TouchableOpacity
           style={styles.locationBar}
           activeOpacity={0.7}
@@ -1518,20 +1534,13 @@ const PgHomeScreen = ({ navigation }) => {
         </Animated.View>
       </View>
 
-      {/* The scroll sits under a curtain edge pinned to the bottom of the
-          search band: at rest it melts into the cream banner band, and as the
-          banner scrolls up the scallops hang over the content below. */}
-      <View style={styles.scrollFlex}>
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollFlex}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollContent,
-          // Only the Home banner band sits under the curtain; everything else
-          // (product list, search results) starts below it so it isn't covered.
-          (isSearchActive || viewMode !== "categories") && styles.scrollContentBelowCurtain,
-        ]}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={32}
         overScrollMode="never"
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -1582,6 +1591,9 @@ const PgHomeScreen = ({ navigation }) => {
                     </TouchableOpacity>
                   </Animated.View>
                 </View>
+                {/* Scalloped curtain hanging off the banner band — part of the
+                    Home hero only, so it scrolls away with the banner. */}
+                <CurtainEdge color={HOME_BAND} borderColor={CURTAIN_BORDER} />
 
                 {/* Live Gold / Silver Rates + Categories — a flat cool tint
                     so this block reads as its own section, distinct from
@@ -1879,10 +1891,6 @@ const PgHomeScreen = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
-      <View style={styles.curtainPin} pointerEvents="none">
-        <CurtainEdge color={HOME_BAND} borderColor={CURTAIN_BORDER} />
-      </View>
-      </View>
 
       {/* Toast */}
       {wishlistToast.visible && (
@@ -1920,7 +1928,6 @@ const PgHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   scrollFlex: { flex: 1 },
   scrollContent: { paddingBottom: 16, backgroundColor: "#FFFFFF" },
-  scrollContentBelowCurtain: { paddingTop: CURTAIN_HEIGHT + 4 },
 
   combinedTopBar: {
     paddingTop: 10,
@@ -1928,7 +1935,14 @@ const styles = StyleSheet.create({
   },
   // Flat cream behind Deliver-to, search and the banner.
   goldFlatTint: { backgroundColor: HOME_BAND },
-  curtainPin: { position: "absolute", top: 0, left: 0, right: 0 },
+  combinedTopBarRaised: {
+    zIndex: 2,
+    shadowColor: "#2A1F4A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
   // Soft lavender — the brand purple's tint.
   greenFlatTint: { backgroundColor: PG_HOME_THEME.tint },
   // Gold Rates + Categories — a different, cooler flat tint so this block
@@ -2047,8 +2061,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // Top padding clears the curtain hanging over the band.
-  bannerSection: { paddingTop: CURTAIN_HEIGHT + 4, paddingBottom: 10 },
+  bannerSection: { paddingTop: 8, paddingBottom: 10 },
   bannerCarouselWrap: {
     marginHorizontal: 16,
     borderRadius: 18,
