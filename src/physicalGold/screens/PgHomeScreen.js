@@ -29,7 +29,6 @@ import ProductCard from "../components/ProductCard";
 import PgLayout from "../components/PgLayout";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
-import CurtainEdge from "../components/CurtainEdge";
 import { PG_HOME_THEME } from "../constants/physicalGoldColors";
 import { showCartActionError } from "../utils/cartErrors";
 import { resolveImageUrl } from "../utils/resolveImageUrl";
@@ -90,11 +89,12 @@ const FOOTER_ACCENT = "#D6C7F2";
 // Bright champagne sampled from the light top of the banner image's
 // background, so the banner blends into the band.
 const HOME_BAND = "#FBF3E9";
-// Orange highlight for the "Deliver to" row and the "Our Price Today" title.
-const ORANGE = "#E8630A";
-// Thin line tracing the curtain's scalloped edge — the rich gold of the
-// banner's "Pure Gold" heading and underline.
-const CURTAIN_BORDER = "#C8962E";
+// Green for the "Deliver to" row and the "Our Price Today" title.
+const DELIVER_GREEN = "#1F8A4C";
+const PRICE_TITLE = DELIVER_GREEN;
+// Metal names in the "Our Price Today" rates — gold for gold, silver for silver.
+const GOLD_LABEL = "#B8860B";
+const SILVER_LABEL = "#6B7785";
 
 const WHY_SHOP = [
   {
@@ -281,7 +281,7 @@ const LiveBlinkDot = memo(() => {
 });
 
 // ─── Rate column — one karat/metal cell inside the live-rates card ────────────
-const RateColumn = memo(({ icon, label, rate, decimals }) => {
+const RateColumn = memo(({ icon, label, rate, decimals, labelColor }) => {
   // Re-render every 30s purely so "X mins ago" keeps advancing even when no
   // new price has come in — otherwise it'd freeze at whatever it read on
   // the render that set it.
@@ -325,10 +325,15 @@ const RateColumn = memo(({ icon, label, rate, decimals }) => {
     <Animated.View style={[styles.rateBlock, { backgroundColor: flashBg }]}>
       <Image source={icon} style={styles.rateIconImg} resizeMode="contain" />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={styles.rateLabel} numberOfLines={1}>
+        <Text style={[styles.rateLabel, labelColor && { color: labelColor }]} numberOfLines={1}>
           {label}
         </Text>
-        <Text style={styles.rateValue} numberOfLines={1}>
+        <Text
+          style={styles.rateValue}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+        >
           ₹
           {Number(rate.price || 0).toLocaleString("en-IN", {
             minimumFractionDigits: decimals,
@@ -1393,17 +1398,16 @@ const PgHomeScreen = ({ navigation }) => {
             nested inside this screen's outer ScrollView can't actually
             window its rendering, so scrollEnabled={false} bought nothing
             but overhead; this matches the Categories grid below it. */}
-        <View style={styles.grid}>
+        {/* Category product list keeps the flat, thin-border cards edge to
+            edge (the Home sections use the rounded cards with gutters). */}
+        <View style={[styles.grid, styles.gridFlat]}>
           {visibleProducts.map((item) => (
             <View
               key={keyExtractor(item)}
-              style={
-                visibleProducts.length === 1
-                  ? styles.gridItemFull
-                  : styles.gridItem
-              }
+              style={[styles.gridItem, styles.gridItemFlat]}
             >
               <ProductCard
+                flat
                 product={item}
                 isInWishlist={!!wishlistMap[String(item?.id)]}
                 onWishlistToggle={handleWishlistToggle}
@@ -1480,7 +1484,7 @@ const PgHomeScreen = ({ navigation }) => {
           activeOpacity={0.7}
           onPress={() => navigation.navigate("PgAddress")}
         >
-          <Ionicons name="location" size={16} color={ORANGE} />
+          <Ionicons name="location" size={18} color={DELIVER_GREEN} />
           <View style={styles.locationTextWrap}>
             <Text style={styles.locationLabel}>Deliver to</Text>
             <Text style={styles.locationValue} numberOfLines={1}>
@@ -1591,9 +1595,6 @@ const PgHomeScreen = ({ navigation }) => {
                     </TouchableOpacity>
                   </Animated.View>
                 </View>
-                {/* Scalloped curtain hanging off the banner band — part of the
-                    Home hero only, so it scrolls away with the banner. */}
-                <CurtainEdge color={HOME_BAND} borderColor={CURTAIN_BORDER} />
 
                 {/* Live Gold / Silver Rates + Categories — a flat cool tint
                     so this block reads as its own section, distinct from
@@ -1614,6 +1615,7 @@ const PgHomeScreen = ({ navigation }) => {
                         <RateColumn
                           icon={require("../../../assets/Goldrateicon.png")}
                           label="Gold 24K"
+                          labelColor={GOLD_LABEL}
                           rate={goldRate}
                           decimals={0}
                         />
@@ -1621,6 +1623,7 @@ const PgHomeScreen = ({ navigation }) => {
                         <RateColumn
                           icon={require("../../../assets/Goldrateicon.png")}
                           label="Gold 22K"
+                          labelColor={GOLD_LABEL}
                           rate={gold22kRate}
                           decimals={0}
                         />
@@ -1628,6 +1631,7 @@ const PgHomeScreen = ({ navigation }) => {
                         <RateColumn
                           icon={require("../../../assets/silverrate.png")}
                           label="Silver"
+                          labelColor={SILVER_LABEL}
                           rate={silverRate}
                           decimals={2}
                         />
@@ -1958,9 +1962,9 @@ const styles = StyleSheet.create({
   },
   locationTextWrap: { flex: 1 },
   locationLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: ORANGE,
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: DELIVER_GREEN,
     letterSpacing: 0.2,
   },
   locationValue: {
@@ -2089,9 +2093,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   ratesTitleText: {
-    fontSize: 11.5,
-    fontWeight: "700",
-    color: ORANGE,
+    fontSize: 13,
+    fontWeight: "800",
+    color: PRICE_TITLE,
     letterSpacing: 0.2,
   },
   ratesRow: { flexDirection: "row", alignItems: "center" },
@@ -2110,15 +2114,17 @@ const styles = StyleSheet.create({
     backgroundColor: C.border,
     marginHorizontal: 8,
   },
-  rateIconImg: { width: 30, height: 30 },
+  rateIconImg: { width: 32, height: 32 },
   rateLabel: {
-    fontSize: 10,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "800",
     color: C.textSecondary,
     marginBottom: 2,
   },
-  rateValue: { fontSize: 12.5, fontWeight: "700", color: C.textPrimary },
-  rateUnit: { fontSize: 9, fontWeight: "500", color: C.textSecondary },
+  // Bigger/bolder than the original 12.5/700 so it reads clearly; shrinks to
+  // fit rather than cutting off with "…".
+  rateValue: { fontSize: 15.5, fontWeight: "800", color: C.textPrimary },
+  rateUnit: { fontSize: 10, fontWeight: "500", color: C.textSecondary },
   rateChangeRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -2291,17 +2297,15 @@ const styles = StyleSheet.create({
   },
   goldProductsTitle: {
     color: "#A85B00",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
-    fontStyle: "italic",
-    letterSpacing: 0,
+    letterSpacing: -0.2,
   },
   silverProductsTitle: {
     color: "#536575",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
-    fontStyle: "italic",
-    letterSpacing: 0,
+    letterSpacing: -0.2,
   },
   countPill: {
     backgroundColor: "#F5F4F1",
@@ -2405,14 +2409,16 @@ const styles = StyleSheet.create({
   },
 
   exploreSection: { paddingTop: 8, paddingBottom: 4 },
+  // Cards sit on 10px gutters (5px padding each side + 11px outer).
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 12,
+    paddingHorizontal: 11,
     marginBottom: 12,
   },
-  gridItem: { width: "50%", padding: 0 },
-  gridItemFull: { width: "100%", padding: 0 },
+  gridItem: { width: "50%", padding: 5 },
+  gridFlat: { paddingHorizontal: 12 },
+  gridItemFlat: { padding: 0 },
 
   // ── Cross-sell strip — "Explore Gold"/"Explore Silver" below the results ──
   crossSellSection: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: C.divider },
@@ -2426,9 +2432,8 @@ const styles = StyleSheet.create({
   crossSellTitle: { fontSize: 14.5, fontWeight: "700", color: C.textPrimary },
   crossSellViewAll: { fontSize: 12.5, fontWeight: "700", color: C.gold },
   crossSellScroll: { paddingHorizontal: 16, gap: 10, paddingBottom: 4 },
-  // 150 was too narrow — the price + Add button on ProductCard's bottom row
-  // need more room, which is what wrapped "₹1,41,300" onto two lines.
-  crossSellItem: { width: 175 },
+  // Same width as a half-screen grid card.
+  crossSellItem: { width: 170 },
 
   productShimmerCard: {
     backgroundColor: C.bgCard,

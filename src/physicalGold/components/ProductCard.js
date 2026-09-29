@@ -31,6 +31,9 @@ const ProductCard = ({
   // — lets one screen show a smaller image without affecting every other
   // screen that uses this same card.
   imageAspectRatio,
+  // Flat look — square corners, thin border, no shadow — for lists where
+  // cards sit edge to edge (category product list).
+  flat,
 }) => {
   const [imgError, setImgError]   = useState(false);
   const [imageUrl, setImageUrl]   = useState(
@@ -173,9 +176,9 @@ const ProductCard = ({
   };
 
   return (
-    <TouchableOpacity style={s.card} onPress={() => onPress?.(product)} activeOpacity={0.88}>
+    <TouchableOpacity style={[s.card, flat && s.cardFlat]} onPress={() => onPress?.(product)} activeOpacity={0.9}>
 
-      {/* ── Image — taller, wider, less padding ────────────────────────────── */}
+      {/* ── Image — white tile, contained product shot ─────────────────────── */}
       <View style={[s.imageWrap, imageAspectRatio ? { aspectRatio: imageAspectRatio } : null]}>
         {imageUrl && !imgError ? (
           <Image
@@ -186,23 +189,22 @@ const ProductCard = ({
           />
         ) : (
           <View style={s.fallback}>
-            <Ionicons name="diamond-outline" size={34} color="#6C4AB6" />
+            <Ionicons name="diamond-outline" size={32} color="#C8962E" />
           </View>
         )}
 
-        {/* Status — top left */}
-        {!!status && (
-          isActive ? (
-            <View style={s.badgeActive}>
-              <View style={s.greenDot} />
-              <Text style={s.badgeActiveText}>Active</Text>
-            </View>
-          ) : (
-            <View style={s.badgeDark}>
-              <Text style={s.badgeDarkText}>{status}</Text>
-            </View>
-          )
-        )}
+        {/* Top left — discount first (it's what sells); otherwise a
+            non-active status such as "Out of stock". "Active" is the normal
+            state, so it isn't badged. */}
+        {offer ? (
+          <View style={s.offBadge}>
+            <Text style={s.offBadgeText}>{offer.discountPct}% OFF</Text>
+          </View>
+        ) : !!status && !isActive ? (
+          <View style={s.badgeDark}>
+            <Text style={s.badgeDarkText}>{status}</Text>
+          </View>
+        ) : null}
 
         {/* Wishlist — top right */}
         {onWishlistToggle && (
@@ -221,88 +223,75 @@ const ProductCard = ({
             </Animated.View>
           </TouchableOpacity>
         )}
-
       </View>
 
-      {/* ── Name, Weight & Price ────────────────────────────────────────────────────── */}
+      {/* ── Name, purity, price, action ────────────────────────────────────── */}
       <View style={s.info}>
-        {/* name — always 2 lines max, never clips */}
         <Text style={s.name} numberOfLines={2} ellipsizeMode="tail">
           {name}
         </Text>
 
-        {/* purity badge — weight chip removed per request (already shown in the name/title) */}
         {purity && (
           <View style={s.metaRow}>
             <View style={s.metaBadge}>
-              <Ionicons name="sparkles-outline" size={10} color="#6C4AB6" style={{ marginRight: 3 }} />
               <Text style={s.metaText}>{purity}</Text>
             </View>
           </View>
         )}
 
-        {/* price + offer, with a compact cart/buy action on the right */}
-        <View style={onAddToCart || onBuyNow ? s.bottomRow : s.priceOnlyRow}>
-          <View style={s.priceInfoBlock}>
-            {priceDisplay ? (
-              <View style={s.priceRow}>
-                <Text style={s.priceRupee}>₹</Text>
-                <Text style={s.priceAmount} numberOfLines={1}>{priceDisplay}</Text>
-              </View>
-            ) : (
-              /* keeps card height consistent when price is missing */
-              <Text style={s.priceNA}>Price on request</Text>
-            )}
-            {offer && (
-              <View style={s.offerRow}>
+        {/* Price on its own line with the MRP beside it — the action button
+            gets the full width below instead of squeezing the price. */}
+        <View style={s.priceBlock}>
+          {priceDisplay ? (
+            <View style={s.priceRow}>
+              <Text style={s.priceRupee}>₹</Text>
+              <Text style={s.priceAmount} numberOfLines={1}>{priceDisplay}</Text>
+              {offer && (
                 <Text style={s.priceStrike} numberOfLines={1}>₹{offer.mrpDisplay}</Text>
-                <View style={s.offerPill}>
-                  <Text style={s.offerPillText} numberOfLines={1}>{offer.discountPct}% OFF</Text>
-                </View>
-              </View>
-            )}
-          </View>
-
-          {onBuyNow ? (
-            <PgActionButton
-              label="Buy Now"
-              onPress={() => onBuyNow(product, defaultVariant)}
-              disabled={!defaultVariant}
-              loading={buyingNow}
-            />
-          ) : onAddToCart && !inCart ? (
-            <PgActionButton
-              label="Add"
-              onPress={() => onAddToCart(product, defaultVariant)}
-              disabled={!defaultVariant}
-              loading={addingCart}
-            />
-          ) : onAddToCart ? (
-            <TouchableOpacity
-              style={[s.cartBtn, inCart && s.cartBtnInCart]}
-              onPress={() => onAddToCart(product, defaultVariant)}
-              disabled={addingCart || (!inCart && !defaultVariant)}
-              activeOpacity={0.82}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              {addingCart ? (
-                <ActivityIndicator size="small" color="#176B4D" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={13} color="#176B4D" />
-                  <Text style={[s.cartBtnText, s.cartBtnTextInCart]}>In Cart</Text>
-                </>
               )}
-            </TouchableOpacity>
-          ) : null}
+            </View>
+          ) : (
+            /* keeps card height consistent when price is missing */
+            <Text style={s.priceNA}>Price on request</Text>
+          )}
         </View>
 
-        {/* View Details — own full-width row below price/offer instead of
-            squeezed beside them, so a strikethrough price + discount pill
-            never has to fight the button for horizontal space. */}
-        {!onAddToCart && !onBuyNow && (
+        {onBuyNow ? (
+          <PgActionButton
+            label="Buy Now"
+            onPress={() => onBuyNow(product, defaultVariant)}
+            disabled={!defaultVariant}
+            loading={buyingNow}
+            style={s.cta}
+          />
+        ) : onAddToCart && !inCart ? (
+          <PgActionButton
+            label="Add to Cart"
+            onPress={() => onAddToCart(product, defaultVariant)}
+            disabled={!defaultVariant}
+            loading={addingCart}
+            style={s.cta}
+          />
+        ) : onAddToCart ? (
           <TouchableOpacity
-            style={s.detailsBtnFull}
+            style={[s.cta, s.inCartBtn]}
+            onPress={() => onAddToCart(product, defaultVariant)}
+            disabled={addingCart}
+            activeOpacity={0.82}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {addingCart ? (
+              <ActivityIndicator size="small" color="#176B4D" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={14} color="#176B4D" />
+                <Text style={s.inCartText}>In Cart</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[s.cta, s.detailsBtn]}
             onPress={() => onPress?.(product)}
             activeOpacity={0.8}
             hitSlop={{ top: 8, bottom: 4, left: 8, right: 8 }}
@@ -318,25 +307,36 @@ const ProductCard = ({
 
 const s = StyleSheet.create({
 
-  // ── Card shell ─────────────────────────────────────────────────────────────
+  // ── Card shell — rounded, hairline border, whisper of shadow ──────────────
   card: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 0,
+    borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
+    borderColor: '#EEE8E0',
+    shadowColor: '#2A1F4A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  cardFlat: {
+    borderRadius: 0,
     borderColor: '#E5E7EB',
     shadowOpacity: 0,
     elevation: 0,
   },
 
-  // ── Image area — square, so it scales correctly with the card's real width ──
+  // ── Image area — square tile on plain white ───────────────────────────────
   imageWrap: {
     width: '100%',
     aspectRatio: 1,
     backgroundColor: '#FFFFFF',
     position: 'relative',
     overflow: 'hidden',
-    padding: 14,
+    padding: 12,
   },
   image: {
     width: '100%',
@@ -347,35 +347,26 @@ const s = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(207,139,23,0.06)',
   },
 
-  // ── Active green badge ─────────────────────────────────────────────────────
-  badgeActive: {
+  // ── Discount badge — top left on the image ────────────────────────────────
+  offBadge: {
     position: 'absolute',
     top: 8,
     left: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#E8F5E9',
-    borderRadius: 16,
+    backgroundColor: '#1F8A4C',
+    borderRadius: 6,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 3,
   },
-  greenDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#2ECC71',
-  },
-  badgeActiveText: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#1F8A4C',
+  offBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
 
-  // ── Other status badge ─────────────────────────────────────────────────────
+  // ── Other status badge (e.g. out of stock) ────────────────────────────────
   badgeDark: {
     position: 'absolute',
     top: 8,
@@ -397,27 +388,25 @@ const s = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 27,
-    height: 27,
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(34,30,28,0.15)',
+    shadowColor: 'rgba(34,30,28,0.18)',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 1,
     shadowRadius: 3,
     elevation: 2,
   },
 
-  // ── Weight chip ──────────────────────────────────────────────────────────
   // ── Info ───────────────────────────────────────────────────────────────────
   info: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 12,
-    gap: 6,
-    flex: 1,  // Takes remaining space
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    flex: 1,
     backgroundColor: '#FFFFFF',
   },
   name: {
@@ -425,26 +414,27 @@ const s = StyleSheet.create({
     fontWeight: '600',
     color: '#1C1C1E',
     lineHeight: 18,
-    minHeight: 36,  // Reserves space for 2 lines (18 * 2) but doesn't clip if a line needs a touch more
+    minHeight: 36, // two lines, so cards in a row line up
   },
   metaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
+    marginTop: 6,
   },
   metaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F4F1',
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    backgroundColor: '#F7F1E6',
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   metaText: {
     fontSize: 10,
-    fontWeight: '500',
-    color: '#7A7A80',
+    fontWeight: '600',
+    color: '#8B5A2B',
+  },
+  priceBlock: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    marginTop: 8,
   },
   priceRow: {
     flexDirection: 'row',
@@ -461,87 +451,49 @@ const s = StyleSheet.create({
     fontWeight: '900',
     color: '#0E6B57',
     lineHeight: 19,
-  },
-  priceNA: {
-    fontSize: 11,
-    color: '#A79C93',
-    fontStyle: 'italic',
-  },
-  offerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 3,
-    maxWidth: '100%',
+    flexShrink: 1,
   },
   priceStrike: {
     fontSize: 11,
     color: '#C0392B',
     textDecorationLine: 'line-through',
     fontWeight: '600',
+    marginLeft: 6,
     flexShrink: 1,
   },
-  offerPill: {
-    backgroundColor: 'rgba(108,74,182,0.10)',
-    borderRadius: 5,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    flexShrink: 0,
-  },
-  offerPillText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-
-  // ── Bottom row — price on the left, a compact "View Details" action on the right ──
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    gap: 6,
-  },
-  priceInfoBlock: { flex: 1, minWidth: 0 },
-  // View-Details mode has no cart button beside the price, so this is just
-  // the price/offer block with the same top spacing bottomRow would give it.
-  priceOnlyRow: { marginTop: 8 },
-  detailsBtnFull: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: 34,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#D5E7E1',
-    backgroundColor: '#F3ECFA',
-    marginTop: 10,
-  },
-  detailsBtnText: {
+  priceNA: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#6C4AB6',
+    color: '#A79C93',
+    fontStyle: 'italic',
+    lineHeight: 19,
   },
 
-  // ── "In Cart" chip — Buy Now / Add use the shared PgActionButton ──
-  cartBtn: {
+  // ── Action — full card width under the price ──────────────────────────────
+  cta: { marginTop: 10, height: 34 },
+  inCartBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    height: 32,
-    paddingHorizontal: 13,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#C9B7EE',
-    backgroundColor: '#F3ECFA',
-  },
-  cartBtnText: { fontSize: 11.5, fontWeight: '700', color: '#6C4AB6', textTransform: 'uppercase' },
-  cartBtnInCart: {
+    borderRadius: 20,
+    borderWidth: 1.3,
     backgroundColor: '#EAF3EE',
     borderColor: '#B7D2C2',
   },
-  cartBtnTextInCart: { color: '#176B4D' },
+  inCartText: { fontSize: 12, fontWeight: '700', color: '#176B4D', textTransform: 'uppercase' },
+  detailsBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D6C7F2',
+    backgroundColor: '#F3ECFA',
+  },
+  detailsBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6C4AB6',
+  },
 });
 
 export default React.memo(ProductCard);

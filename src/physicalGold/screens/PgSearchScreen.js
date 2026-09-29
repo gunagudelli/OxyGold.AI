@@ -633,12 +633,13 @@ const styles = StyleSheet.create({
     color: C.textMuted,
     textAlign: "center",
   },
+  // Same 10px card gutters as the Home grid.
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 12,
+    paddingHorizontal: 11,
   },
-  gridItem: { width: "50%", padding: 0 },
+  gridItem: { width: "50%", padding: 5 },
 
   // Modal
   modalOverlay: {

@@ -109,9 +109,9 @@ const WishlistCard = React.memo(({ raw, onRemove, onAddToCart, onGoToCart, onVie
   }, [item.productId, item.variantId]);
 
   return (
-    <TouchableOpacity style={s.card} onPress={() => onViewDetails?.(item, raw)} activeOpacity={0.88}>
+    <TouchableOpacity style={s.card} onPress={() => onViewDetails?.(item, raw)} activeOpacity={0.9}>
 
-      {/* ── Image area — square, matches ProductCard on Home ─────────────── */}
+      {/* ── Image — white square tile, same as ProductCard ───────────────── */}
       <View style={s.imageWrap}>
         {imgLoading ? (
           <ActivityIndicator size="small" color={C.goldBright} style={s.imgLoader} />
@@ -119,18 +119,18 @@ const WishlistCard = React.memo(({ raw, onRemove, onAddToCart, onGoToCart, onVie
           <Image source={{ uri: imgUrl }} style={s.image} resizeMode="contain" />
         ) : (
           <View style={s.imagePlaceholder}>
-            <Ionicons name="diamond-outline" size={30} color={C.gold} />
+            <Ionicons name="diamond-outline" size={30} color="#C8962E" />
           </View>
         )}
 
-        {/* Purity badge — top left, only when the item actually has one */}
-        {!!item.purity && (
-          <View style={s.karatBadge}>
-            <Text style={s.karatBadgeText}>{item.purity}</Text>
+        {/* Discount — top left */}
+        {!!offer && (
+          <View style={s.offBadge}>
+            <Text style={s.offBadgeText}>{offer.discountPct}% OFF</Text>
           </View>
         )}
 
-        {/* heart remove — top right, same circular chip as ProductCard's wishlist button */}
+        {/* heart remove — top right */}
         <TouchableOpacity
           style={s.heartBtn}
           onPress={() => onRemove(item.wishlistId)}
@@ -140,64 +140,59 @@ const WishlistCard = React.memo(({ raw, onRemove, onAddToCart, onGoToCart, onVie
         >
           {removing
             ? <ActivityIndicator size="small" color={C.red} />
-            : <Ionicons name="heart" size={15} color={C.red} />
+            : <Ionicons name="heart" size={16} color={C.red} />
           }
         </TouchableOpacity>
       </View>
 
-      {/* ── Info ───────────────────────────────────────── */}
+      {/* ── Name, purity, price, action ───────────────────────────────────── */}
       <View style={s.info}>
-        {/* The weight already shows in the name ("10 Gram Gold"), so a
-            separate weight badge underneath was just repeating it — dropped
-            in favor of the price/MRP/offer block below. */}
         <Text style={s.name} numberOfLines={2}>{item.name}</Text>
 
-        {/* Price on top, MRP + offer % on the line below, Add to Cart chip
-            on the right of the whole block. */}
-        <View style={s.bottomRow}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            {!!item.price ? (
-              <>
-                <View style={s.priceRow}>
-                  <Text style={s.priceRupee}>₹</Text>
-                  <Text style={s.priceAmount}>
-                    {Number(item.price).toLocaleString("en-IN")}
-                  </Text>
-                </View>
-                {!!offer && (
-                  <View style={s.offerRow}>
-                    <Text style={s.priceStrike}>₹{offer.mrpDisplay}</Text>
-                    <View style={s.offerPill}>
-                      <Text style={s.offerPillText}>{offer.discountPct}% OFF</Text>
-                    </View>
-                  </View>
-                )}
-              </>
-            ) : (
-              <Text style={s.priceNA}>Price on request</Text>
-            )}
+        {!!item.purity && (
+          <View style={s.metaRow}>
+            <View style={s.metaBadge}>
+              <Text style={s.metaText}>{item.purity}</Text>
+            </View>
           </View>
+        )}
 
-          {inCart ? (
-            <TouchableOpacity
-              style={[s.cartBtn, s.cartBtnInCart]}
-              onPress={onGoToCart}
-              disabled={addingCart || removing}
-              activeOpacity={0.82}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="checkmark-circle" size={13} color="#176B4D" />
-              <Text style={[s.cartBtnText, s.cartBtnTextInCart]}>In Cart</Text>
-            </TouchableOpacity>
+        <View style={s.priceBlock}>
+          {!!item.price ? (
+            <View style={s.priceRow}>
+              <Text style={s.priceRupee}>₹</Text>
+              <Text style={s.priceAmount} numberOfLines={1}>
+                {Number(item.price).toLocaleString("en-IN")}
+              </Text>
+              {!!offer && (
+                <Text style={s.priceStrike} numberOfLines={1}>₹{offer.mrpDisplay}</Text>
+              )}
+            </View>
           ) : (
-            <PgActionButton
-              label="Add"
-              onPress={() => onAddToCart(raw, item)}
-              disabled={removing}
-              loading={addingCart}
-            />
+            <Text style={s.priceNA}>Price on request</Text>
           )}
         </View>
+
+        {inCart ? (
+          <TouchableOpacity
+            style={[s.cta, s.inCartBtn]}
+            onPress={onGoToCart}
+            disabled={addingCart || removing}
+            activeOpacity={0.82}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="checkmark-circle" size={14} color="#176B4D" />
+            <Text style={s.inCartText}>In Cart</Text>
+          </TouchableOpacity>
+        ) : (
+          <PgActionButton
+            label="Add to Cart"
+            onPress={() => onAddToCart(raw, item)}
+            disabled={removing}
+            loading={addingCart}
+            style={s.cta}
+          />
+        )}
       </View>
 
     </TouchableOpacity>
@@ -418,31 +413,33 @@ const s = StyleSheet.create({
   },
   countText: { fontSize: 11, fontWeight: "700", color: C.textPrimary },
 
-  // ── Grid ────────────────────────────────────────────────────────────────────
-  row: { flexDirection: "row", paddingHorizontal: 10 },
+  // ── Grid — 10px gutters, cards in a row share one height ──────────────────
+  row: { flexDirection: "row", alignItems: "stretch", paddingHorizontal: 11 },
   col: { width: "50%", padding: 5 },
 
   // ── Card — same shell as ProductCard on Home ─────────────────────────────────
   card: {
-    backgroundColor: C.card,
-    borderRadius: 0,
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowOpacity: 0,
-    elevation: 0,
+    borderColor: "#EEE8E0",
+    shadowColor: "#2A1F4A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
-  // ── Image — square, "contain" + consistent padding so every product sits
-  // the same size regardless of its own image's crop/aspect ratio (a coin
-  // graphic doesn't get zoomed in and crop off its text) ─────────────────────
+  // ── Image — white square, "contain" so every product sits the same size ──
   imageWrap: {
     width: "100%",
     aspectRatio: 1,
-    backgroundColor: "#F7F4ED",
+    backgroundColor: "#FFFFFF",
     position: "relative",
     overflow: "hidden",
-    padding: 14,
+    padding: 12,
   },
   image: { width: "100%", height: "100%" },
   imgLoader: { flex: 1, alignSelf: "center" },
@@ -451,30 +448,29 @@ const s = StyleSheet.create({
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(108,74,182,0.06)",
   },
-  karatBadge: {
+  offBadge: {
     position: "absolute",
     top: 8,
     left: 8,
-    backgroundColor: "rgba(23,59,53,0.88)",
+    backgroundColor: "#1F8A4C",
     borderRadius: 6,
-    paddingHorizontal: 7,
+    paddingHorizontal: 6,
     paddingVertical: 3,
   },
-  karatBadgeText: { fontSize: 10, fontWeight: "800", color: "#FFFFFF", letterSpacing: 0.8 },
+  offBadgeText: { fontSize: 9.5, fontWeight: "800", color: "#FFFFFF", letterSpacing: 0.2 },
 
   heartBtn: {
     position: "absolute",
     top: 8,
     right: 8,
-    width: 27,
-    height: 27,
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.92)",
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "rgba(34,30,28,0.15)",
+    shadowColor: "rgba(34,30,28,0.18)",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 1,
     shadowRadius: 3,
@@ -482,48 +478,38 @@ const s = StyleSheet.create({
   },
 
   // ── Info ─────────────────────────────────────────────────────────────────────
-  info: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12, gap: 6, backgroundColor: "#FFFFFF" },
-  name: { fontSize: 13, fontWeight: "600", color: C.textPrimary, lineHeight: 18, height: 36 },
-  // ── Bottom row — price block on the left, compact Add to Cart chip on the right ────
-  bottomRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    marginTop: 2,
-    gap: 6,
-  },
+  info: { flex: 1, paddingHorizontal: 10, paddingTop: 10, paddingBottom: 10, backgroundColor: "#FFFFFF" },
+  name: { fontSize: 13, fontWeight: "600", color: C.textPrimary, lineHeight: 18, minHeight: 36 },
+  metaRow: { flexDirection: "row", marginTop: 6 },
+  metaBadge: { backgroundColor: "#F7F1E6", borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  metaText: { fontSize: 10, fontWeight: "600", color: "#8B5A2B" },
+  priceBlock: { flex: 1, justifyContent: "flex-end", marginTop: 8 },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: 1 },
   priceRupee: { fontSize: 11, fontWeight: "700", color: "#0E6B57" },
-  priceAmount: { fontSize: 15, fontWeight: "900", color: "#0E6B57", lineHeight: 19 },
-  priceNA: { fontSize: 11, color: C.textMuted, fontStyle: "italic" },
-  // MRP + discount % — the line right below the price
-  offerRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
-  priceStrike: { fontSize: 10.5, color: C.red, textDecorationLine: "line-through", fontWeight: "500" },
-  offerPill: { backgroundColor: C.goldMuted, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
-  offerPillText: { fontSize: 9, fontWeight: "700", color: C.gold },
+  priceAmount: { fontSize: 15, fontWeight: "900", color: "#0E6B57", lineHeight: 19, flexShrink: 1 },
+  priceStrike: {
+    fontSize: 11,
+    color: "#C0392B",
+    textDecorationLine: "line-through",
+    fontWeight: "600",
+    marginLeft: 6,
+    flexShrink: 1,
+  },
+  priceNA: { fontSize: 11, color: C.textMuted, fontStyle: "italic", lineHeight: 19 },
 
-  // ── Cart Button — icon + short label, same height as ProductCard's "View Details" ──
-  cartBtn: {
+  // ── Action — full card width under the price ──────────────────────────────
+  cta: { marginTop: 10, height: 34 },
+  inCartBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    height: 32,
-    paddingHorizontal: 13,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: "#C9B7EE",
-    backgroundColor: "#F3ECFA",
-  },
-  cartBtnText: { fontSize: 11.5, fontWeight: "700", color: "#6C4AB6", textTransform: "uppercase" },
-  // ── Already-in-cart state — outlined instead of filled, so it visibly
-  // differs from the "Add" button rather than silently doing nothing ──
-  cartBtnInCart: {
+    borderRadius: 20,
+    borderWidth: 1.3,
     backgroundColor: "#EAF3EE",
-    borderWidth: 1,
     borderColor: "#B7D2C2",
   },
-  cartBtnTextInCart: { color: "#176B4D" },
+  inCartText: { fontSize: 12, fontWeight: "700", color: "#176B4D", textTransform: "uppercase" },
 
   // ── Empty ────────────────────────────────────────────────────────────────────
   emptyCircle: {
