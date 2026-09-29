@@ -31,6 +31,7 @@ import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
 import { PG_HOME_THEME } from "../constants/physicalGoldColors";
 import { showCartActionError } from "../utils/cartErrors";
+import useCartQuantities from "../hooks/useCartQuantities";
 import { resolveImageUrl } from "../utils/resolveImageUrl";
 import {
   getMainCategories,
@@ -424,7 +425,14 @@ const PgHomeScreen = ({ navigation }) => {
 
   // Cart — which variants are already in the cart, for the product cards'
   // Add to Cart / In Cart button state
-  const [cartVariantIds, setCartVariantIds] = useState(new Set());
+  const {
+    cartQtyMap,
+    cartVariantIds,
+    refreshCart,
+    clearCart,
+    changeCartQty,
+    cartBusyVariant,
+  } = useCartQuantities(userId);
   const [cartLoadingId, setCartLoadingId] = useState(null);
 
   // Gold Products / Silver Products — two separate sections below
@@ -593,7 +601,7 @@ const PgHomeScreen = ({ navigation }) => {
         setWishlistMap({});
         setDeliveryAddress(null);
         setAddressLoading(false);
-        setCartVariantIds(new Set());
+        clearCart();
         return;
       }
 
@@ -620,14 +628,7 @@ const PgHomeScreen = ({ navigation }) => {
         .catch(() => setDeliveryAddress(null))
         .finally(() => setAddressLoading(false));
 
-      getCart(userId)
-        .then((cartData) => {
-          const ids = (cartData?.itemsInCart || []).map((it) =>
-            String(it.productVariantId),
-          );
-          setCartVariantIds(new Set(ids));
-        })
-        .catch(() => {});
+      refreshCart();
     }, [userId, navigation]),
   );
 
@@ -661,9 +662,7 @@ const PgHomeScreen = ({ navigation }) => {
       setCartLoadingId(pid);
       try {
         await addToCart(userId, product.id, variantId, 1);
-        setCartVariantIds((prev) => new Set(prev).add(String(variantId)));
-        const cartData = await getCart(userId).catch(() => null);
-        if (cartData) dispatch(setCartCount(cartData.totalItemsInCart || 0));
+        await refreshCart(); // card turns into the − qty + stepper
       } catch (e) {
         console.log("[PgHomeScreen] Add to cart failed:", e?.message);
         showCartActionError(e, navigation);
@@ -671,7 +670,7 @@ const PgHomeScreen = ({ navigation }) => {
         setCartLoadingId(null);
       }
     },
-    [userId, cartVariantIds, dispatch, navigation, requireAuth],
+    [userId, cartVariantIds, dispatch, navigation, requireAuth, refreshCart],
   );
 
   // ── Buy Now from a product card — adds the card's resolved default
@@ -690,7 +689,7 @@ const PgHomeScreen = ({ navigation }) => {
       try {
         if (!cartVariantIds.has(String(variantId))) {
           await addToCart(userId, product.id, variantId, 1);
-          setCartVariantIds((prev) => new Set(prev).add(String(variantId)));
+          refreshCart();
         }
         const cart = await getCart(userId);
         const cartItems = cart?.itemsInCart || [];
@@ -709,7 +708,7 @@ const PgHomeScreen = ({ navigation }) => {
         setBuyNowLoadingId(null);
       }
     },
-    [userId, cartVariantIds, dispatch, navigation, requireAuth],
+    [userId, cartVariantIds, dispatch, navigation, requireAuth, refreshCart],
   );
 
   // ── Fetch categories ──────────────────────────────────────────────────────
@@ -1262,6 +1261,9 @@ const PgHomeScreen = ({ navigation }) => {
                     onAddToCart={handleCardAddToCart}
                     addingCart={cartLoadingId === String(item?.id)}
                     cartVariantIds={cartVariantIds}
+                    cartQtyMap={cartQtyMap}
+                    onChangeQty={changeCartQty}
+                    qtyBusyVariant={cartBusyVariant}
                     onPress={handleProductPress}
                   />
                 </View>
@@ -1414,6 +1416,9 @@ const PgHomeScreen = ({ navigation }) => {
                 onAddToCart={handleCardAddToCart}
                 addingCart={cartLoadingId === String(item?.id)}
                 cartVariantIds={cartVariantIds}
+                cartQtyMap={cartQtyMap}
+                onChangeQty={changeCartQty}
+                qtyBusyVariant={cartBusyVariant}
                 onPress={handleProductPress}
               />
             </View>
@@ -1684,6 +1689,9 @@ const PgHomeScreen = ({ navigation }) => {
                                 onBuyNow={handleCardBuyNow}
                                 buyingNow={buyNowLoadingId === String(item?.id)}
                                 cartVariantIds={cartVariantIds}
+                                cartQtyMap={cartQtyMap}
+                                onChangeQty={changeCartQty}
+                                qtyBusyVariant={cartBusyVariant}
                                 onPress={handleProductPress}
                                 imageAspectRatio={1}
                               />
@@ -1706,6 +1714,9 @@ const PgHomeScreen = ({ navigation }) => {
                                 onBuyNow={handleCardBuyNow}
                                 buyingNow={buyNowLoadingId === String(item?.id)}
                                 cartVariantIds={cartVariantIds}
+                                cartQtyMap={cartQtyMap}
+                                onChangeQty={changeCartQty}
+                                qtyBusyVariant={cartBusyVariant}
                                 onPress={handleProductPress}
                                 imageAspectRatio={1}
                               />
@@ -1806,6 +1817,9 @@ const PgHomeScreen = ({ navigation }) => {
                             onAddToCart={handleCardAddToCart}
                             addingCart={cartLoadingId === String(item?.id)}
                             cartVariantIds={cartVariantIds}
+                            cartQtyMap={cartQtyMap}
+                            onChangeQty={changeCartQty}
+                            qtyBusyVariant={cartBusyVariant}
                             onPress={handleProductPress}
                           />
                         </View>

@@ -18,6 +18,8 @@ import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import PgActionButton from "../components/PgActionButton";
+import PgQtyStepper from "../components/PgQtyStepper";
+import useCartQuantities from "../hooks/useCartQuantities";
 import {
   getWishlist,
   removeFromWishlist,
@@ -65,7 +67,7 @@ const resolveItem = (raw) => ({
 // Wrapped in memo, with every callback below a stable parent reference (see
 // handleRemove/handleAddToCart/handleGoToCart/handleViewDetails) — that's
 // what lets a wishlist action on one row skip re-rendering every other row.
-const WishlistCard = React.memo(({ raw, onRemove, onAddToCart, onGoToCart, onViewDetails, removing, addingCart, inCart }) => {
+const WishlistCard = React.memo(({ raw, onRemove, onAddToCart, onGoToCart, onViewDetails, onChangeQty, removing, addingCart, inCart, cartQty, qtyBusy }) => {
   const item = resolveItem(raw);
   const [imgUrl, setImgUrl]         = useState(item.imageUrl);
   const [imgLoading, setImgLoading] = useState(!item.imageUrl && !!item.productId);
@@ -174,16 +176,13 @@ const WishlistCard = React.memo(({ raw, onRemove, onAddToCart, onGoToCart, onVie
         </View>
 
         {inCart ? (
-          <TouchableOpacity
-            style={[s.cta, s.inCartBtn]}
-            onPress={onGoToCart}
-            disabled={addingCart || removing}
-            activeOpacity={0.82}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="checkmark-circle" size={14} color="#176B4D" />
-            <Text style={s.inCartText}>In Cart</Text>
-          </TouchableOpacity>
+          <PgQtyStepper
+            qty={cartQty || 1}
+            loading={qtyBusy}
+            onIncrement={() => onChangeQty(item.productId, item.variantId, 1)}
+            onDecrement={() => onChangeQty(item.productId, item.variantId, -1)}
+            style={s.cta}
+          />
         ) : (
           <PgActionButton
             label="Add to Cart"
@@ -207,7 +206,13 @@ const PgWishlistScreen = ({ navigation }) => {
   const [loading, setLoading]             = useState(true);
   const [removingId, setRemovingId]       = useState(null);
   const [cartLoadingId, setCartLoadingId] = useState(null);
-  const [cartVariantIds, setCartVariantIds] = useState(new Set());
+  const {
+    cartQtyMap,
+    cartVariantIds,
+    refreshCart,
+    changeCartQty,
+    cartBusyVariant,
+  } = useCartQuantities(userId);
 
   useFocusEffect(
     useCallback(() => {
@@ -221,14 +226,7 @@ const PgWishlistScreen = ({ navigation }) => {
         .catch(() => setItems([]))
         .finally(() => setLoading(false));
 
-      getCart(userId)
-        .then((cartData) => {
-          const ids = (cartData?.itemsInCart || []).map((it) =>
-            String(it.productVariantId),
-          );
-          setCartVariantIds(new Set(ids));
-        })
-        .catch(() => {});
+      refreshCart();
     }, [userId, dispatch]),
   );
 
@@ -262,22 +260,14 @@ const PgWishlistScreen = ({ navigation }) => {
       setCartLoadingId(item.wishlistId);
       try {
         await addToCart(userId, item.productId, item.variantId, 1);
-        setCartVariantIds((prev) => new Set(prev).add(String(item.variantId)));
-        try {
-          const cartData = await getCart(userId);
-          dispatch(setCartCount(cartData?.totalItemsInCart || 0));
-        } catch {}
-        Alert.alert("Added to Cart", `${item.name} added to your cart`, [
-          { text: "View Cart", onPress: () => navigation.navigate("PgCart") },
-          { text: "OK" },
-        ]);
+        await refreshCart(); // button turns into the − qty + stepper
       } catch (e) {
         Alert.alert("Error", e?.message || "Failed to add to cart");
       } finally {
         setCartLoadingId(null);
       }
     },
-    [userId, dispatch, navigation],
+    [userId, refreshCart],
   );
 
   const handleGoToCart = useCallback(
@@ -369,6 +359,9 @@ const PgWishlistScreen = ({ navigation }) => {
                       removing={removingId === item.wishlistId}
                       addingCart={cartLoadingId === item.wishlistId}
                       inCart={cartVariantIds.has(String(item.variantId))}
+                      cartQty={cartQtyMap[String(item.variantId)]?.qty}
+                      qtyBusy={cartBusyVariant === String(item.variantId)}
+                      onChangeQty={changeCartQty}
                       onRemove={handleRemove}
                       onAddToCart={handleAddToCart}
                       onGoToCart={handleGoToCart}
@@ -499,17 +492,6 @@ const s = StyleSheet.create({
 
   // ── Action — full card width under the price ──────────────────────────────
   cta: { marginTop: 10, height: 34 },
-  inCartBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    borderRadius: 20,
-    borderWidth: 1.3,
-    backgroundColor: "#EAF3EE",
-    borderColor: "#B7D2C2",
-  },
-  inCartText: { fontSize: 12, fontWeight: "700", color: "#176B4D", textTransform: "uppercase" },
 
   // ── Empty ────────────────────────────────────────────────────────────────────
   emptyCircle: {

@@ -20,6 +20,7 @@ import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
 import { showCartActionError } from "../utils/cartErrors";
+import useCartQuantities from "../hooks/useCartQuantities";
 import {
   searchAllProducts,
   getWishlist,
@@ -59,7 +60,14 @@ const PgSearchScreen = ({ navigation }) => {
   const variantCache = useRef({});
 
   // ── Cart — same pattern as PgHomeScreen ──────────────────────────────────
-  const [cartVariantIds, setCartVariantIds] = useState(new Set());
+  const {
+    cartQtyMap,
+    cartVariantIds,
+    refreshCart,
+    clearCart,
+    changeCartQty,
+    cartBusyVariant,
+  } = useCartQuantities(userId);
   const [cartLoadingId, setCartLoadingId] = useState(null);
 
   // ── Guest gate — same pattern as PgHomeScreen ─────────────────────────────
@@ -84,14 +92,7 @@ const PgSearchScreen = ({ navigation }) => {
         })
         .catch(() => {});
 
-      getCart(userId)
-        .then((cartData) => {
-          const ids = (cartData?.itemsInCart || []).map((it) =>
-            String(it.productVariantId),
-          );
-          setCartVariantIds(new Set(ids));
-        })
-        .catch(() => {});
+      refreshCart();
     }, [userId])
   );
 
@@ -111,9 +112,7 @@ const PgSearchScreen = ({ navigation }) => {
       setCartLoadingId(pid);
       try {
         await addToCart(userId, product.id, variantId, 1);
-        setCartVariantIds((prev) => new Set(prev).add(String(variantId)));
-        const cartData = await getCart(userId).catch(() => null);
-        if (cartData) dispatch(setCartCount(cartData.totalItemsInCart || 0));
+        await refreshCart(); // card turns into the − qty + stepper
       } catch (e) {
         console.log("[PgSearchScreen] Add to cart failed:", e?.message);
         showCartActionError(e, navigation);
@@ -121,7 +120,7 @@ const PgSearchScreen = ({ navigation }) => {
         setCartLoadingId(null);
       }
     },
-    [userId, cartVariantIds, dispatch, navigation, requireAuth],
+    [userId, cartVariantIds, dispatch, navigation, requireAuth, refreshCart],
   );
 
   // Stable reference so every ProductCard gets the same function instead of
@@ -333,6 +332,9 @@ const PgSearchScreen = ({ navigation }) => {
                     onAddToCart={handleCardAddToCart}
                     addingCart={cartLoadingId === String(product?.id)}
                     cartVariantIds={cartVariantIds}
+                    cartQtyMap={cartQtyMap}
+                    onChangeQty={changeCartQty}
+                    qtyBusyVariant={cartBusyVariant}
                     onPress={handleProductPress}
                   />
                 </View>

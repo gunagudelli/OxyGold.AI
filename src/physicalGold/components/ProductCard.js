@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getProductImages, getProductVariants } from '../api/physicalGoldApi';
 import { resolveImageUrl } from '../utils/resolveImageUrl';
 import PgActionButton from './PgActionButton';
+import PgQtyStepper from './PgQtyStepper';
 
 const ProductCard = ({
   product,
@@ -22,6 +23,12 @@ const ProductCard = ({
   onAddToCart,
   addingCart,
   cartVariantIds, // Set<string> of variant ids currently in the cart
+  // With these, an in-cart item shows a − qty + stepper instead of "In Cart":
+  // cartQtyMap { [variantId]: { qty } }, onChangeQty(productId, variantId, ±1),
+  // qtyBusyVariant = variant id whose quantity is being updated.
+  cartQtyMap,
+  onChangeQty,
+  qtyBusyVariant,
   // When provided, replaces the Add-to-Cart button with a "Buy Now" button
   // that adds this variant to the cart and jumps straight to Checkout —
   // takes priority over onAddToCart so a card only ever shows one CTA.
@@ -270,6 +277,14 @@ const ProductCard = ({
             onPress={() => onAddToCart(product, defaultVariant)}
             disabled={!defaultVariant}
             loading={addingCart}
+            style={s.cta}
+          />
+        ) : onAddToCart && onChangeQty ? (
+          <PgQtyStepper
+            qty={cartQtyMap?.[String(defaultVariant?.id)]?.qty || 1}
+            loading={qtyBusyVariant === String(defaultVariant?.id)}
+            onIncrement={() => onChangeQty(product?.id, defaultVariant?.id, 1)}
+            onDecrement={() => onChangeQty(product?.id, defaultVariant?.id, -1)}
             style={s.cta}
           />
         ) : onAddToCart ? (
