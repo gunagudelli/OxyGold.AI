@@ -214,7 +214,9 @@ const PgCartScreen = ({ navigation }) => {
     setCartItems(data?.itemsInCart || []);
     setTotalCartValue(data?.totalCartValue || 0);
     setTotalGstCharges(data?.totalGstCharges || 0);
-    setTotalMakingCharges(data?.totalMakingCharges || 0);
+    setTotalMakingCharges(
+      data?.totalMakingCharges ?? data?.totalMakingCharge ?? data?.makingCharges ?? 0,
+    );
     setTotalPayableAmount(data?.totalPayableAmount || 0);
     setDeliveryFee(data?.deliveryFee || 0);
     setDeliveryDistanceKm(data?.deliveryDistanceKm ?? null);
@@ -357,7 +359,7 @@ const PgCartScreen = ({ navigation }) => {
 
   const subtotal = totalCartValue || cartItems.reduce((sum, item) => sum + getCartItemTotal(item), 0);
   const gst = totalGstCharges || 0;
-  const making = totalMakingCharges || 0;
+  const making = Number(totalMakingCharges) || 0;
   const grand = totalPayableAmount || (subtotal + gst + making + deliveryFee);
 
   return (
@@ -399,12 +401,9 @@ const PgCartScreen = ({ navigation }) => {
             <SectionHeader title="ORDER SUMMARY" />
             <SummaryRow label={`Subtotal (${cartItems.length} items)`} value={`₹${subtotal.toLocaleString("en-IN")}`} />
             <View style={styles.specDivider} />
-            {making > 0 && (
-              <>
-                <SummaryRow label="Making Charges" value={`₹${making.toLocaleString("en-IN")}`} />
-                <View style={styles.specDivider} />
-              </>
-            )}
+            {/* Always shown, ₹0 included — same as the web order summary. */}
+            <SummaryRow label="Making Charges" value={`₹${making.toLocaleString("en-IN")}`} />
+            <View style={styles.specDivider} />
             <SummaryRow label="GST (3%)" value={`₹${gst.toLocaleString("en-IN")}`} />
             <View style={styles.specDivider} />
             <SummaryRow
@@ -414,8 +413,6 @@ const PgCartScreen = ({ navigation }) => {
             {ratePerKm !== null && deliveryDistanceKm !== null && (
               <Text style={styles.deliveryRateNote}>₹{ratePerKm}/km delivery rate</Text>
             )}
-            <View style={styles.specDivider} />
-            <SummaryRow label="Insurance" value="Included" />
             <View style={styles.grandRow}>
               <Text style={styles.grandLabel}>Total</Text>
               <Text style={styles.grandValue}>₹{grand.toLocaleString("en-IN")}</Text>

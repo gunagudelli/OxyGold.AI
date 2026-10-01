@@ -778,17 +778,14 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             </View>
             <View style={styles.specDivider} />
 
-            {cartMaking > 0 && (
-              <>
-                <View style={styles.specRow}>
-                  <Text style={styles.specLabel}>Making Charges</Text>
-                  <Text style={styles.specValue}>
-                    ₹{Number(cartMaking).toLocaleString("en-IN")}
-                  </Text>
-                </View>
-                <View style={styles.specDivider} />
-              </>
-            )}
+            {/* Always shown, ₹0 included — same as the web order summary. */}
+            <View style={styles.specRow}>
+              <Text style={styles.specLabel}>Making Charges</Text>
+              <Text style={styles.specValue}>
+                ₹{Number(cartMaking || 0).toLocaleString("en-IN")}
+              </Text>
+            </View>
+            <View style={styles.specDivider} />
 
             <View style={styles.specRow}>
               <Text style={styles.specLabel}>GST (3%)</Text>
@@ -812,16 +809,8 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             <View style={styles.specDivider} />
 
             <View style={styles.specRow}>
-              <Text style={styles.specLabel}>Insurance</Text>
-              <Text style={styles.specValue}>Included</Text>
-            </View>
-            <View style={styles.specDivider} />
-
-            <View style={styles.specRow}>
               <Text style={styles.specLabel}>Payment Method</Text>
-              <Text style={styles.specValue}>
-                "Online Payment"
-              </Text>
+              <Text style={styles.specValue}>Online Payment</Text>
             </View>
 
             <View style={styles.grandTotalRow}>

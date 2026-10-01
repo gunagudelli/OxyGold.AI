@@ -423,7 +423,8 @@ export const getCart = async (userId, addressId) => {
       itemsInCart: data?.itemsInCart || [],
       totalCartValue: data?.totalCartValue || 0,
       totalGstCharges: data?.totalGstCharges || 0,
-      totalMakingCharges: data?.totalMakingCharges || 0,
+      totalMakingCharges:
+        data?.totalMakingCharges ?? data?.totalMakingCharge ?? data?.makingCharges ?? 0,
       totalPayableAmount: data?.totalPayableAmount || 0,
       totalItemsInCart: data?.totalItemsInCart || 0,
       totalCartItemWeight: data?.totalCartItemWeight || 0,
