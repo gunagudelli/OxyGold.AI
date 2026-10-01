@@ -431,6 +431,8 @@ export const getCart = async (userId, addressId) => {
       deliveryFee: data?.deliveryFee || 0,
       deliveryDistanceKm: data?.deliveryDistanceKm ?? null,
       ratePerKm: data?.ratePerKm ?? null,
+      totalDiscountAmount: Number(data?.totalDiscountAmount ?? data?.discountAmount ?? 0) || 0,
+      totalDiscountPercentage: Number(data?.totalDiscountPercentage ?? data?.discountPercentage ?? 0) || 0,
     };
   } catch (error) {
     if (error.status === 404) {

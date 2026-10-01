@@ -22,6 +22,7 @@ import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
+import GstWaiverModal from "../components/GstWaiverModal";
 import PgActionButton from "../components/PgActionButton";
 import { showCartActionError } from "../utils/cartErrors";
 import { resolveImageUrl } from "../utils/resolveImageUrl";
@@ -178,6 +179,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const [priceBreakupError, setPriceBreakupError] = useState(false);
   const [priceBreakupRetry, setPriceBreakupRetry] = useState(0);
   const [showGuestSheet, setShowGuestSheet] = useState(false);
+  const [showGstModal, setShowGstModal] = useState(false);
   const pendingActionRef = useRef(null); // 'cart' | 'buyNow'
 
   // ── Hardware back
@@ -324,6 +326,37 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     return () => { alive = false; };
   }, [selectedVariant?.id, priceBreakupRetry]);
 
+  // "100% GST Paid by OxyGold.ai" popup — same rule as web: pops up shortly
+  // after the breakup loads whenever the variant has a real MRP discount
+  // and the backend reports a discount amount (the waived GST).
+  useEffect(() => {
+    const variantMrp = Number(selectedVariant?.mrp) || 0;
+    const variantPrice = Number(selectedVariant?.price) || 0;
+    const discountAmount = Number(priceBreakup?.discountAmount) || 0;
+    if (!priceBreakup || !(variantMrp > variantPrice) || discountAmount <= 0) {
+      setShowGstModal(false);
+      return;
+    }
+    if (showGuestSheet) return;
+    const timer = setTimeout(() => setShowGstModal(true), 600);
+    return () => clearTimeout(timer);
+    // showGuestSheet deliberately left out — closing the login sheet shouldn't
+    // re-trigger the popup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceBreakup, selectedVariant?.id, selectedVariant?.mrp, selectedVariant?.price]);
+
+  // Only one RN Modal can be presented at a time on iOS — if the GST popup is
+  // up (or still fading out) the login sheet silently never appears. Close
+  // the GST popup first and give it time to dismiss before opening login.
+  const openGuestSheet = () => {
+    if (!showGstModal) {
+      setShowGuestSheet(true);
+      return;
+    }
+    setShowGstModal(false);
+    setTimeout(() => setShowGuestSheet(true), 350);
+  };
+
   const imageFade = useRef(new Animated.Value(1)).current;
   const switchView = (idx) => {
     Animated.timing(imageFade, { toValue: 0, duration: 100, useNativeDriver: true }).start(() => {
@@ -366,7 +399,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     }
     if (!userId) {
       pendingActionRef.current = "cart";
-      setShowGuestSheet(true);
+      openGuestSheet();
       return false;
     }
     const t0 = Date.now();
@@ -425,7 +458,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     }
     if (!userId) {
       pendingActionRef.current = "buyNow";
-      setShowGuestSheet(true);
+      openGuestSheet();
       return;
     }
     setBuyNowLoading(true);
@@ -548,6 +581,12 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const mrp = selectedVariant?.mrp || price;
   const discount = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
   const inStock = (selectedVariant?.stockQuantity ?? 0) > 0;
+  const isSilverProduct = [
+    product?.name,
+    route.params?.product?.categoryName,
+    route.params?.categoryName,
+    selectedVariant?.purity,
+  ].some((v) => /silver/i.test(String(v || "")));
 
   const currentView = availableViews[selectedViewIdx];
   const currentImageUrl = currentView
@@ -1147,6 +1186,15 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
           pendingActionRef.current = null;
         }}
         onSuccess={() => setShowGuestSheet(false)}
+      />
+
+      <GstWaiverModal
+        visible={showGstModal}
+        onClose={() => setShowGstModal(false)}
+        isSilver={isSilverProduct}
+        gstPercentage={priceBreakup?.gstPercentage}
+        gstAmount={priceBreakup?.gstAmount}
+        waiverAmount={Number(priceBreakup?.discountAmount) || 0}
       />
     </PgLayout>
   );

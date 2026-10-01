@@ -21,6 +21,7 @@ import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
+import GstWaiverModal from "../components/GstWaiverModal";
 import { getProductImages, getUserAddresses } from "../api/physicalGoldApi";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { FLATLIST_OPTIMIZATIONS, keyExtractor } from "../../utils/flatListOptimizations";
@@ -180,6 +181,14 @@ const PgCartScreen = ({ navigation }) => {
   const [totalGstCharges, setTotalGstCharges] = useState(0);
   const [totalMakingCharges, setTotalMakingCharges] = useState(0);
   const [totalPayableAmount, setTotalPayableAmount] = useState(0);
+  const [totalDiscountAmount, setTotalDiscountAmount] = useState(0);
+  const [totalDiscountPercentage, setTotalDiscountPercentage] = useState(0);
+
+  // "100% GST Paid by OxyGold.ai" popup — same as the web cart: shown once
+  // automatically when the cart has a discount, and again on tapping the
+  // Discount row.
+  const [showGstModal, setShowGstModal] = useState(false);
+  const gstModalShownRef = useRef(false);
 
   // Distance-based delivery — mirrors the web cart: fetched by passing the
   // customer's default address (the first one with lat/long) as addressId
@@ -218,6 +227,8 @@ const PgCartScreen = ({ navigation }) => {
       data?.totalMakingCharges ?? data?.totalMakingCharge ?? data?.makingCharges ?? 0,
     );
     setTotalPayableAmount(data?.totalPayableAmount || 0);
+    setTotalDiscountAmount(Number(data?.totalDiscountAmount ?? data?.discountAmount ?? 0) || 0);
+    setTotalDiscountPercentage(Number(data?.totalDiscountPercentage ?? data?.discountPercentage ?? 0) || 0);
     setDeliveryFee(data?.deliveryFee || 0);
     setDeliveryDistanceKm(data?.deliveryDistanceKm ?? null);
     setRatePerKm(data?.ratePerKm ?? null);
@@ -273,6 +284,19 @@ const PgCartScreen = ({ navigation }) => {
       setItemLoading((p) => ({ ...p, [cartId]: false }));
     }
   };
+
+  useEffect(() => {
+    if (totalDiscountAmount <= 0 || cartItems.length === 0) {
+      setShowGstModal(false);
+      return;
+    }
+    if (gstModalShownRef.current) return;
+    const timer = setTimeout(() => {
+      setShowGstModal(true);
+      gstModalShownRef.current = true;
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [totalDiscountAmount, cartItems.length]);
 
   const setBusy = (cartId, v) => setItemLoading((p) => ({ ...p, [cartId]: v }));
 
@@ -360,7 +384,10 @@ const PgCartScreen = ({ navigation }) => {
   const subtotal = totalCartValue || cartItems.reduce((sum, item) => sum + getCartItemTotal(item), 0);
   const gst = totalGstCharges || 0;
   const making = Number(totalMakingCharges) || 0;
-  const grand = totalPayableAmount || (subtotal + gst + making + deliveryFee);
+  const grand = totalPayableAmount || (subtotal + gst + making + deliveryFee - totalDiscountAmount);
+  const isSilverCart = cartItems.some(
+    (item) => /silver/i.test(String(item?.productName || "")) || /silver/i.test(String(item?.purity || "")),
+  );
 
   return (
     <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()}>
@@ -406,6 +433,24 @@ const PgCartScreen = ({ navigation }) => {
             <View style={styles.specDivider} />
             <SummaryRow label="GST (3%)" value={`₹${gst.toLocaleString("en-IN")}`} />
             <View style={styles.specDivider} />
+            {totalDiscountAmount > 0 && (
+              <>
+                <TouchableOpacity
+                  style={styles.specRow}
+                  onPress={() => setShowGstModal(true)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityHint="Shows discount details"
+                >
+                  <View style={styles.discountLabelRow}>
+                    <Text style={styles.discountText}>Discount</Text>
+                    <Ionicons name="information-circle-outline" size={13} color={C.green} />
+                  </View>
+                  <Text style={styles.discountText}>-₹{totalDiscountAmount.toLocaleString("en-IN")}</Text>
+                </TouchableOpacity>
+                <View style={styles.specDivider} />
+              </>
+            )}
             <SummaryRow
               label={`Delivery${deliveryDistanceKm !== null ? ` (${deliveryDistanceKm} km)` : ""}`}
               value={`₹${deliveryFee.toLocaleString("en-IN")}`}
@@ -443,6 +488,15 @@ const PgCartScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
+
+        <GstWaiverModal
+          visible={showGstModal}
+          onClose={() => setShowGstModal(false)}
+          isSilver={isSilverCart}
+          gstPercentage={totalDiscountPercentage}
+          gstAmount={gst}
+          waiverAmount={totalDiscountAmount}
+        />
 
         {/* ── Image Modal ── */}
         <Modal visible={showImageModal} transparent animationType="fade" onRequestClose={() => setShowImageModal(false)}>
@@ -594,6 +648,8 @@ const styles = StyleSheet.create({
   specLabel: { fontSize: 13, color: C.navyLight },
   specValue: { fontSize: 13, fontWeight: "700", color: C.navy },
   specFree: { fontSize: 13, fontWeight: "600", color: C.green },
+  discountLabelRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  discountText: { fontSize: 13, fontWeight: "600", color: C.green },
   deliveryRateNote: { fontSize: 10.5, color: C.navyLight, textAlign: "right", marginTop: -3, marginBottom: 6 },
   grandRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
