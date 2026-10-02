@@ -33,6 +33,7 @@ import {
   getProductImages,
 } from "../api/physicalGoldApi";
 import { resolveImageUrl } from "../utils/resolveImageUrl";
+import GstWaiverModal from "../components/GstWaiverModal";
 
 // ─── Design Tokens (mirrors PgCartScreen exactly) ────────────────────────────
 const C = {
@@ -93,7 +94,7 @@ const getCheckoutItemDetails = (item) => {
 const PgCheckoutScreen = ({ navigation, route }) => {
   const userId = useSelector(selectUserId);
   const accessToken = useSelector(selectAccessToken);
-  const { cartTotal: routeCartTotal, cartItems: routeCartItems } = route?.params || {};
+  const { cartTotal: routeCartTotal, cartItems: routeCartItems, showGstPopup } = route?.params || {};
 
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -112,6 +113,15 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   const [cartSubtotal, setCartSubtotal] = useState(0);
   const [cartGst, setCartGst] = useState(0);
   const [cartMaking, setCartMaking] = useState(0);
+  const [cartDiscount, setCartDiscount] = useState(0);
+  const [cartDiscountPct, setCartDiscountPct] = useState(0);
+
+  // "100% GST Paid by OXYGOLD.AI" popup. Auto-shown only when the user came
+  // straight from Home's Buy Now (showGstPopup) — they skipped the Cart, which
+  // is where it normally pops up, so it isn't shown twice. Tapping the GST
+  // row still opens it any time.
+  const [showGstModal, setShowGstModal] = useState(false);
+  const gstModalShownRef = useRef(false);
   const [cartItemImages, setCartItemImages] = useState({});
   const [cartUpdating, setCartUpdating] = useState({});
 
@@ -140,6 +150,23 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     return () => { active = false; };
   }, [cartItems]);
 
+  useEffect(() => {
+    if (cartDiscount <= 0 || cartItems.length === 0) {
+      setShowGstModal(false);
+      return;
+    }
+    if (!showGstPopup || gstModalShownRef.current || loading) return;
+    const timer = setTimeout(() => {
+      setShowGstModal(true);
+      gstModalShownRef.current = true;
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [cartDiscount, cartItems.length, loading, showGstPopup]);
+
+  const isSilverCart = cartItems.some(
+    (item) => /silver/i.test(String(item?.productName || "")) || /silver/i.test(String(item?.purity || "")),
+  );
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -156,6 +183,8 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     setCartSubtotal(cart?.totalCartValue || 0);
     setCartGst(cart?.totalGstCharges || 0);
     setCartMaking(cart?.totalMakingCharges || 0);
+    setCartDiscount(cart?.totalDiscountAmount || 0);
+    setCartDiscountPct(cart?.totalDiscountPercentage || 0);
     setDeliveryFee(cart?.deliveryFee || 0);
     setDeliveryDistanceKm(cart?.deliveryDistanceKm ?? null);
     setRatePerKm(cart?.ratePerKm ?? null);
@@ -304,6 +333,8 @@ const PgCheckoutScreen = ({ navigation, route }) => {
         setCartSubtotal(cart?.totalCartValue || 0);
         setCartGst(cart?.totalGstCharges || 0);
         setCartMaking(cart?.totalMakingCharges || 0);
+        setCartDiscount(cart?.totalDiscountAmount || 0);
+        setCartDiscountPct(cart?.totalDiscountPercentage || 0);
         setDeliveryFee(cart?.deliveryFee || 0);
         setDeliveryDistanceKm(cart?.deliveryDistanceKm ?? null);
         setRatePerKm(cart?.ratePerKm ?? null);
@@ -350,6 +381,8 @@ const PgCheckoutScreen = ({ navigation, route }) => {
         setCartSubtotal(cart?.totalCartValue || 0);
         setCartGst(cart?.totalGstCharges || 0);
         setCartMaking(cart?.totalMakingCharges || 0);
+        setCartDiscount(cart?.totalDiscountAmount || 0);
+        setCartDiscountPct(cart?.totalDiscountPercentage || 0);
         setDeliveryFee(cart?.deliveryFee || 0);
         setDeliveryDistanceKm(cart?.deliveryDistanceKm ?? null);
         setRatePerKm(cart?.ratePerKm ?? null);
@@ -787,31 +820,69 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             </View>
             <View style={styles.specDivider} />
 
-            <View style={styles.specRow}>
-              <Text style={styles.specLabel}>GST (3%)</Text>
-              <Text style={styles.specValue}>
-                ₹{Number(cartGst || 0).toLocaleString("en-IN")}
-              </Text>
-            </View>
-            <View style={styles.specDivider} />
-
-            <View style={styles.specRow}>
-              <Text style={styles.specLabel}>
-                Delivery{deliveryDistanceKm !== null ? ` (${deliveryDistanceKm} km)` : ""}
-              </Text>
-              <Text style={styles.specValue}>
-                ₹{Number(deliveryFee || 0).toLocaleString("en-IN")}
-              </Text>
-            </View>
-            {ratePerKm !== null && deliveryDistanceKm !== null && (
-              <Text style={styles.deliveryRateNote}>₹{ratePerKm}/km delivery rate</Text>
+            {cartDiscount > 0 && cartDiscount >= cartGst - 1 ? (
+              // Backend's discount is the waived GST — show GST struck out as FREE;
+              // tapping it re-opens the "100% GST Paid" popup.
+              <TouchableOpacity
+                style={styles.specRow}
+                onPress={() => setShowGstModal(true)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityHint="Shows GST waiver details"
+              >
+                <View style={styles.discountLabelRow}>
+                  <Text style={styles.specLabel}>GST (3%)</Text>
+                  <Ionicons name="information-circle-outline" size={13} color={C.green} />
+                </View>
+                <View style={styles.discountLabelRow}>
+                  <Text style={styles.strikeValue}>₹{Number(cartGst || cartDiscount).toLocaleString("en-IN")}</Text>
+                  <Text style={styles.specFree}>FREE</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <View style={styles.specRow}>
+                  <Text style={styles.specLabel}>GST (3%)</Text>
+                  <Text style={styles.specValue}>₹{Number(cartGst || 0).toLocaleString("en-IN")}</Text>
+                </View>
+                {cartDiscount > 0 && (
+                  <>
+                    <View style={styles.specDivider} />
+                    <TouchableOpacity
+                      style={styles.specRow}
+                      onPress={() => setShowGstModal(true)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityHint="Shows discount details"
+                    >
+                      <View style={styles.discountLabelRow}>
+                        <Text style={styles.discountText}>Discount</Text>
+                        <Ionicons name="information-circle-outline" size={13} color={C.green} />
+                      </View>
+                      <Text style={styles.discountText}>-₹{Number(cartDiscount).toLocaleString("en-IN")}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </>
             )}
             <View style={styles.specDivider} />
 
             <View style={styles.specRow}>
-              <Text style={styles.specLabel}>Payment Method</Text>
-              <Text style={styles.specValue}>Online Payment</Text>
+              <Text style={styles.specLabel}>
+                Delivery Fee{Number(deliveryDistanceKm) > 0 ? ` (${deliveryDistanceKm} km)` : ""}
+              </Text>
+              {Number(deliveryFee) > 0 ? (
+                <Text style={styles.specValue}>
+                  ₹{Number(deliveryFee).toLocaleString("en-IN")}
+                </Text>
+              ) : (
+                <Text style={styles.specFree}>FREE</Text>
+              )}
             </View>
+            {Number(deliveryFee) > 0 && ratePerKm !== null && deliveryDistanceKm !== null && (
+              <Text style={styles.deliveryRateNote}>₹{ratePerKm}/km delivery rate</Text>
+            )}
+
 
             <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalLabel}>Total</Text>
@@ -861,6 +932,15 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           </View>
         </View>
       </View>
+
+      <GstWaiverModal
+        visible={showGstModal}
+        onClose={() => setShowGstModal(false)}
+        isSilver={isSilverCart}
+        gstPercentage={cartDiscountPct}
+        gstAmount={cartGst}
+        waiverAmount={cartDiscount}
+      />
     </PgLayout>
   );
 };
@@ -1125,6 +1205,9 @@ const styles = StyleSheet.create({
   specLabel: { fontSize: 13, color: C.navyLight },
   specValue: { fontSize: 13, fontWeight: "700", color: C.navy },
   specFree: { fontSize: 13, fontWeight: "600", color: C.green },
+  discountLabelRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  discountText: { fontSize: 13, fontWeight: "600", color: C.green },
+  strikeValue: { fontSize: 12, color: C.navyLight, textDecorationLine: "line-through" },
   deliveryRateNote: { fontSize: 10.5, color: C.navyLight, textAlign: "right", marginTop: -3, marginBottom: 6 },
   grandTotalRow: {
     flexDirection: "row",

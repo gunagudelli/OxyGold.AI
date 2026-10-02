@@ -31,65 +31,34 @@ const PgReturnRefundPolicyScreen = ({ navigation }) => {
         <FadeSlideIn>
         <View style={styles.card}>
           <Text style={styles.mainTitle}>Return & Refund Policy</Text>
-          <Text style={styles.updated}>Last Updated: January 2024</Text>
+          <Text style={styles.updated}>Last Updated: October 2026</Text>
 
-          <Section title="1. Return Period">
-            We offer a 15-day return period from the date of delivery.
-            Products must be returned in their original condition with all
-            tags, certificates, and packaging intact.
+          <Section title="1. No Returns">
+            Gold and silver prices change with the market every day, so all
+            purchases of physical gold and silver are final. Once an order is
+            placed, it cannot be returned or exchanged.
           </Section>
 
-          <Section title="2. Eligible Returns">
-            You can return products if:{"\n"}• The product is damaged or
-            defective{"\n"}• Wrong product was delivered{"\n"}• Product does
-            not match the description{"\n"}• You are not satisfied with the
-            purchase (within 15 days)
+          <Section title="2. No Refunds">
+            We do not offer refunds on any gold or silver purchase once the
+            order is placed.
           </Section>
 
-          <Section title="3. Non-Returnable Items">
-            The following items cannot be returned:{"\n"}• Customized or
-            engraved jewellery{"\n"}• Products without original tags and
-            certificates{"\n"}• Items showing signs of wear or damage{"\n"}•
-            Products returned after 15 days
+          <Section title="3. Failed Payments">
+            If your payment fails but money is debited from your account, it
+            is automatically reversed to your original payment method by
+            your bank or payment provider.
           </Section>
 
-          <Section title="4. Return Process">
-            To initiate a return:{"\n"}1. Contact our customer support within
-            15 days of delivery{"\n"}2. Provide order number and reason for
-            return{"\n"}3. Our team will arrange a pickup from your address
-            {"\n"}4. Product will be inspected upon receipt{"\n"}5. Refund
-            will be processed within 7-10 business days
-          </Section>
-
-          <Section title="5. Refund Method">
-            Refunds will be processed to:{"\n"}• Original payment method (for
-            online payments){"\n"}• Bank account (for cash on delivery
-            orders){"\n"}• OxyGold Wallet (instant credit option)
-          </Section>
-
-          <Section title="6. Exchange Policy">
-            We offer lifetime exchange on all products:{"\n"}• 100% exchange
-            value guaranteed{"\n"}• Exchange for any product of equal or
-            higher value{"\n"}• Only making charges apply on new purchase
-            {"\n"}• Product must be in good condition with certificates
-          </Section>
-
-          <Section title="7. Damaged or Defective Products">
-            If you receive a damaged or defective product, please contact us
-            immediately with photos. We will arrange for immediate
-            replacement or full refund at no additional cost.
-          </Section>
-
-          <Section title="8. Cancellation Policy">
-            Orders can be cancelled:{"\n"}• Before shipment: Full refund
-            {"\n"}• After shipment: Subject to return policy{"\n"}•
-            Customized orders: Cannot be cancelled
+          <Section title="4. Before You Buy">
+            Please check the product, weight, purity, price and delivery
+            address carefully before placing your order.
           </Section>
 
           <View style={[styles.section, { marginBottom: 0 }]}>
-            <Text style={styles.sectionTitle}>9. Contact Us</Text>
+            <Text style={styles.sectionTitle}>5. Contact Us</Text>
             <Text style={styles.sectionText}>
-              For returns, refunds, or exchanges, contact us:
+              For any questions about your order, contact us:
             </Text>
             <View style={styles.contactBox}>
               <Text style={styles.contactName}>OXYIDEAS TECHNOLOGIES PVT LTD</Text>

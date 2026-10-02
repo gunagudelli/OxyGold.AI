@@ -431,31 +431,58 @@ const PgCartScreen = ({ navigation }) => {
             {/* Always shown, ₹0 included — same as the web order summary. */}
             <SummaryRow label="Making Charges" value={`₹${making.toLocaleString("en-IN")}`} />
             <View style={styles.specDivider} />
-            <SummaryRow label="GST (3%)" value={`₹${gst.toLocaleString("en-IN")}`} />
-            <View style={styles.specDivider} />
-            {totalDiscountAmount > 0 && (
+            {totalDiscountAmount > 0 && totalDiscountAmount >= gst - 1 ? (
+              // Backend's discount is the waived GST — show GST struck out as FREE;
+              // tapping it re-opens the "100% GST Paid" popup.
+              <TouchableOpacity
+                style={styles.specRow}
+                onPress={() => setShowGstModal(true)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityHint="Shows GST waiver details"
+              >
+                <View style={styles.discountLabelRow}>
+                  <Text style={styles.specLabel}>GST (3%)</Text>
+                  <Ionicons name="information-circle-outline" size={13} color={C.green} />
+                </View>
+                <View style={styles.discountLabelRow}>
+                  <Text style={styles.strikeValue}>₹{Number(gst || totalDiscountAmount).toLocaleString("en-IN")}</Text>
+                  <Text style={styles.specFree}>FREE</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
               <>
-                <TouchableOpacity
-                  style={styles.specRow}
-                  onPress={() => setShowGstModal(true)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityHint="Shows discount details"
-                >
-                  <View style={styles.discountLabelRow}>
-                    <Text style={styles.discountText}>Discount</Text>
-                    <Ionicons name="information-circle-outline" size={13} color={C.green} />
-                  </View>
-                  <Text style={styles.discountText}>-₹{totalDiscountAmount.toLocaleString("en-IN")}</Text>
-                </TouchableOpacity>
-                <View style={styles.specDivider} />
+                <View style={styles.specRow}>
+                  <Text style={styles.specLabel}>GST (3%)</Text>
+                  <Text style={styles.specValue}>₹{Number(gst || 0).toLocaleString("en-IN")}</Text>
+                </View>
+                {totalDiscountAmount > 0 && (
+                  <>
+                    <View style={styles.specDivider} />
+                    <TouchableOpacity
+                      style={styles.specRow}
+                      onPress={() => setShowGstModal(true)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityHint="Shows discount details"
+                    >
+                      <View style={styles.discountLabelRow}>
+                        <Text style={styles.discountText}>Discount</Text>
+                        <Ionicons name="information-circle-outline" size={13} color={C.green} />
+                      </View>
+                      <Text style={styles.discountText}>-₹{Number(totalDiscountAmount).toLocaleString("en-IN")}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </>
             )}
+            <View style={styles.specDivider} />
             <SummaryRow
-              label={`Delivery${deliveryDistanceKm !== null ? ` (${deliveryDistanceKm} km)` : ""}`}
-              value={`₹${deliveryFee.toLocaleString("en-IN")}`}
+              label={`Delivery Fee${Number(deliveryDistanceKm) > 0 ? ` (${deliveryDistanceKm} km)` : ""}`}
+              value={deliveryFee > 0 ? `₹${deliveryFee.toLocaleString("en-IN")}` : "FREE"}
+              isFree={deliveryFee <= 0}
             />
-            {ratePerKm !== null && deliveryDistanceKm !== null && (
+            {deliveryFee > 0 && ratePerKm !== null && deliveryDistanceKm !== null && (
               <Text style={styles.deliveryRateNote}>₹{ratePerKm}/km delivery rate</Text>
             )}
             <View style={styles.grandRow}>
@@ -650,6 +677,7 @@ const styles = StyleSheet.create({
   specFree: { fontSize: 13, fontWeight: "600", color: C.green },
   discountLabelRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   discountText: { fontSize: 13, fontWeight: "600", color: C.green },
+  strikeValue: { fontSize: 12, color: C.navyLight, textDecorationLine: "line-through" },
   deliveryRateNote: { fontSize: 10.5, color: C.navyLight, textAlign: "right", marginTop: -3, marginBottom: 6 },
   grandRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",

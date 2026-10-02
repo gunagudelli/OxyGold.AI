@@ -244,7 +244,11 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
         const src = rawProd || route.params?.product || null;
         if (src) {
           setProduct({
-            id: src.id?.toString(),
+            // The route's productId is the source of truth — the passed-in
+            // object can be a wishlist/list row whose `id` isn't the product
+            // id (or is missing), which made Add to Cart fail with
+            // "Product ID is required".
+            id: String(productId ?? src.productId ?? src.id),
             name: src.name || src.productName || "",
             imageUrl: resolveImageUrl(src.imageUrl) || imgs.frontViewUrl || "",
             description: src.description || "",
@@ -272,7 +276,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
             } catch (_) {}
           }
           setProduct({
-            id: fb.id?.toString(),
+            id: String(productId ?? fb.productId ?? fb.id),
             name: fb.productName || fb.name || "",
             imageUrl: imgUrl,
             description: fb.description || "",
@@ -406,7 +410,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     setCartLoading(true);
     setCartMsg({ text: "", type: "" });
     try {
-      await addToCart(userId, product.id, selectedVariant.id, 1);
+      await addToCart(userId, product?.id || productId, selectedVariant.id, 1);
       getCart(userId)
         .then((cart) => {
           dispatch(setCartCount(cart?.itemsInCart?.length || 0));
@@ -581,6 +585,18 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   const mrp = selectedVariant?.mrp || price;
   const discount = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
   const inStock = (selectedVariant?.stockQuantity ?? 0) > 0;
+  // GST waiver in the price breakup. Backend's discountAmount is the waived
+  // GST; if its totalAmount is still the undiscounted sum (price + GST +
+  // making), take the waiver off so Total matches what the user pays.
+  const breakupWaiver = Number(priceBreakup?.discountAmount) || 0;
+  const breakupGross =
+    (Number(priceBreakup?.variantPrice) || 0) +
+    (Number(priceBreakup?.gstAmount) || 0) +
+    (Number(priceBreakup?.makingAmount) || 0);
+  const breakupTotal =
+    breakupWaiver > 0 && Math.abs((Number(priceBreakup?.totalAmount) || 0) - breakupGross) < 1
+      ? breakupGross - breakupWaiver
+      : Number(priceBreakup?.totalAmount) || 0;
   const isSilverProduct = [
     product?.name,
     route.params?.product?.categoryName,
@@ -904,6 +920,21 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                       label={`GST (${priceBreakup.gstPercentage ?? 0}%)`}
                       value={`₹${fmt(priceBreakup.gstAmount)}`}
                     />
+                    {breakupWaiver > 0 && (
+                      <TouchableOpacity
+                        style={s.specRow}
+                        onPress={() => setShowGstModal(true)}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityHint="Shows GST waiver details"
+                      >
+                        <View style={s.waiverLabelRow}>
+                          <Text style={s.waiverText}>OXYGOLD.AI GST Waiver</Text>
+                          <Ionicons name="information-circle-outline" size={13} color={C.green} />
+                        </View>
+                        <Text style={s.waiverText}>-₹{fmt(breakupWaiver)}</Text>
+                      </TouchableOpacity>
+                    )}
                     {Number(priceBreakup.makingAmount) > 0 && (
                       <SpecRow
                         label={`Making Charges (${priceBreakup.makingPercentage ?? 0}%)`}
@@ -912,7 +943,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
                     )}
                     <SpecRow
                       label="Total Amount"
-                      value={`₹${fmt(priceBreakup.totalAmount)}`}
+                      value={`₹${fmt(breakupTotal)}`}
                       accent
                       last
                     />
@@ -1509,6 +1540,7 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: C.divider,
   },
+  priceBreakupRetry: { fontSize: 12, fontWeight: "700", color: C.gold },
   priceBreakupState: {
     flexDirection: "row",
     alignItems: "center",
@@ -1520,7 +1552,6 @@ const s = StyleSheet.create({
   },
   priceBreakupStateText: { flex: 1, fontSize: 12, color: C.navyLight },
   priceBreakupErrorText: { flex: 1, fontSize: 12, color: C.navyLight },
-  priceBreakupRetry: { fontSize: 12, fontWeight: "700", color: C.gold },
 
   // ── Variant Chips ─────────────────────────────────────────────────────────
   chipScroll: { paddingRight: 4, paddingTop: 2, paddingBottom: 4 },
@@ -1563,6 +1594,8 @@ const s = StyleSheet.create({
   },
 
   // ── Spec Rows ─────────────────────────────────────────────────────────────
+  waiverLabelRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  waiverText: { fontSize: 13, fontWeight: "700", color: C.green },
   specRow: {
     flexDirection: "row",
     justifyContent: "space-between",

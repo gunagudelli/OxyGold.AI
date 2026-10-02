@@ -31,58 +31,43 @@ const PgShippingPolicyScreen = ({ navigation }) => {
         <FadeSlideIn>
         <View style={styles.card}>
           <Text style={styles.mainTitle}>Shipping Policy</Text>
-          <Text style={styles.updated}>Last Updated: January 2024</Text>
+          <Text style={styles.updated}>Last Updated: October 2026</Text>
 
           <Section title="1. Shipping Coverage">
-            We currently ship across India. All orders are processed and
-            shipped from our secure facility in Hyderabad, Telangana.
+            We deliver gold and silver products across India.
           </Section>
 
-          <Section title="2. Shipping Charges">
-            • Free Shipping: On all orders above ₹50,000{"\n"}• Standard
-            Shipping: ₹200 for orders below ₹50,000{"\n"}• All shipments are
-            fully insured at no additional cost
+          <Section title="2. Delivery Time">
+            Orders are delivered within 2–3 business days.
           </Section>
 
-          <Section title="3. Delivery Timeline">
-            Standard delivery times:{"\n"}• Metro Cities: 2-3 business days
-            {"\n"}• Other Cities: 3-5 business days{"\n"}• Remote Areas: 5-7
-            business days{"\n\n"}Note: Delivery times are estimates and may
-            vary due to unforeseen circumstances.
+          <Section title="3. Delivery Fee">
+            The delivery fee, if any, is shown in your order summary at
+            checkout before you pay.
           </Section>
 
-          <Section title="4. Order Processing">
-            Orders are processed within 24 hours of payment confirmation. You
-            will receive a tracking number via email and SMS once your order
-            is shipped.
+          <Section title="4. Our Delivery Partner">
+            Our trusted delivery partner will deliver your order safely to
+            your doorstep.
           </Section>
 
-          <Section title="5. Shipping Partners">
-            We work with trusted courier partners including Blue Dart, FedEx,
-            and DHL to ensure safe and timely delivery of your precious
-            jewellery.
+          <Section title="5. Order Processing">
+            Orders are processed after payment confirmation. You will
+            receive updates via SMS and email once your order is on its way.
           </Section>
 
-          <Section title="6. Insurance">
-            All shipments are fully insured for the declared value. In the
-            rare event of loss or damage during transit, we will process a
-            full refund or replacement.
-          </Section>
-
-          <Section title="7. Delivery Requirements">
+          <Section title="6. Delivery Requirements">
             • Signature required upon delivery{"\n"}• Valid ID proof must be
-            presented{"\n"}• Recipient must match the order details{"\n"}•
-            Undelivered packages will be returned to our facility
+            presented{"\n"}• Recipient must match the order details
           </Section>
 
-          <Section title="8. Tracking Your Order">
-            You can track your order using the tracking number provided via
-            email/SMS. For any shipping queries, contact our customer support
-            team.
+          <Section title="7. Tracking Your Order">
+            You can track your order from the "My Orders" section in the
+            app. For any delivery queries, contact our customer support team.
           </Section>
 
           <View style={[styles.section, { marginBottom: 0 }]}>
-            <Text style={styles.sectionTitle}>9. Contact Us</Text>
+            <Text style={styles.sectionTitle}>8. Contact Us</Text>
             <View style={styles.contactBox}>
               <Text style={styles.contactName}>OXYIDEAS TECHNOLOGIES PVT LTD</Text>
               <Text style={styles.contactLine}>Email: support@askoxy.ai</Text>

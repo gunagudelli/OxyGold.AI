@@ -31,72 +31,23 @@ const PgCancellationPolicyScreen = ({ navigation }) => {
         <FadeSlideIn>
         <View style={styles.card}>
           <Text style={styles.mainTitle}>Cancellation Policy</Text>
-          <Text style={styles.updated}>Last Updated: January 2024</Text>
+          <Text style={styles.updated}>Last Updated: October 2026</Text>
 
-          <Section title="1. Order Cancellation">
-            You can cancel your order at any time before it is shipped. Once
-            an order is shipped, it cannot be cancelled but can be returned
-            as per our Return Policy.
+          <Section title="1. No Cancellation">
+            Once an order is placed, it cannot be cancelled. Gold and silver
+            are bought at the live market price at the time of your order,
+            so every order is final.
           </Section>
 
-          <Section title="2. How to Cancel">
-            To cancel your order:{"\n"}1. Log in to your account{"\n"}2. Go
-            to "My Orders" section{"\n"}3. Select the order you wish to
-            cancel{"\n"}4. Click on "Cancel Order" button{"\n"}5. Provide
-            reason for cancellation (optional){"\n"}6. Confirm cancellation
-            {"\n\n"}Alternatively, you can contact our customer support team
-            at support@askoxy.ai or call +91 81432 71103.
-          </Section>
-
-          <Section title="3. Cancellation Timeline">
-            Before Order Processing (Within 2 hours){"\n"}Full refund with no
-            cancellation charges. Refund processed within 24 hours.
-            {"\n\n"}After Processing, Before Shipment{"\n"}Full refund with
-            no cancellation charges. Refund processed within 3-5 business
-            days.{"\n\n"}After Shipment{"\n"}Order cannot be cancelled.
-            Please refer to our Return Policy for returns after delivery.
-          </Section>
-
-          <Section title="4. Non-Cancellable Orders">
-            The following orders cannot be cancelled:{"\n"}• Customized or
-            engraved jewellery{"\n"}• Made-to-order products{"\n"}• Orders
-            that have already been shipped{"\n"}• Special occasion orders
-            placed less than 48 hours before delivery date
-          </Section>
-
-          <Section title="5. Refund Process">
-            Upon successful cancellation:{"\n"}• Online Payments: Refund to
-            original payment method within 5-7 business days{"\n"}• Wallet
-            Payments: Instant credit to OxyGold Wallet{"\n"}• Cash on
-            Delivery: No refund applicable as payment not made
-          </Section>
-
-          <Section title="6. Seller-Initiated Cancellation">
-            We reserve the right to cancel orders in the following
-            situations:{"\n"}• Product is out of stock or unavailable{"\n"}•
-            Pricing or product information error{"\n"}• Delivery address is
-            not serviceable{"\n"}• Suspected fraudulent transaction{"\n"}•
-            Force majeure events{"\n\n"}In such cases, you will be notified
-            immediately and full refund will be processed within 3-5
-            business days.
-          </Section>
-
-          <Section title="7. Partial Cancellation">
-            For orders with multiple items, you can cancel individual items
-            before the order is shipped. Refund will be processed for the
-            cancelled items only.
-          </Section>
-
-          <Section title="8. Cancellation Confirmation">
-            Once your cancellation is processed, you will receive a
-            confirmation email and SMS with the cancellation details and
-            expected refund timeline.
+          <Section title="2. Before You Place an Order">
+            Please check the product, weight, purity, price and delivery
+            address carefully before confirming your order.
           </Section>
 
           <View style={[styles.section, { marginBottom: 0 }]}>
-            <Text style={styles.sectionTitle}>9. Contact Us</Text>
+            <Text style={styles.sectionTitle}>3. Contact Us</Text>
             <Text style={styles.sectionText}>
-              For any queries regarding order cancellation:
+              For any questions about your order:
             </Text>
             <View style={styles.contactBox}>
               <Text style={styles.contactName}>OXYKART TECHNOLOGIES PVT LTD</Text>

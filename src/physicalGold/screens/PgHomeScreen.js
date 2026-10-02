@@ -29,6 +29,7 @@ import ProductCard from "../components/ProductCard";
 import PgLayout from "../components/PgLayout";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
+import ProductQuickViewSheet from "../components/ProductQuickViewSheet";
 import { PG_HOME_THEME } from "../constants/physicalGoldColors";
 import { showCartActionError } from "../utils/cartErrors";
 import useCartQuantities from "../hooks/useCartQuantities";
@@ -106,7 +107,7 @@ const WHY_SHOP = [
   {
     image: require("../../../assets/securedelivery.png"),
     title: "Secure Delivery",
-    subtitle: "Fully insured & safe delivery.",
+    subtitle: "Safe delivery in 2–3 days.",
   },
   {
     image: require("../../../assets/securepaymntes.png"),
@@ -701,6 +702,7 @@ const PgHomeScreen = ({ navigation }) => {
         navigation.navigate("PgCheckout", {
           cartTotal: cart?.totalPayableAmount || 0,
           cartItems,
+          showGstPopup: true, // skipped the Cart, so Checkout shows the GST popup
         });
       } catch (e) {
         showCartActionError(e, navigation);
@@ -1184,6 +1186,29 @@ const PgHomeScreen = ({ navigation }) => {
         product: item,
       }),
     [navigation],
+  );
+
+  // ── Quick view — tapping a Gold/Silver product card on Home opens a
+  // details popup instead of leaving Home. Its Buy Now reuses the card's
+  // Buy Now flow; "View Full Details" opens the full screen. ──
+  const [quickViewProduct, setQuickViewProduct] = useState(null);
+  const openQuickView = useCallback((item) => setQuickViewProduct(item), []);
+  const closeQuickView = useCallback(() => setQuickViewProduct(null), []);
+  // Close the sheet before moving on — iOS can only present one Modal at a
+  // time, so the guest login sheet (or navigation) would otherwise stall.
+  const quickViewBuyNow = useCallback(
+    (product, variant) => {
+      setQuickViewProduct(null);
+      setTimeout(() => handleCardBuyNow(product, variant), 350);
+    },
+    [handleCardBuyNow],
+  );
+  const quickViewFullDetails = useCallback(
+    (product) => {
+      setQuickViewProduct(null);
+      handleProductPress(product);
+    },
+    [handleProductPress],
   );
 
   const visibleProducts = showAllProducts ? products : products.slice(0, 6);
@@ -1692,7 +1717,7 @@ const PgHomeScreen = ({ navigation }) => {
                                 cartQtyMap={cartQtyMap}
                                 onChangeQty={changeCartQty}
                                 qtyBusyVariant={cartBusyVariant}
-                                onPress={handleProductPress}
+                                onPress={openQuickView}
                                 imageAspectRatio={1}
                               />
                             </View>
@@ -1717,7 +1742,7 @@ const PgHomeScreen = ({ navigation }) => {
                                 cartQtyMap={cartQtyMap}
                                 onChangeQty={changeCartQty}
                                 qtyBusyVariant={cartBusyVariant}
-                                onPress={handleProductPress}
+                                onPress={openQuickView}
                                 imageAspectRatio={1}
                               />
                             </View>
@@ -1929,6 +1954,14 @@ const PgHomeScreen = ({ navigation }) => {
         </Animated.View>
       )}
     </PgLayout>
+
+    <ProductQuickViewSheet
+      visible={!!quickViewProduct}
+      product={quickViewProduct}
+      onClose={closeQuickView}
+      onBuyNow={quickViewBuyNow}
+      onViewFull={quickViewFullDetails}
+    />
 
     <GuestLoginSheet
       visible={showGuestSheet}

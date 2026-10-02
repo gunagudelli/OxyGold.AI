@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Image,
+  Linking,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSelector, useDispatch } from "react-redux";
@@ -28,6 +29,10 @@ import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GuestLoginSheet from "../components/GuestLoginSheet";
 import { getUserOrders, getUserAddresses } from "../api/physicalGoldApi";
+
+// Wallet is hidden for now — flip to true to bring back the Wallet tile on
+// the profile summary (the PgWallet screen and API are untouched).
+const SHOW_WALLET = false;
 
 // ─── Design Tokens — premium, restrained. One accent, used sparingly. ────────
 const T = {
@@ -121,14 +126,10 @@ const PgProfileScreen = ({ navigation, route }) => {
   const handleFieldChange = useCallback((key, text) => {
     setFormData((prev) => ({ ...prev, [key]: text }));
   }, []);
-  // PAN needs its own stable callback — uppercases the text and resets the
-  // "Verified" badge whenever the number is edited.
+  // PAN needs its own stable callback — uppercases the text as it's typed.
   const handlePanChange = useCallback((key, text) => {
     setFormData((prev) => ({ ...prev, panNumber: text.toUpperCase() }));
-    setPanVerified(false);
   }, []);
-  const [panVerified, setPanVerified] = useState(false);
-  const [verifyingPan, setVerifyingPan] = useState(false);
   const [showGuestSheet, setShowGuestSheet] = useState(false);
 
   useEffect(() => {
@@ -187,7 +188,6 @@ const PgProfileScreen = ({ navigation, route }) => {
         gender: profileData.gender || "",
         panNumber: profileData.panNumber || profileData.pan || "",
       };
-      setPanVerified(!!(profileData.panNumber || profileData.pan));
 
       console.log('========================================');
       console.log('[Profile] FORM FIELDS SET');
@@ -215,7 +215,7 @@ const PgProfileScreen = ({ navigation, route }) => {
         }, 500);
       }
 
-      try {
+      if (SHOW_WALLET) try {
         const walletData = await apiGet(
           `${PHYSICAL_GOLD_BASE_URL}/wallet/getWallet/${userId}`,
         );
@@ -326,43 +326,22 @@ const PgProfileScreen = ({ navigation, route }) => {
       }
     }
 
-    // Gender and PAN are required by the backend's saveUserProfile endpoint.
+    // Gender is required by the backend's saveUserProfile endpoint.
     if (!formData.gender) {
       Alert.alert("Gender Required", "Please select your gender");
       return;
     }
+    // PAN is optional and saved as-is (no verification) — only its format is
+    // checked when one is entered.
     const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
     const panNumber = (formData.panNumber || "").trim().toUpperCase();
-    if (!panNumber) {
-      Alert.alert("PAN Required", "Please enter your PAN number");
-      return;
-    }
-    if (!panRegex.test(panNumber)) {
+    if (panNumber && !panRegex.test(panNumber)) {
       Alert.alert("Invalid PAN", "Enter a valid PAN number, e.g. ABCDE1234F");
       return;
     }
 
     setSaving(true);
     try {
-      // PAN must be verified with the backend before the profile can be saved.
-      if (!panVerified) {
-        setVerifyingPan(true);
-        try {
-          await apiPost(`${PHYSICAL_GOLD_BASE_URL}/auth/verifyPan`, {
-            pan: panNumber,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-          });
-          setPanVerified(true);
-        } catch (panErr) {
-          setVerifyingPan(false);
-          setSaving(false);
-          Alert.alert("PAN Verification Failed", panErr?.message || "Could not verify PAN. Please check your details.");
-          return;
-        }
-        setVerifyingPan(false);
-      }
-
       const payload = {
         userId: Number(userId),
         firstName: formData.firstName,
@@ -412,6 +391,42 @@ const PgProfileScreen = ({ navigation, route }) => {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── Request account deletion — same process as the web: the request goes
+  // to support by email (pre-filled with the user's ID and mobile number)
+  // and is processed within 7 working days. ──
+  const SUPPORT_EMAIL = "support@askoxy.ai";
+  const sendDeletionRequest = async () => {
+    const name = [formData.firstName, formData.lastName].filter(Boolean).join(" ");
+    const subject = "Request to delete my account";
+    const body =
+      "Hello OXYGOLD.AI Support,\n\nPlease delete my account and associated data.\n\n" +
+      `User ID: ${userId}\n` +
+      `Mobile Number: ${formData.mobileNumber || userPhone || "-"}\n` +
+      (name ? `Name: ${name}\n` : "") +
+      "\nThank you.";
+    const url = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    try {
+      await Linking.openURL(url);
+    } catch (e) {
+      Alert.alert(
+        "Request Account Deletion",
+        `Please email ${SUPPORT_EMAIL} from your registered email with the subject "${subject}" and include your User ID (${userId}) and mobile number.`,
+      );
+    }
+  };
+
+  const handleDeleteAccountPress = () => {
+    Alert.alert(
+      "Request Account Deletion",
+      "Your account, order history and saved addresses will be permanently deleted. " +
+        "This cannot be undone.\n\nWe'll process your request within 7 working days and confirm by email.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Send Request", style: "destructive", onPress: sendDeletionRequest },
+      ],
+    );
   };
 
   const handleLogoutPress = async () => {
@@ -558,16 +573,18 @@ const PgProfileScreen = ({ navigation, route }) => {
 
         {/* ── Account Summary — light gold tint, like Home's sections ── */}
         <View style={[styles.statsRow, styles.statsRowTinted]}>
-          <TouchableOpacity
-            style={[styles.statCol, styles.statColDivider]}
-            onPress={() => navigation.navigate("PgWallet", { userId })}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.statValue} numberOfLines={1}>
-              ₹{Number(wallet).toLocaleString("en-IN")}
-            </Text>
-            <Text style={styles.statLabel} numberOfLines={1}>Wallet</Text>
-          </TouchableOpacity>
+          {SHOW_WALLET && (
+            <TouchableOpacity
+              style={[styles.statCol, styles.statColDivider]}
+              onPress={() => navigation.navigate("PgWallet", { userId })}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.statValue} numberOfLines={1}>
+                ₹{Number(wallet).toLocaleString("en-IN")}
+              </Text>
+              <Text style={styles.statLabel} numberOfLines={1}>Wallet</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[styles.statCol, styles.statColDivider]}
@@ -664,12 +681,9 @@ const PgProfileScreen = ({ navigation, route }) => {
             onFieldChange={handleFieldChange}
           />
           <InfoRow
-            label="PAN Number"
-            required
+            label="PAN Number (Optional)"
             last
             editing={editing}
-            editable={!panVerified}
-            verified={panVerified}
             value={formData.panNumber}
             fieldKey="panNumber"
             onFieldChange={handlePanChange}
@@ -695,12 +709,7 @@ const PgProfileScreen = ({ navigation, route }) => {
                 activeOpacity={0.85}
               >
                 {saving ? (
-                  <>
-                    <ActivityIndicator size="small" color="#fff" />
-                    {verifyingPan && (
-                      <Text style={[styles.saveBtnText, { marginLeft: 8 }]}>Verifying PAN…</Text>
-                    )}
-                  </>
+                  <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={styles.saveBtnText}>Save Changes</Text>
                 )}
@@ -787,6 +796,15 @@ const PgProfileScreen = ({ navigation, route }) => {
           ) : (
             <Text style={styles.logoutBtnText}>Logout</Text>
           )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteAccountBtn}
+          onPress={handleDeleteAccountPress}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="trash-outline" size={13} color={T.subtle} />
+          <Text style={styles.deleteAccountText}>Request Account Deletion</Text>
         </TouchableOpacity>
         </FadeSlideIn>
       </ScrollView>
@@ -1050,6 +1068,15 @@ const styles = StyleSheet.create({
   },
   logoutBtnDisabled: { opacity: 0.6 },
   logoutBtnText: { fontSize: 13, fontWeight: "600", color: T.danger },
+  deleteAccountBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  deleteAccountText: { fontSize: 12, fontWeight: "500", color: T.subtle, textDecorationLine: "underline" },
 });
 
 export default PgProfileScreen;

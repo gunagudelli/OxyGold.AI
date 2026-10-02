@@ -61,23 +61,19 @@ const PgTermsScreen = ({ navigation }) => {
           </Section>
 
           <Section title="5. Delivery">
-            • Physical gold will be delivered to the registered address.{"\n"}•
-            Delivery timelines may vary based on location and availability.
-            {"\n"}• The platform is not responsible for delays caused by
-            external logistics partners.
+            • Gold and silver will be delivered to your selected address.{"\n"}•
+            Orders are delivered within 2–3 business days by our delivery
+            partner.
           </Section>
 
-          <Section title="6. Cancellation & Refund">
-            • Orders once placed cannot be cancelled after processing.{"\n"}•
-            Refunds (if applicable) will be processed as per company policy.
-            {"\n"}• In case of failed transactions, the amount will be refunded
-            within 5–7 business days.
+          <Section title="6. Cancellation">
+            • Orders cannot be cancelled once placed.
           </Section>
 
-          <Section title="7. Return Policy">
-            • Due to the nature of gold products, returns are generally not
-            accepted.{"\n"}• Returns may be considered only in case of damaged
-            or incorrect products.
+          <Section title="7. Returns & Refunds">
+            • All gold and silver purchases are final — there are no returns
+            or refunds.{"\n"}• If a payment fails but money is debited, it is
+            automatically reversed by your bank or payment provider.
           </Section>
 
           <Section title="8. KYC & Compliance">

@@ -3,46 +3,26 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Easing } fro
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
-// ─── "100% GST Paid by OxyGold.ai" popup ────────────────────────────────────
-// Mirrors the web's discount modal (oxygold ProductDetailsPage / CartSlider):
-// when the backend returns a discount, it's the GST being waived, so this
-// explains that the customer's net tax is ₹0. Gold and Silver get their own
-// colour theme, same as web.
+// ─── "100% GST Paid by OXYGOLD.AI" popup ────────────────────────────────────
+// When the backend returns a discount, it's the GST being waived — this
+// tells the customer their net tax is ₹0. Coloured header band + gift icon,
+// then a short message, a three-row breakdown and one button. Gold gets a
+// gold theme, Silver a violet one.
 const THEMES = {
-  gold: {
-    bg: ["#FFFBEB", "#FFFFFF", "#FFFBEB"],
-    ring: "rgba(253,230,138,0.6)",
-    icon: ["#C29B27", "#9B7416"],
-    badgeBorder: "#FDE68A",
-    badgeBg: "#FFFBEB",
-    badgeText: "#B45309",
-    title: "#8B6914",
-    pillBorder: "#FDE68A",
-    pillBg: "#FEF3C7",
-    pillText: "#92400E",
-    sparkle: "#FCD34D",
-  },
-  silver: {
-    bg: ["#F8FAFC", "#FFFFFF", "#F8FAFC"],
-    ring: "rgba(226,232,240,0.6)",
-    icon: ["#64748B", "#334155"],
-    badgeBorder: "#E2E8F0",
-    badgeBg: "#F8FAFC",
-    badgeText: "#334155",
-    title: "#1E293B",
-    pillBorder: "#E2E8F0",
-    pillBg: "#F1F5F9",
-    pillText: "#334155",
-    sparkle: "#94A3B8",
-  },
+  gold: { header: ["#E0B43A", "#B8860B"], accent: "#B8860B", soft: "#FFF8E6" },
+  silver: { header: ["#8B5CF6", "#6D28D9"], accent: "#7C3AED", soft: "#F5F3FF" },
 };
-
-const EMERALD = "#047857";
+const GREEN = "#047857";
 const fmt2 = (n) => Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, waiverAmount }) => {
   const t = isSilver ? THEMES.silver : THEMES.gold;
   const metalName = isSilver ? "Silver" : "Gold";
+  // GST on bullion is a flat 3%; fall back to it when the caller doesn't
+  // have the rate (e.g. cart totals only carry the discount amount).
+  const gstPct = Number(gstPercentage) > 0 ? Number(gstPercentage) : 3;
+  const gst = gstAmount || waiverAmount;
+  const saved = waiverAmount || gstAmount;
 
   const enter = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -50,18 +30,15 @@ const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, 
     enter.setValue(0);
     Animated.timing(enter, {
       toValue: 1,
-      duration: 450,
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      duration: 350,
+      easing: Easing.out(Easing.back(1.4)),
       useNativeDriver: true,
     }).start();
   }, [visible, enter]);
 
   const cardAnim = {
     opacity: enter,
-    transform: [
-      { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
-      { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
-    ],
+    transform: [{ scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }],
   };
 
   return (
@@ -69,75 +46,52 @@ const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, 
       <View style={s.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
 
-        <Animated.View style={[s.cardWrap, { borderColor: t.ring }, cardAnim]}>
-          <LinearGradient colors={t.bg} style={s.card}>
-            <Ionicons name="sparkles" size={18} color={t.sparkle} style={s.sparkle} />
-
+        <Animated.View style={[s.card, cardAnim]}>
+          {/* Header band */}
+          <LinearGradient colors={t.header} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.header}>
             <TouchableOpacity
               style={s.close}
               onPress={onClose}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityLabel="Close"
             >
-              <Ionicons name="close" size={16} color="#8A8A8A" />
+              <Ionicons name="close" size={18} color="#FFFFFF" />
             </TouchableOpacity>
-
-            <LinearGradient colors={t.icon} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.iconBox}>
-              <Ionicons name="pricetag" size={24} color="#fff" />
-            </LinearGradient>
-
-            <View style={[s.badge, { borderColor: t.badgeBorder, backgroundColor: t.badgeBg }]}>
-              <Ionicons name="checkmark-circle" size={12} color="#059669" />
-              <Text style={[s.badgeText, { color: t.badgeText }]}>100% GST Paid by OxyGold.ai</Text>
+            <View style={s.iconCircle}>
+              <Ionicons name="gift" size={30} color={t.accent} />
             </View>
+          </LinearGradient>
 
-            <Text style={[s.title, { color: t.title }]}>Congratulations! 🎉</Text>
-            <Text style={s.subtitle}>We are paying the GST amount on your behalf!</Text>
-            <Text style={s.body}>
-              For your {metalName.toLowerCase()} purchase, <Text style={s.bodyStrong}>OxyGold.ai</Text> covers
-              the complete government GST so you don't have to pay extra. The entire tax amount is waived as
-              an instant discount!
+          <View style={s.body}>
+            <Text style={s.title}>Congratulations! 🎉</Text>
+            <Text style={s.saved}>You saved ₹{fmt2(saved)} on GST</Text>
+            <Text style={s.message}>
+              OXYGOLD.AI pays 100% GST on your{" "}
+              <Text style={[s.metal, { color: t.accent }]}>{metalName} Purchase</Text>
             </Text>
 
-            {/* GST breakdown */}
-            <View style={s.breakdown}>
+            <View style={[s.breakdown, { backgroundColor: t.soft }]}>
               <View style={s.row}>
-                <Text style={s.rowLabel}>Government GST ({gstPercentage || 3}%)</Text>
-                <Text style={s.rowValue}>₹{fmt2(gstAmount || waiverAmount)}</Text>
+                <Text style={s.rowLabel}>GST ({gstPct}%)</Text>
+                <Text style={s.rowValue}>₹{fmt2(gst)}</Text>
               </View>
               <View style={s.row}>
-                <View style={s.waiverLabel}>
-                  <Ionicons name="pricetag-outline" size={11} color={EMERALD} />
-                  <Text style={s.waiverText}>OxyGold.ai GST Waiver:</Text>
-                </View>
-                <Text style={s.waiverText}>-₹{fmt2(waiverAmount)}</Text>
+                <Text style={s.waiverLabel}>OXYGOLD.AI GST Waiver</Text>
+                <Text style={s.waiverLabel}>-₹{fmt2(saved)}</Text>
               </View>
-              <View style={[s.row, s.netRow]}>
-                <Text style={s.netLabel}>Your Net Tax Contribution</Text>
-                <Text style={s.netValue}>
-                  ₹0.00 <Text style={s.netHint}>(Zero Extra Tax)</Text>
-                </Text>
+              <View style={s.divider} />
+              <View style={s.row}>
+                <Text style={s.payLabel}>GST You Pay</Text>
+                <Text style={s.payValue}>₹0</Text>
               </View>
             </View>
 
-            {/* Highlight pills */}
-            <View style={s.pills}>
-              <View style={[s.pill, s.pillGreen]}>
-                <Ionicons name="checkmark-circle" size={11} color={EMERALD} />
-                <Text style={[s.pillText, { color: EMERALD }]}>100% Tax Covered</Text>
-              </View>
-              <View style={[s.pill, { borderColor: t.pillBorder, backgroundColor: t.pillBg }]}>
-                <Ionicons name="sparkles" size={11} color={t.pillText} />
-                <Text style={[s.pillText, { color: t.pillText }]}>Pure {metalName} Offer</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity onPress={onClose} activeOpacity={0.9} style={s.ctaWrap}>
-              <LinearGradient colors={t.icon} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.cta}>
+            <TouchableOpacity onPress={onClose} activeOpacity={0.85} style={s.ctaWrap}>
+              <LinearGradient colors={t.header} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.cta}>
                 <Text style={s.ctaText}>Awesome, Got it</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </LinearGradient>
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -149,94 +103,72 @@ export default GstWaiverModal;
 const s = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     alignItems: "center",
     justifyContent: "center",
-    padding: 16,
+    padding: 24,
   },
-  cardWrap: {
+  card: {
     width: "100%",
-    maxWidth: 384,
-    borderRadius: 28,
-    borderWidth: 1,
+    maxWidth: 340,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
     overflow: "hidden",
     elevation: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,
-    shadowRadius: 24,
+    shadowRadius: 20,
   },
-  card: { padding: 24, alignItems: "center" },
-  sparkle: { position: "absolute", left: 28, top: 24 },
+  header: { height: 96, alignItems: "center", justifyContent: "flex-end" },
   close: {
     position: "absolute",
-    right: 16,
-    top: 16,
-    zIndex: 2,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.8)",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)",
+    top: 12,
+    right: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.25)",
     alignItems: "center",
     justifyContent: "center",
   },
-  iconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+  // Icon sits half on the header band, half on the white body.
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    marginBottom: -32,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
   },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginBottom: 10,
-  },
-  badgeText: { fontSize: 11, fontWeight: "700" },
-  title: { fontSize: 20, fontWeight: "900" },
-  subtitle: { marginTop: 4, fontSize: 15, fontWeight: "700", color: "#1A1A1A", textAlign: "center" },
-  body: { marginTop: 8, fontSize: 12, lineHeight: 18, color: "#5A5A5A", textAlign: "center" },
-  bodyStrong: { fontWeight: "700", color: "#1A1A1A" },
+  body: { paddingHorizontal: 22, paddingTop: 42, paddingBottom: 20, alignItems: "center" },
+  title: { fontSize: 21, fontWeight: "800", color: "#1A1A1A", textAlign: "center" },
+  saved: { marginTop: 6, fontSize: 16, fontWeight: "800", color: GREEN, textAlign: "center" },
+  message: { marginTop: 8, fontSize: 13, lineHeight: 19, color: "#5A5A5A", textAlign: "center" },
+  metal: { fontWeight: "800" },
   breakdown: {
     alignSelf: "stretch",
-    marginVertical: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#EFE7DC",
-    backgroundColor: "#FAF8F5",
-    padding: 14,
-    gap: 8,
+    marginTop: 18,
+    marginBottom: 20,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 9,
   },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  rowLabel: { fontSize: 12, color: "#5A5A5A" },
-  rowValue: { fontSize: 12, fontWeight: "600", color: "#1A1A1A" },
-  waiverLabel: { flexDirection: "row", alignItems: "center", gap: 4 },
-  waiverText: { fontSize: 12, fontWeight: "600", color: EMERALD },
-  netRow: { borderTopWidth: 1, borderTopColor: "#E8E0D5", paddingTop: 8 },
-  netLabel: { fontSize: 12, fontWeight: "700", color: "#1A1A1A" },
-  netValue: { fontSize: 12, fontWeight: "800", color: EMERALD },
-  netHint: { fontSize: 10, fontWeight: "500", color: "#059669" },
-  pills: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, marginBottom: 20 },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  pillGreen: { borderColor: "#A7F3D0", backgroundColor: "#ECFDF5" },
-  pillText: { fontSize: 11, fontWeight: "700" },
-  ctaWrap: { alignSelf: "stretch" },
-  cta: { borderRadius: 999, paddingVertical: 11, alignItems: "center" },
-  ctaText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  rowLabel: { fontSize: 13, color: "#5A5A5A" },
+  rowValue: { fontSize: 13, fontWeight: "600", color: "#1A1A1A" },
+  waiverLabel: { fontSize: 13, fontWeight: "600", color: GREEN },
+  divider: { height: 1, backgroundColor: "rgba(0,0,0,0.08)" },
+  payLabel: { fontSize: 14, fontWeight: "800", color: "#1A1A1A" },
+  payValue: { fontSize: 16, fontWeight: "800", color: GREEN },
+  ctaWrap: { alignSelf: "stretch", borderRadius: 14, overflow: "hidden" },
+  cta: { paddingVertical: 14, alignItems: "center" },
+  ctaText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
 });

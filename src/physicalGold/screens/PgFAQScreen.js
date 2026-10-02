@@ -23,23 +23,19 @@ const FAQS = [
   },
   {
     question: "What is your delivery time?",
-    answer: "We deliver within 2-3 business days for metro cities and 3-5 business days for other locations. All shipments are fully insured.",
+    answer: "Orders are delivered within 2–3 business days by our trusted delivery partner.",
   },
   {
-    question: "Do you offer free shipping?",
-    answer: "Yes, we offer free shipping on all orders above ₹50,000. For orders below this amount, a nominal shipping charge of ₹200 applies.",
+    question: "Is there a delivery fee?",
+    answer: "The delivery fee, if any, is shown in your order summary at checkout before you pay.",
   },
   {
-    question: "What is your return policy?",
-    answer: "We offer a 15-day return policy from the date of delivery. Products must be in original condition with tags and certificates intact.",
-  },
-  {
-    question: "Do you offer lifetime exchange?",
-    answer: "Yes, we offer lifetime exchange on all products at 100% value. You can exchange for any product of equal or higher value, paying only the making charges on the new purchase.",
+    question: "Can I return my order or get a refund?",
+    answer: "No. Gold and silver are bought at the live market price, so all purchases are final — there are no returns or refunds once an order is placed.",
   },
   {
     question: "How do I track my order?",
-    answer: "Once your order is shipped, you will receive a tracking number via email and SMS. You can use this to track your order on our website or the courier partner's website.",
+    answer: "You can track your order from the \"My Orders\" section in the app. You will also receive updates via SMS and email.",
   },
   {
     question: "What payment methods do you accept?",
@@ -48,10 +44,6 @@ const FAQS = [
   {
     question: "Can I customize jewellery?",
     answer: "Yes, we offer customization services. Please contact our customer support team with your requirements, and we'll help you create your perfect piece.",
-  },
-  {
-    question: "What if I receive a damaged product?",
-    answer: "If you receive a damaged or defective product, please contact us immediately with photos. We will arrange for immediate replacement or full refund at no additional cost.",
   },
   {
     question: "How is the gold price calculated?",
@@ -63,7 +55,7 @@ const FAQS = [
   },
   {
     question: "Can I cancel my order?",
-    answer: "Orders can be cancelled before shipment for a full refund. Once shipped, cancellation is subject to our return policy. Customized orders cannot be cancelled.",
+    answer: "No. Once an order is placed, it cannot be cancelled. Please check your order details carefully before paying.",
   },
 ];
 

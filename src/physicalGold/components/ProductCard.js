@@ -369,7 +369,7 @@ const s = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: '#1F8A4C',
+    backgroundColor: '#D84315', // orange-red — reads as "sale", unlike green
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 3,
