@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Easing } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,13 +7,92 @@ import { LinearGradient } from "expo-linear-gradient";
 // When the backend returns a discount, it's the GST being waived — this
 // tells the customer their net tax is ₹0. Coloured header band + gift icon,
 // then a short message, a three-row breakdown and one button. Gold gets a
-// gold theme, Silver a violet one.
+// gold theme, Silver a violet one. Silver also has zero making charges, so
+// its popup says "Zero Making Charges + 100% GST" and adds a Making row.
 const THEMES = {
   gold: { header: ["#E0B43A", "#B8860B"], accent: "#B8860B", soft: "#FFF8E6" },
   silver: { header: ["#8B5CF6", "#6D28D9"], accent: "#7C3AED", soft: "#F5F3FF" },
 };
 const GREEN = "#047857";
 const fmt2 = (n) => Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+
+// ─── Confetti burst ──────────────────────────────────────────────────────────
+// Coloured paper pieces pop out of the gift icon, fly up and outward, then
+// flutter down over the card and fade. Clipped to the card so it never
+// covers the rest of the screen.
+const CONFETTI_COLORS = ["#F59E0B", "#EF4444", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899", "#FACC15"];
+const CONFETTI_COUNT = 28;
+const BURST_ORIGIN_Y = 96; // centre of the gift icon = header's bottom edge
+
+const ConfettiBurst = ({ play }) => {
+  // Random direction, size, colour and spin per piece — fixed for this mount.
+  const pieces = useMemo(
+    () =>
+      Array.from({ length: CONFETTI_COUNT }, (_, i) => {
+        const angle = Math.PI * (1.05 + Math.random() * 0.9); // upward fan, ~190°..350°
+        const power = 70 + Math.random() * 70;
+        const square = i % 3 === 0;
+        return {
+          color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+          w: square ? 7 : 6,
+          h: square ? 7 : 12,
+          upX: Math.cos(angle) * power * 1.3,
+          upY: Math.sin(angle) * power,
+          fallX: Math.cos(angle) * power * 1.6 + (Math.random() - 0.5) * 40,
+          fallY: 180 + Math.random() * 160,
+          spin: (Math.random() > 0.5 ? 1 : -1) * (360 + Math.random() * 360),
+          delay: Math.random() * 120,
+          duration: 1800 + Math.random() * 700,
+          anim: new Animated.Value(0),
+        };
+      }),
+    []
+  );
+
+  useEffect(() => {
+    if (!play) return;
+    const runs = pieces.map((p) => {
+      p.anim.setValue(0);
+      return Animated.timing(p.anim, {
+        toValue: 1,
+        duration: p.duration,
+        delay: 150 + p.delay,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      });
+    });
+    const all = Animated.parallel(runs);
+    all.start();
+    return () => all.stop();
+  }, [play, pieces]);
+
+  return (
+    <View pointerEvents="none" style={s.confetti}>
+      {pieces.map((p, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            position: "absolute",
+            top: BURST_ORIGIN_Y - p.h / 2,
+            width: p.w,
+            height: p.h,
+            borderRadius: 1.5,
+            backgroundColor: p.color,
+            opacity: p.anim.interpolate({ inputRange: [0, 0.05, 0.75, 1], outputRange: [0, 1, 1, 0] }),
+            transform: [
+              // Fast burst up/out for the first 25%, then a slow drift down.
+              { translateX: p.anim.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, p.upX, p.fallX] }) },
+              { translateY: p.anim.interpolate({ inputRange: [0, 0.25, 0.4, 1], outputRange: [0, p.upY, p.upY + 10, p.fallY] }) },
+              { rotate: p.anim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", `${p.spin}deg`] }) },
+              // Paper "flip" flutter.
+              { scaleX: p.anim.interpolate({ inputRange: [0, 0.25, 0.5, 0.75, 1], outputRange: [1, 0.2, 1, 0.2, 1] }) },
+            ],
+          }}
+        />
+      ))}
+    </View>
+  );
+};
 
 const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, waiverAmount }) => {
   const t = isSilver ? THEMES.silver : THEMES.gold;
@@ -65,12 +144,29 @@ const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, 
           <View style={s.body}>
             <Text style={s.title}>Congratulations! 🎉</Text>
             <Text style={s.saved}>You saved ₹{fmt2(saved)} on GST</Text>
-            <Text style={s.message}>
-              OXYGOLD.AI pays 100% GST on your{" "}
-              <Text style={[s.metal, { color: t.accent }]}>{metalName} Purchase</Text>
-            </Text>
+            {isSilver ? (
+              <Text style={s.message}>
+                <Text style={[s.metal, { color: t.accent }]}>Zero Making Charges + 100% GST</Text>
+                {" "}Covered by OXYGOLD.AI on your{" "}
+                <Text style={[s.metal, { color: t.accent }]}>{metalName} Purchase</Text>
+              </Text>
+            ) : (
+              <Text style={s.message}>
+                OXYGOLD.AI pays 100% GST on your{" "}
+                <Text style={[s.metal, { color: t.accent }]}>{metalName} Purchase</Text>
+              </Text>
+            )}
 
             <View style={[s.breakdown, { backgroundColor: t.soft }]}>
+              {isSilver && (
+                <>
+                  <View style={s.row}>
+                    <Text style={s.rowLabel}>Making Charges</Text>
+                    <Text style={s.waiverLabel}>₹0 (FREE)</Text>
+                  </View>
+                  <View style={s.divider} />
+                </>
+              )}
               <View style={s.row}>
                 <Text style={s.rowLabel}>GST ({gstPct}%)</Text>
                 <Text style={s.rowValue}>₹{fmt2(gst)}</Text>
@@ -92,6 +188,9 @@ const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, 
               </LinearGradient>
             </TouchableOpacity>
           </View>
+
+          {/* On top of the card content; touches pass through. */}
+          <ConfettiBurst play={visible} />
         </Animated.View>
       </View>
     </Modal>
@@ -121,6 +220,8 @@ const s = StyleSheet.create({
     shadowRadius: 20,
   },
   header: { height: 96, alignItems: "center", justifyContent: "flex-end" },
+  // Confetti layer covers the whole card, centred on the gift icon.
+  confetti: { ...StyleSheet.absoluteFillObject, alignItems: "center" },
   close: {
     position: "absolute",
     top: 12,
