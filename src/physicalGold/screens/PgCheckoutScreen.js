@@ -62,6 +62,9 @@ const C = {
   warnBorder: "#D4A574",
 };
 
+// Cash on Delivery is offered only for orders above this total (₹).
+const COD_MIN_AMOUNT = 50000;
+
 // ─── Section Header (same as PgCartScreen) ───────────────────────────────────
 const SectionHeader = ({ title }) => (
   <View style={styles.sectionHeader}>
@@ -103,12 +106,19 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [showAllAddresses, setShowAllAddresses] = useState(false);
   const [deletingAddressId, setDeletingAddressId] = useState(null);
-  // Physical gold and silver checkout always uses online payment.
-  const paymentMode = "CASHFREE";
+  // Online payment (Cashfree) by default; Cash on Delivery is offered only
+  // when the order total is above COD_MIN_AMOUNT.
+  const [paymentMode, setPaymentMode] = useState("CASHFREE");
   const [profileComplete, setProfileComplete] = useState(false);
-  
+
   // Store cart data in state so it persists when navigating back
   const [cartTotal, setCartTotal] = useState(routeCartTotal || 0);
+  const codAvailable = Number(cartTotal || 0) > COD_MIN_AMOUNT;
+
+  // If the total drops to ₹50,000 or below (item removed), fall back to online.
+  useEffect(() => {
+    if (!codAvailable && paymentMode === "COD") setPaymentMode("CASHFREE");
+  }, [codAvailable, paymentMode]);
   const [cartItems, setCartItems] = useState(routeCartItems || []);
   const [cartSubtotal, setCartSubtotal] = useState(0);
   const [cartGst, setCartGst] = useState(0);
@@ -470,7 +480,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     }
     Alert.alert(
       "Confirm Order",
-      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(cartTotal || 0).toLocaleString("en-IN")}\nPayment: Online Payment`,
+      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(cartTotal || 0).toLocaleString("en-IN")}\nPayment: ${paymentMode === "COD" ? "Cash on Delivery" : "Online Payment"}`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Confirm Order", onPress: () => processOrder() },
@@ -495,7 +505,22 @@ const PgCheckoutScreen = ({ navigation, route }) => {
       const txnId = orderRes?.txnId;
       const totalAmount = orderRes?.totalAmount;
 
-      // Send every physical gold/silver order through online payment.
+      if (paymentMode === "COD") {
+        // COD orders are auto-confirmed by the backend on creation — calling
+        // confirmOrder here is rejected with "Order already confirmed", so
+        // it's skipped entirely.
+        navigation.navigate("PgPaymentStatus", {
+          orderId,
+          orderNumber,
+          txnId,
+          paymentMode,
+          totalAmount,
+        });
+        return;
+      }
+
+      // Online payment — hand off to the Cashfree SDK screen; it verifies
+      // via webhook and generates the invoice once payment completes.
       navigation.navigate("PgPaymentHandler", {
         orderId,
         orderNumber,
@@ -785,16 +810,35 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           {/* ── Payment Method ── */}
           <View style={styles.card}>
             <SectionHeader title="PAYMENT METHOD" />
-            <View style={styles.codRow}>
-              <View style={styles.payIconBoxSelected}>
-                <Ionicons name="card-outline" size={18} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.payLabelSelected}>Online Payment</Text>
-                <Text style={styles.paySub}>UPI, Cards, Net Banking</Text>
-              </View>
-              <Ionicons name="checkmark-circle" size={20} color={C.gold} />
-            </View>
+            {[
+              { id: "CASHFREE", icon: "card-outline", label: "Online Payment", sub: "UPI, Cards, Net Banking" },
+              ...(codAvailable
+                ? [{ id: "COD", icon: "cash-outline", label: "Cash on Delivery", sub: "Pay at your doorstep" }]
+                : []),
+            ].map((opt, i) => {
+              const selected = paymentMode === opt.id;
+              return (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={[styles.codRow, !selected && styles.codRowUnselected, i > 0 && { marginTop: 10 }]}
+                  onPress={() => setPaymentMode(opt.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.payIconBoxSelected, !selected && styles.payIconBoxUnselected]}>
+                    <Ionicons name={opt.icon} size={18} color={selected ? "#fff" : C.navyLight} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.payLabelSelected}>{opt.label}</Text>
+                    <Text style={styles.paySub}>{opt.sub}</Text>
+                  </View>
+                  <Ionicons
+                    name={selected ? "checkmark-circle" : "ellipse-outline"}
+                    size={20}
+                    color={selected ? C.gold : C.border}
+                  />
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* ── Order Summary — gold card matching PgCartScreen summaryCard ── */}
