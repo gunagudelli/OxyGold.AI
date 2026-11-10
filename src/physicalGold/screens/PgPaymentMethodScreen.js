@@ -35,7 +35,7 @@ const PgPaymentMethodScreen = ({ navigation, route }) => {
       name: 'Digital Wallet',
       description: 'Use your wallet balance',
       icon: 'wallet-outline',
-      color: '#2ECC71',
+      color: '#1F8A4C',
       badge: null,
     },
   ];
@@ -152,7 +152,7 @@ const PgPaymentMethodScreen = ({ navigation, route }) => {
 
         {/* Info Box */}
         <View style={styles.infoBox}>
-          <Ionicons name="information-circle" size={20} color="#6C4AB6" />
+          <Ionicons name="information-circle" size={20} color="#503189" />
           <Text style={styles.infoText}>
             Your payment is secure and encrypted. We accept all major payment methods.
           </Text>
@@ -160,7 +160,7 @@ const PgPaymentMethodScreen = ({ navigation, route }) => {
 
         {/* Security Badge */}
         <View style={styles.securityBadge}>
-          <Ionicons name="shield-checkmark" size={18} color="#2ECC71" />
+          <Ionicons name="shield-checkmark" size={18} color="#1F8A4C" />
           <Text style={styles.securityText}>256-bit SSL encrypted • 100% secure</Text>
         </View>
         </FadeSlideIn>
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFFFFF' },
 
   content: { paddingHorizontal: 16, paddingVertical: 20, paddingBottom: 100 },
 
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#E7E0DA',
+    borderColor: '#E0E0E0',
   },
   summaryRow: {
     flexDirection: 'row',
@@ -213,11 +213,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  summaryLabel: { fontSize: 13, color: '#7A7A80', fontWeight: '500' },
-  summaryValue: { fontSize: 14, fontWeight: '700', color: '#1C1C1E' },
+  summaryLabel: { fontSize: 13, color: '#757575', fontWeight: '500' },
+  summaryValue: { fontSize: 14, fontWeight: '600', color: '#333333' },
 
   methodsContainer: { marginBottom: 24 },
-  methodsTitle: { fontSize: 16, fontWeight: '700', color: '#1C1C1E', marginBottom: 14 },
+  methodsTitle: { fontSize: 16, fontWeight: '600', color: '#333333', marginBottom: 14 },
 
   methodCard: {
     backgroundColor: '#fff',
@@ -225,14 +225,14 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderWidth: 1.5,
-    borderColor: '#E7E0DA',
+    borderColor: '#E0E0E0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   methodCardActive: {
-    borderColor: '#6C4AB6',
-    backgroundColor: '#F7F4ED',
+    borderColor: '#503189',
+    backgroundColor: '#F7F7F9',
   },
 
   methodLeft: {
@@ -256,56 +256,56 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 4,
   },
-  methodName: { fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
+  methodName: { fontSize: 15, fontWeight: '600', color: '#333333' },
   badge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EAF8F1',
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  badgeText: { fontSize: 10, color: '#2ECC71', fontWeight: '600' },
-  methodDescription: { fontSize: 12, color: '#7A7A80' },
+  badgeText: { fontSize: 10, color: '#1F8A4C', fontWeight: '500' },
+  methodDescription: { fontSize: 12, color: '#757575' },
 
   radioButton: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#E7E0DA',
+    borderColor: '#E0E0E0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioButtonActive: {
-    borderColor: '#6C4AB6',
+    borderColor: '#503189',
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#6C4AB6',
+    backgroundColor: '#503189',
   },
 
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F7F4ED',
+    backgroundColor: '#F7F7F9',
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
     gap: 10,
   },
-  infoText: { fontSize: 12, color: '#7A7A80', flex: 1, lineHeight: 16 },
+  infoText: { fontSize: 12, color: '#757575', flex: 1, lineHeight: 16 },
 
   securityBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EAF8F1',
     borderWidth: 1,
-    borderColor: '#2ECC71',
+    borderColor: '#1F8A4C',
     padding: 12,
     borderRadius: 8,
   },
-  securityText: { fontSize: 12, color: '#2ECC71', marginLeft: 8, fontWeight: '500' },
+  securityText: { fontSize: 12, color: '#1F8A4C', marginLeft: 8, fontWeight: '500' },
 
   footer: {
     position: 'absolute',
@@ -314,19 +314,19 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#E7E0DA',
+    borderTopColor: '#E0E0E0',
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   continueBtn: {
-    backgroundColor: '#6C4AB6',
+    backgroundColor: '#503189',
     paddingVertical: 16,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   continueBtnDisabled: { opacity: 0.6 },
-  continueBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  continueBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
 
 export default PgPaymentMethodScreen;

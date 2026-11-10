@@ -158,7 +158,7 @@ const ProductImageSlider = ({ images, containerHeight = 280 }) => {
 const styles = StyleSheet.create({
   hero: {
     width: '100%',
-    backgroundColor: '#F8F7F6',
+    backgroundColor: '#F7F7F9',
     borderRadius: 0,
     overflow: 'hidden',
     position: 'relative',
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F7F6',
+    backgroundColor: '#F7F7F9',
   },
 
   image: {
@@ -194,18 +194,18 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(108,74,182, 0.3)',
+    backgroundColor: 'rgba(80,49,137, 0.3)',
   },
 
   dotActive: {
     width: 24,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#6C4AB6',
+    backgroundColor: '#503189',
   },
 
   dotInactive: {
-    backgroundColor: 'rgba(108,74,182, 0.25)',
+    backgroundColor: 'rgba(80,49,137, 0.25)',
   },
 
   // Image counter
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
 
   counterText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
@@ -232,14 +232,14 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F7F6',
+    backgroundColor: '#F7F7F9',
   },
 
   errorIconBox: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F7F4ED',
+    backgroundColor: '#F7F7F9',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F7F6',
+    backgroundColor: '#F7F7F9',
   },
 
   noImageIcon: {

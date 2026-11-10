@@ -15,6 +15,7 @@ import {
   Alert,
   Animated,
   Image,
+  TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
@@ -31,44 +32,64 @@ import {
   deleteAddress,
   getCart,
   getProductImages,
+  getAvailableCoupons,
+  applyCoupon as applyCouponApi,
 } from "../api/physicalGoldApi";
 import { resolveImageUrl } from "../utils/resolveImageUrl";
 import GstWaiverModal from "../components/GstWaiverModal";
+import CouponsSheet, { estimateCouponSaving } from "../components/CouponsSheet";
+import BillDetailsCard from "../components/BillDetailsCard";
+import PgQtyStepper from "../components/PgQtyStepper";
 
 // ─── Design Tokens (mirrors PgCartScreen exactly) ────────────────────────────
+// Colours follow the ASKOXY.AI app's payment screen — a deeper, calmer purple
+// and neutral greys, easier on the eyes than the bright purple.
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#6C4AB6",
-  goldLight: "#F7F4ED",
-  goldMid: "#9A80DA",
-  goldDim: "rgba(108,74,182,0.10)",
-  goldDimBorder: "rgba(108,74,182,0.25)",
-  navy: "#1C1C1E",
-  navyMid: "#48484C",
-  navyLight: "#7A7A80",
+  gold: "#503189",
+  goldLight: "#F4F0FA",
+  goldMid: "#8A73B8",
+  goldDim: "rgba(80,49,137,0.08)",
+  goldDimBorder: "rgba(80,49,137,0.22)",
+  navy: "#333333",
+  navyMid: "#555555",
+  navyLight: "#757575",
   green: "#1F8A4C",
-  greenBg: "#E8F5E9",
-  greenBorder: "#E8F5E9",
-  red: "#C0392B",
+  greenBg: "#EAF8F1",
+  greenBorder: "#EAF8F1",
+  red: "#E53935",
   redBg: "#FDECEA",
   redBorder: "#FDECEA",
-  border: "#E7E0DA",
-  divider: "#EEEBE8",
+  border: "#E0E0E0",
+  divider: "#EEEEF3",
   surfaceAlt: "#FFFFFF",
-  grey: "#E7E0DA",
-  warn: "#D4A574",
-  warnBg: "#FDF6ED",
-  warnBorder: "#D4A574",
+  grey: "#E0E0E0",
+  warn: "#F59E0B",
+  warnBg: "#FFF8E6",
+  warnBorder: "#F59E0B",
 };
 
-// Cash on Delivery is offered only for orders above this total (₹).
-const COD_MIN_AMOUNT = 50000;
+// Soft lavender page behind the white section cards (no hard borders).
+const PAGE_BG = "#F4F3F8";
+// Thin grey band between flat sections (instead of boxed cards).
+const SECTION_GAP = "#F7F7F9";
+// Savings/discounts use the brand purple instead of bright green.
+const SAVE = "#503189";
+// Place Order — ASKOXY.AI's orange call-to-action.
+const CTA = "#FB641B";
+
+// Cash on Delivery is offered from this payable amount (₹1,00,000) upward;
+// below it, online payment only — same rule as the ASKOXY.AI app.
+const COD_MIN_AMOUNT = 100000;
 
 // ─── Section Header (same as PgCartScreen) ───────────────────────────────────
+const toTitleCase = (text) =>
+  String(text || "").toLowerCase().replace(/(^|\s|\()(\S)/g, (m, sep, ch) => sep + ch.toUpperCase());
+
 const SectionHeader = ({ title }) => (
   <View style={styles.sectionHeader}>
-    <Text style={styles.sectionTitle}>{title}</Text>
+    <Text style={styles.sectionTitle}>{toTitleCase(title)}</Text>
   </View>
 );
 
@@ -87,8 +108,14 @@ const getCheckoutItemName = (item) =>
 const getCheckoutItemDetails = (item) => {
   const weight = item?.weight ?? item?.variant?.weight;
   const purity = item?.purity ?? item?.variant?.purity;
-  const size = item?.size ?? item?.variant?.size;
-  return [purity, weight != null ? `${weight}g` : null, size || null]
+  const rawSize = String(item?.size ?? item?.variant?.size ?? "").trim();
+  // Skip a size that just repeats the weight ("10 Gram" vs 10g).
+  const sizeNum = parseFloat(rawSize);
+  const size =
+    rawSize && !(weight != null && Number.isFinite(sizeNum) && sizeNum === Number(weight))
+      ? (/[a-z]/i.test(rawSize) ? rawSize : `${rawSize} Gram`)
+      : null;
+  return [purity, weight != null ? `${weight}g` : null, size]
     .filter(Boolean)
     .join(" · ");
 };
@@ -107,24 +134,30 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   const [showAllAddresses, setShowAllAddresses] = useState(false);
   const [deletingAddressId, setDeletingAddressId] = useState(null);
   // Online payment (Cashfree) by default; Cash on Delivery is offered only
-  // when the order total is above COD_MIN_AMOUNT.
+  // when the payable amount is COD_MIN_AMOUNT or more.
   const [paymentMode, setPaymentMode] = useState("CASHFREE");
   const [profileComplete, setProfileComplete] = useState(false);
 
   // Store cart data in state so it persists when navigating back
   const [cartTotal, setCartTotal] = useState(routeCartTotal || 0);
-  const codAvailable = Number(cartTotal || 0) > COD_MIN_AMOUNT;
-
-  // If the total drops to ₹50,000 or below (item removed), fall back to online.
-  useEffect(() => {
-    if (!codAvailable && paymentMode === "COD") setPaymentMode("CASHFREE");
-  }, [codAvailable, paymentMode]);
   const [cartItems, setCartItems] = useState(routeCartItems || []);
   const [cartSubtotal, setCartSubtotal] = useState(0);
   const [cartGst, setCartGst] = useState(0);
   const [cartMaking, setCartMaking] = useState(0);
   const [cartDiscount, setCartDiscount] = useState(0);
   const [cartDiscountPct, setCartDiscountPct] = useState(0);
+
+  // ── Coupons & offers (same flow as the oxygold.ai web cart) ──
+  // The backend validates a code against the current cart (/coupons/apply);
+  // the code is then sent with createOrder, which applies it to the order.
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [applyingCouponCode, setApplyingCouponCode] = useState(null);
+  const [couponError, setCouponError] = useState("");
+  const [showCouponsSheet, setShowCouponsSheet] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const couponDiscount = Number(appliedCoupon?.discountAmount || 0);
 
   // "100% GST Paid by OXYGOLD.AI" popup. Auto-shown only when the user came
   // straight from Home's Buy Now (showGstPopup) — they skipped the Cart, which
@@ -183,8 +216,93 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   useFocusEffect(
     useCallback(() => {
       loadCheckoutData();
+      loadCoupons();
     }, [userId]),
   );
+
+  const loadCoupons = async () => {
+    if (!userId) return;
+    setCouponsLoading(true);
+    try {
+      setAvailableCoupons(await getAvailableCoupons());
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
+  const handleApplyCoupon = async (code) => {
+    const clean = String(code || "").trim().toUpperCase();
+    if (!clean) return;
+    setApplyingCouponCode(clean);
+    setCouponError("");
+    try {
+      const result = await applyCouponApi(clean);
+      setAppliedCoupon({ ...result, couponCode: result?.couponCode || clean });
+      setShowCouponsSheet(false);
+    } catch (err) {
+      setCouponError(err?.message || "Failed to apply coupon.");
+    } finally {
+      setApplyingCouponCode(null);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError("");
+  };
+
+  // The coupon's discount depends on the cart, so whenever the cart total
+  // changes (qty edit, item removed, address/delivery change) re-validate it;
+  // if it no longer qualifies, drop it and say why.
+  const couponCheckedTotalRef = useRef(null);
+  useEffect(() => {
+    if (!appliedCoupon?.couponCode) {
+      couponCheckedTotalRef.current = null;
+      return;
+    }
+    if (couponCheckedTotalRef.current === null) {
+      couponCheckedTotalRef.current = cartTotal;
+      return;
+    }
+    if (couponCheckedTotalRef.current === cartTotal) return;
+    couponCheckedTotalRef.current = cartTotal;
+    const code = appliedCoupon.couponCode;
+    applyCouponApi(code)
+      .then((result) => setAppliedCoupon({ ...result, couponCode: result?.couponCode || code }))
+      .catch((err) => {
+        setAppliedCoupon(null);
+        setCouponError(`Coupon ${code} removed: ${err?.message || "no longer applicable"}`);
+      });
+  }, [cartTotal]);
+
+  // What the user actually pays once the coupon is taken off.
+  // Cart emptied (last item removed here, or emptied elsewhere) — there's
+  // nothing to check out, so leave Checkout for the Cart, which shows its
+  // "Your Cart is Empty" state. Goes back if we came from the Cart, otherwise
+  // replaces this screen with it (e.g. Buy Now from Home).
+  const leftEmptyRef = useRef(false);
+  useEffect(() => {
+    if (loading || leftEmptyRef.current) return;
+    if (cartItems && cartItems.length > 0) return;
+    leftEmptyRef.current = true;
+    const routes = navigation.getState?.()?.routes || [];
+    const prev = routes[routes.length - 2]?.name;
+    if (prev === "PgCart") navigation.goBack();
+    else navigation.replace("PgCart");
+  }, [loading, cartItems]);
+
+  const payableAmount = Math.max(0, Number(cartTotal || 0) - couponDiscount);
+  const codAvailable = payableAmount >= COD_MIN_AMOUNT;
+
+  // If the payable amount drops below ₹1,00,000 (item removed, coupon
+  // applied), COD isn't allowed any more — fall back to online.
+  useEffect(() => {
+    if (!codAvailable && paymentMode === "COD") setPaymentMode("CASHFREE");
+  }, [codAvailable, paymentMode]);
+  // Best saving among coupons this cart already qualifies for — shown as a hint.
+  const bestCouponSaving = availableCoupons
+    .filter((c) => Number(cartSubtotal || 0) >= Number(c.minimumOrderAmount || 0))
+    .reduce((best, c) => Math.max(best, estimateCouponSaving(c, cartSubtotal)), 0);
 
   const refreshCartAfterEdit = async () => {
     const cart = await getCart(userId, selectedAddressId);
@@ -480,7 +598,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     }
     Alert.alert(
       "Confirm Order",
-      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(cartTotal || 0).toLocaleString("en-IN")}\nPayment: ${paymentMode === "COD" ? "Cash on Delivery" : "Online Payment"}`,
+      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(payableAmount).toLocaleString("en-IN")}${appliedCoupon ? `\nCoupon: ${appliedCoupon.couponCode} (-₹${couponDiscount.toLocaleString("en-IN")})` : ""}\nPayment: ${paymentMode === "COD" ? "Cash on Delivery" : "Online Payment"}`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Confirm Order", onPress: () => processOrder() },
@@ -496,6 +614,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
         addressId: Number(selectedAddressId),
         notes: "Physical Gold Order",
         paymentMode,
+        ...(appliedCoupon?.couponCode && { couponCode: appliedCoupon.couponCode }),
       };
       const orderRes = await createOrder(orderPayload);
       if (!orderRes) throw new Error("Failed to create order");
@@ -598,6 +717,8 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           )}
 
+          {/* Order: Delivery Address → Your Items → Apply Coupon (right above
+              the bill, so the saving shows at once) → Bill details. */}
           {/* ── Delivery Address ── */}
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
@@ -672,7 +793,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
                               <Ionicons
                                 name="checkmark-circle"
                                 size={14}
-                                color={C.green}
+                                color={C.gold}
                               />
                             )}
                           </View>
@@ -748,214 +869,221 @@ const PgCheckoutScreen = ({ navigation, route }) => {
                 return (
                   <View key={item?.cartId ?? item?.productVariantId ?? item?.id ?? index}>
                     {index > 0 && <View style={styles.itemDivider} />}
-                    <View style={styles.checkoutProductRow}>
-                      <View style={styles.checkoutProductImageBox}>
-                        {imageUrl ? (
-                          <Image source={{ uri: imageUrl }} style={styles.checkoutProductImage} resizeMode="contain" />
-                        ) : (
-                          <Ionicons name="diamond-outline" size={18} color={C.gold} />
-                        )}
-                      </View>
-                      <View style={styles.checkoutProductInfo}>
-                        <Text style={styles.checkoutProductName} numberOfLines={2}>
-                          {getCheckoutItemName(item)}
-                        </Text>
-                        {!!details && (
-                          <Text style={styles.checkoutProductDetails} numberOfLines={1}>
-                            {details}
-                          </Text>
-                        )}
-                        <View style={styles.checkoutProductActions}>
-                          <TouchableOpacity
-                            style={styles.quantityAction}
-                            onPress={() => updateCheckoutItem(item, "decrement")}
-                            disabled={quantity <= 1 || !!cartUpdating[String(item?.cartId ?? item?.productVariantId ?? item?.id ?? index)]}
-                            accessibilityLabel="Decrease quantity"
-                          >
-                            <Ionicons name="remove" size={15} color={quantity <= 1 ? C.border : C.navy} />
-                          </TouchableOpacity>
-                          {cartUpdating[String(item?.cartId ?? item?.productVariantId ?? item?.id ?? index)] ? (
-                            <ActivityIndicator size="small" color={C.gold} />
-                          ) : (
-                            <Text style={styles.checkoutProductQuantity}>Qty {quantity}</Text>
-                          )}
-                          <TouchableOpacity
-                            style={styles.quantityAction}
-                            onPress={() => updateCheckoutItem(item, "increment")}
-                            disabled={!!cartUpdating[String(item?.cartId ?? item?.productVariantId ?? item?.id ?? index)]}
-                            accessibilityLabel="Increase quantity"
-                          >
-                            <Ionicons name="add" size={15} color={C.navy} />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.removeProductAction}
-                            onPress={() => confirmRemoveCheckoutItem(item)}
-                            disabled={!!cartUpdating[String(item?.cartId ?? item?.productVariantId ?? item?.id ?? index)]}
-                            accessibilityLabel="Remove item from cart"
-                          >
-                            <Ionicons name="trash-outline" size={14} color={C.red} />
-                          </TouchableOpacity>
+                    {(() => {
+                      const busyKey = String(item?.cartId ?? item?.productVariantId ?? item?.id ?? index);
+                      const busy = !!cartUpdating[busyKey];
+                      return (
+                        <View style={[styles.checkoutProductRow, busy && { opacity: 0.6 }]}>
+                          <View style={styles.checkoutProductImageBox}>
+                            {imageUrl ? (
+                              <Image source={{ uri: imageUrl }} style={styles.checkoutProductImage} resizeMode="contain" />
+                            ) : (
+                              <Ionicons name="diamond-outline" size={22} color={C.gold} />
+                            )}
+                          </View>
+                          <View style={styles.checkoutProductInfo}>
+                            <View style={styles.checkoutNameRow}>
+                              <Text style={styles.checkoutProductName} numberOfLines={2}>
+                                {getCheckoutItemName(item)}
+                              </Text>
+                              <TouchableOpacity
+                                style={styles.removeProductAction}
+                                onPress={() => confirmRemoveCheckoutItem(item)}
+                                disabled={busy}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                accessibilityLabel="Remove item from cart"
+                              >
+                                <Ionicons name="trash-outline" size={14} color={C.red} />
+                              </TouchableOpacity>
+                            </View>
+                            {!!details && (
+                              <Text style={styles.checkoutProductDetails} numberOfLines={1}>
+                                {details}
+                              </Text>
+                            )}
+                            <View style={styles.checkoutQtyPriceRow}>
+                              {/* Same − qty + pill as the Home product cards and the
+                                  Cart; at qty 1 the left button removes the item. */}
+                              <PgQtyStepper
+                                qty={quantity}
+                                loading={busy}
+                                onIncrement={() => updateCheckoutItem(item, "increment")}
+                                onDecrement={() =>
+                                  quantity <= 1
+                                    ? confirmRemoveCheckoutItem(item)
+                                    : updateCheckoutItem(item, "decrement")
+                                }
+                                style={styles.qtyPill}
+                              />
+                              <Text style={styles.checkoutProductPrice}>
+                                ₹{getCheckoutItemTotal(item).toLocaleString("en-IN")}
+                              </Text>
+                            </View>
+                          </View>
                         </View>
-                      </View>
-                      <Text style={styles.checkoutProductPrice}>
-                        ₹{getCheckoutItemTotal(item).toLocaleString("en-IN")}
-                      </Text>
-                    </View>
+                      );
+                    })()}
                   </View>
                 );
               })}
             </View>
           )}
 
-          {/* ── Payment Method ── */}
+          {/* ── Coupons & Offers — inline code input like the ASKOXY.AI app,
+              with the full offers list one tap away. ── */}
           <View style={styles.card}>
-            <SectionHeader title="PAYMENT METHOD" />
+            <View style={styles.couponHeaderRow}>
+              <View style={styles.couponTitleRow}>
+                <Ionicons name="pricetag-outline" size={16} color={C.gold} />
+                <Text style={styles.couponTitle}>Apply Coupon</Text>
+              </View>
+              {availableCoupons.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setShowCouponsSheet(true)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.couponViewAll}>
+                    View offers ({availableCoupons.length})
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {appliedCoupon ? (
+              <View style={styles.couponAppliedRow}>
+                <Ionicons name="checkmark-circle" size={18} color={C.gold} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.couponAppliedCode}>'{appliedCoupon.couponCode}' applied</Text>
+                  <Text style={styles.couponAppliedSave}>
+                    You saved ₹{couponDiscount.toLocaleString("en-IN")}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    handleRemoveCoupon();
+                    setCouponInput("");
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.couponRemove}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <View style={styles.couponInputRow}>
+                  <TextInput
+                    style={styles.couponInput}
+                    placeholder="Enter coupon code"
+                    placeholderTextColor={C.navyLight}
+                    value={couponInput}
+                    onChangeText={(t) => {
+                      setCouponInput(t.toUpperCase());
+                      setCouponError("");
+                    }}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={() => couponInput.trim() && handleApplyCoupon(couponInput)}
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.couponApplyBtn,
+                      (!couponInput.trim() || !!applyingCouponCode) && styles.couponApplyBtnDisabled,
+                    ]}
+                    disabled={!couponInput.trim() || !!applyingCouponCode}
+                    onPress={() => handleApplyCoupon(couponInput)}
+                    activeOpacity={0.8}
+                  >
+                    {applyingCouponCode ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.couponApplyText}>Apply</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+                {bestCouponSaving > 0 && !couponError && (
+                  <Text style={styles.couponHint}>
+                    Save up to ₹{bestCouponSaving.toLocaleString("en-IN")} with available offers
+                  </Text>
+                )}
+              </>
+            )}
+            {!!couponError && !showCouponsSheet && (
+              <Text style={styles.couponErrorText}>{couponError}</Text>
+            )}
+          </View>
+
+          {/* ── Bill details — same shared card as the Cart ── */}
+          <View style={styles.billWrap}>
+            <BillDetailsCard
+              itemCount={cartItems?.length || 0}
+              subtotal={cartSubtotal}
+              making={cartMaking}
+              gst={cartGst}
+              discount={cartDiscount}
+              deliveryFee={deliveryFee}
+              deliveryDistanceKm={deliveryDistanceKm}
+              ratePerKm={ratePerKm}
+              couponCode={appliedCoupon?.couponCode}
+              couponDiscount={couponDiscount}
+              total={payableAmount}
+              onDiscountPress={() => setShowGstModal(true)}
+            />
+          </View>
+        </Animated.ScrollView>
+
+        {/* ── Bottom panel (same layout as the ASKOXY.AI app's payment
+            screen): choose payment method, then total + Place Order. ── */}
+        <View style={styles.footer}>
+          <Text style={styles.payHeaderText}>Choose Payment Method</Text>
+
+          <View style={styles.payOptionsRow}>
             {[
-              { id: "CASHFREE", icon: "card-outline", label: "Online Payment", sub: "UPI, Cards, Net Banking" },
-              ...(codAvailable
-                ? [{ id: "COD", icon: "cash-outline", label: "Cash on Delivery", sub: "Pay at your doorstep" }]
-                : []),
-            ].map((opt, i) => {
+              { id: "CASHFREE", icon: "card-outline", label: "Online" },
+              ...(codAvailable ? [{ id: "COD", icon: "cash-outline", label: "Cash on Delivery" }] : []),
+            ].map((opt) => {
               const selected = paymentMode === opt.id;
               return (
                 <TouchableOpacity
                   key={opt.id}
-                  style={[styles.codRow, !selected && styles.codRowUnselected, i > 0 && { marginTop: 10 }]}
+                  style={[styles.payOption, selected && styles.payOptionSelected]}
                   onPress={() => setPaymentMode(opt.id)}
                   activeOpacity={0.8}
                 >
-                  <View style={[styles.payIconBoxSelected, !selected && styles.payIconBoxUnselected]}>
-                    <Ionicons name={opt.icon} size={18} color={selected ? "#fff" : C.navyLight} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.payLabelSelected}>{opt.label}</Text>
-                    <Text style={styles.paySub}>{opt.sub}</Text>
-                  </View>
-                  <Ionicons
-                    name={selected ? "checkmark-circle" : "ellipse-outline"}
-                    size={20}
-                    color={selected ? C.gold : C.border}
-                  />
+                  <Ionicons name={opt.icon} size={18} color={selected ? C.gold : C.navyLight} />
+                  <Text style={[styles.payOptionText, selected && styles.payOptionTextSelected]}>
+                    {opt.label}
+                  </Text>
+                  {selected && <View style={styles.payOptionDot} />}
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* ── Order Summary — gold card matching PgCartScreen summaryCard ── */}
-          <View style={styles.summaryCard}>
-            <SectionHeader title="ORDER SUMMARY" />
-
-            <View style={styles.specRow}>
-              <Text style={styles.specLabel}>
-                Subtotal ({cartItems?.length || 0} item{cartItems?.length !== 1 ? "s" : ""})
-              </Text>
-              <Text style={styles.specValue}>
-                ₹{Number(cartSubtotal || 0).toLocaleString("en-IN")}
+          {!codAvailable && (
+            <View style={styles.payNote}>
+              <Ionicons name="information-circle-outline" size={15} color={C.gold} />
+              <Text style={styles.payNoteText}>
+                Gold & Silver products are online payment only. Cash on Delivery isn't available for this order.
               </Text>
             </View>
-            <View style={styles.specDivider} />
+          )}
 
-            {/* Always shown, ₹0 included — same as the web order summary. */}
-            <View style={styles.specRow}>
-              <Text style={styles.specLabel}>Making Charges</Text>
-              <Text style={styles.specValue}>
-                ₹{Number(cartMaking || 0).toLocaleString("en-IN")}
-              </Text>
-            </View>
-            <View style={styles.specDivider} />
-
-            {cartDiscount > 0 && cartDiscount >= cartGst - 1 ? (
-              // Backend's discount is the waived GST — show GST struck out as FREE;
-              // tapping it re-opens the "100% GST Paid" popup.
-              <TouchableOpacity
-                style={styles.specRow}
-                onPress={() => setShowGstModal(true)}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityHint="Shows GST waiver details"
-              >
-                <View style={styles.discountLabelRow}>
-                  <Text style={styles.specLabel}>GST (3%)</Text>
-                  <Ionicons name="information-circle-outline" size={13} color={C.green} />
-                </View>
-                <View style={styles.discountLabelRow}>
-                  <Text style={styles.strikeValue}>₹{Number(cartGst || cartDiscount).toLocaleString("en-IN")}</Text>
-                  <Text style={styles.specFree}>FREE</Text>
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <>
-                <View style={styles.specRow}>
-                  <Text style={styles.specLabel}>GST (3%)</Text>
-                  <Text style={styles.specValue}>₹{Number(cartGst || 0).toLocaleString("en-IN")}</Text>
-                </View>
-                {cartDiscount > 0 && (
-                  <>
-                    <View style={styles.specDivider} />
-                    <TouchableOpacity
-                      style={styles.specRow}
-                      onPress={() => setShowGstModal(true)}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityHint="Shows discount details"
-                    >
-                      <View style={styles.discountLabelRow}>
-                        <Text style={styles.discountText}>Discount</Text>
-                        <Ionicons name="information-circle-outline" size={13} color={C.green} />
-                      </View>
-                      <Text style={styles.discountText}>-₹{Number(cartDiscount).toLocaleString("en-IN")}</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </>
-            )}
-            <View style={styles.specDivider} />
-
-            <View style={styles.specRow}>
-              <Text style={styles.specLabel}>
-                Delivery Fee{Number(deliveryDistanceKm) > 0 ? ` (${deliveryDistanceKm} km)` : ""}
-              </Text>
-              {Number(deliveryFee) > 0 ? (
-                <Text style={styles.specValue}>
-                  ₹{Number(deliveryFee).toLocaleString("en-IN")}
-                </Text>
-              ) : (
-                <Text style={styles.specFree}>FREE</Text>
-              )}
-            </View>
-            {Number(deliveryFee) > 0 && ratePerKm !== null && deliveryDistanceKm !== null && (
-              <Text style={styles.deliveryRateNote}>₹{ratePerKm}/km delivery rate</Text>
-            )}
-
-
-            <View style={styles.grandTotalRow}>
-              <Text style={styles.grandTotalLabel}>Total</Text>
-              <Text style={styles.grandTotalValue}>
-                ₹{Number(cartTotal || 0).toLocaleString("en-IN")}
-              </Text>
-            </View>
-          </View>
-        </Animated.ScrollView>
-
-        {/* ── Footer (mirrors PgCartScreen footer exactly) ── */}
-        <View style={styles.footer}>
-          <View style={styles.footerMain}>
-            <View style={styles.footerLeft}>
-              <Text style={styles.footerPriceLabel}>Payable Amount</Text>
+          <View style={styles.footerBottomBar}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.footerPriceLabel}>Total Amount</Text>
               <Text style={styles.footerPriceValue}>
-                ₹{Number(cartTotal || 0).toLocaleString("en-IN")}
+                ₹{Number(payableAmount).toLocaleString("en-IN")}
               </Text>
-              {cartItems?.length > 0 && (
-                <Text style={styles.footerPriceSub}>
-                  {cartItems.length} item{cartItems.length > 1 ? "s" : ""}
-                </Text>
+              {couponDiscount > 0 && (
+                <Text style={styles.footerPriceSub}>Coupon {appliedCoupon?.couponCode} applied</Text>
               )}
             </View>
 
             <TouchableOpacity
               style={[
                 styles.checkoutBtn,
-              (checkoutLoading || !selectedAddressId || !profileComplete || Object.values(cartUpdating).some(Boolean)) &&
+                (checkoutLoading || !selectedAddressId || !profileComplete || Object.values(cartUpdating).some(Boolean)) &&
                   styles.checkoutBtnDisabled,
               ]}
               disabled={
@@ -967,16 +1095,28 @@ const PgCheckoutScreen = ({ navigation, route }) => {
               {checkoutLoading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <>
-                  <Text style={styles.checkoutBtnText}>Place Order</Text>
-                  <Ionicons name="arrow-forward" size={15} color="#fff" style={{ marginLeft: 6 }} />
-                </>
+                <Text style={styles.checkoutBtnText}>Place Order</Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
       </View>
 
+      <CouponsSheet
+        visible={showCouponsSheet}
+        onClose={() => {
+          setShowCouponsSheet(false);
+          setCouponError("");
+        }}
+        coupons={availableCoupons}
+        loading={couponsLoading}
+        amount={cartSubtotal}
+        appliedCode={appliedCoupon?.couponCode}
+        applyingCode={applyingCouponCode}
+        error={couponError}
+        onApply={handleApplyCoupon}
+        onRemove={handleRemoveCoupon}
+      />
       <GstWaiverModal
         visible={showGstModal}
         onClose={() => setShowGstModal(false)}
@@ -991,30 +1131,34 @@ const PgCheckoutScreen = ({ navigation, route }) => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120 },
+  root: { flex: 1, backgroundColor: PAGE_BG },
+  scrollContent: { paddingTop: 12, paddingBottom: 16 },
 
   // ── Section Header (same as PgCartScreen) ──
   sectionHeader: {
-    marginBottom: 14,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
     color: C.navy,
   },
 
   // ── Cards ──
+  // Flat section — full width, no box; a grey band separates sections.
+  // White rounded card on the light grey page (same look as Cart / Orders).
   card: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    padding: 16,
+    marginHorizontal: 12,
     marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: C.border,
-    shadowColor: "rgba(34,30,28,0.06)",
+    borderColor: "#ECEAF2",
+    shadowColor: "#2A1F4A",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 1,
   },
@@ -1025,7 +1169,7 @@ const styles = StyleSheet.create({
   },
   manageText: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.navyMid,
     marginBottom: 14,
   },
@@ -1036,9 +1180,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     backgroundColor: C.warnBg,
-    borderRadius: 12,
-    padding: 14,
+    marginHorizontal: 12,
     marginBottom: 12,
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: C.warnBorder,
   },
@@ -1046,7 +1191,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: C.warn,
-    fontWeight: "700",
+    fontWeight: "600",
     lineHeight: 18,
   },
 
@@ -1054,39 +1199,51 @@ const styles = StyleSheet.create({
   addressList: { gap: 0 },
   itemDivider: { height: 1, backgroundColor: C.divider, marginVertical: 12 },
 
-  checkoutProductRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  // ── Item rows — same look as the Cart's item rows ──
+  checkoutProductRow: { flexDirection: "row", gap: 12, paddingVertical: 4 },
   checkoutProductImageBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: C.goldLight,
+    width: 76,
+    height: 76,
+    borderRadius: 12,
+    backgroundColor: "#F7F7F9",
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
   },
   checkoutProductImage: { width: "100%", height: "100%" },
-  checkoutProductInfo: { flex: 1, minWidth: 0 },
-  checkoutProductName: { fontSize: 13, fontWeight: "700", color: C.navy, lineHeight: 17 },
-  checkoutProductDetails: { fontSize: 11, color: C.navyLight, marginTop: 3 },
-  checkoutProductQuantity: { fontSize: 11, color: C.navyMid, marginTop: 3 },
-  checkoutProductPrice: { fontSize: 13, fontWeight: "700", color: C.gold, marginLeft: 4 },
-  checkoutProductActions: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 5 },
+  checkoutProductInfo: { flex: 1, minWidth: 0, gap: 4 },
+  checkoutNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  checkoutProductName: { flex: 1, fontSize: 14, fontWeight: "500", color: C.navy, lineHeight: 19 },
+  checkoutProductDetails: { fontSize: 13, color: C.navyLight },
+  checkoutQtyPriceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  checkoutProductQuantity: { fontSize: 14, fontWeight: "500", color: C.navy, minWidth: 18, textAlign: "center" },
+  checkoutProductPrice: { fontSize: 15, fontWeight: "600", color: C.navy },
+  checkoutProductActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  qtyPill: { width: 112 },
   quantityAction: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    backgroundColor: C.goldLight,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
+  quantityActionOff: { backgroundColor: "#F7F7F9" },
+  quantityActionText: { fontSize: 16, fontWeight: "500", color: C.navy, lineHeight: 18 },
   removeProductAction: {
-    width: 26,
-    height: 24,
-    borderRadius: 7,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     backgroundColor: "#FDECEA",
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 3,
   },
 
   emptyAddressBox: {
@@ -1108,7 +1265,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  emptyAddressText: { fontSize: 13, color: C.navyMid, fontWeight: "600" },
+  emptyAddressText: { fontSize: 13, color: C.navyMid, fontWeight: "500" },
 
   addressCard: {
     flexDirection: "row",
@@ -1144,13 +1301,13 @@ const styles = StyleSheet.create({
   },
   addrTypeText: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.navyMid,
     letterSpacing: 0.8,
   },
   addrMainText: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.navy,
     lineHeight: 18,
     marginBottom: 3,
@@ -1158,11 +1315,53 @@ const styles = StyleSheet.create({
   addrSubText: { fontSize: 11, color: C.navyLight, marginBottom: 3 },
   addrPinText: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.navyLight,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+
+  // ── Coupons & Offers (flat, inline input) ──
+  couponHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  couponTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  couponTitle: { fontSize: 14, fontWeight: "600", color: C.navy },
+  couponViewAll: { fontSize: 13, fontWeight: "600", color: C.gold },
+  couponInputRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  couponInput: {
+    flex: 1,
+    height: 42,
+    borderWidth: 1,
+    borderColor: "#D8D2E6",
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 0,
+    fontSize: 13,
+    fontWeight: "500",
+    letterSpacing: 0.5,
+    color: C.navy,
+  },
+  couponApplyBtn: {
+    height: 42,
+    minWidth: 76,
+    paddingHorizontal: 16,
+    borderRadius: 9,
+    backgroundColor: C.gold,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  couponApplyBtnDisabled: { opacity: 0.45 },
+  couponApplyText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+  couponHint: { fontSize: 12, color: C.navyLight, marginTop: 8 },
+  couponAppliedRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  couponAppliedCode: { fontSize: 14, fontWeight: "600", color: C.navy },
+  couponAppliedSave: { fontSize: 12, color: SAVE, fontWeight: "500", marginTop: 2 },
+  couponRemove: { fontSize: 13, fontWeight: "600", color: "#E53935" },
+  couponErrorText: { fontSize: 12, color: C.red, fontWeight: "500", marginTop: 8 },
 
   // Delete Address Button
   deleteAddrBtn: {
@@ -1192,126 +1391,147 @@ const styles = StyleSheet.create({
   },
   showMoreText: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.navy,
   },
 
-  // ── Payment — COD or Online (Cashfree) ──
-  codRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: C.gold,
-    backgroundColor: C.goldLight,
-    padding: 14,
-  },
-  codRowUnselected: {
-    borderColor: C.border,
-    backgroundColor: C.card,
-  },
-  payIconBoxSelected: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: C.gold,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  payIconBoxUnselected: { backgroundColor: C.grey },
-  payLabelSelected: { fontSize: 13, fontWeight: "700", color: C.navy, marginBottom: 2 },
-  paySub: {
-    fontSize: 11,
-    color: C.navyLight,
-    fontWeight: "500",
-  },
+  billWrap: { paddingTop: 0, paddingBottom: 6 },
 
   // ── Summary Card (matches PgCartScreen summaryCard) ──
   summaryCard: {
     backgroundColor: C.card,
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: C.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   specRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 9,
+    paddingVertical: 6,
   },
-  specDivider: {
-    height: 1,
-    backgroundColor: C.divider,
-  },
-  specLabel: { fontSize: 13, color: C.navyLight },
-  specValue: { fontSize: 13, fontWeight: "700", color: C.navy },
-  specFree: { fontSize: 13, fontWeight: "600", color: C.green },
+  // Rows are spaced instead of ruled — one line per row looked cramped.
+  specDivider: { height: 0 },
+  specLabel: { fontSize: 14, color: C.navyMid },
+  specValue: { fontSize: 14, fontWeight: "500", color: C.navy },
+  specFree: { fontSize: 14, fontWeight: "600", color: SAVE },
   discountLabelRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  discountText: { fontSize: 13, fontWeight: "600", color: C.green },
+  discountText: { fontSize: 14, fontWeight: "500", color: SAVE },
   strikeValue: { fontSize: 12, color: C.navyLight, textDecorationLine: "line-through" },
-  deliveryRateNote: { fontSize: 10.5, color: C.navyLight, textAlign: "right", marginTop: -3, marginBottom: 6 },
+  deliveryRateNote: { fontSize: 11, color: C.navyLight, textAlign: "right", marginTop: -3, marginBottom: 6 },
   grandTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 14,
+    marginTop: 10,
     paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: C.divider,
+    borderStyle: "dashed",
   },
   grandTotalLabel: { fontSize: 15, fontWeight: "700", color: C.navy },
-  grandTotalValue: { fontSize: 20, fontWeight: "800", color: C.green },
-
-  // ── Footer (mirrors PgCartScreen footer exactly) ──
-  footer: {
-    backgroundColor: C.card,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 10,
-    paddingBottom: 22,
-  },
-  footerMain: {
+  grandTotalValue: { fontSize: 20, fontWeight: "700", color: C.navy },
+  savingsBanner: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
+    marginTop: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: "#F4F0FA",
+  },
+  savingsText: { flex: 1, fontSize: 13, fontWeight: "600", color: SAVE },
+
+  // ── Bottom panel (ASKOXY.AI payment-screen layout, OxyGold purple) ──
+  footer: {
+    backgroundColor: C.card,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    shadowColor: "#2A1F4A",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  payHeaderText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: C.navy,
     paddingHorizontal: 16,
     paddingTop: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F7F7F9",
+  },
+  payOptionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  payOption: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#E0E0E0",
+    backgroundColor: "#F7F7F9",
+  },
+  payOptionSelected: { borderColor: C.gold, backgroundColor: "#F4F0FA" },
+  payOptionText: { fontSize: 13, fontWeight: "500", color: C.navyMid },
+  payOptionTextSelected: { color: C.gold, fontWeight: "600" },
+  payOptionDot: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.gold,
+  },
+  payNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 12,
+    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#F4F0FA",
+  },
+  payNoteText: { flex: 1, fontSize: 12, fontWeight: "500", color: "#4B3A7A" },
+  footerBottomBar: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 16,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 16,
   },
-  footerLeft: { flex: 1 },
-  footerPriceLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: C.navyLight,
-    letterSpacing: 0.3,
-    marginBottom: 2,
-  },
-  footerPriceValue: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: C.green,
-    letterSpacing: -0.5,
-  },
-  footerPriceSub: { fontSize: 11, color: C.navyLight, marginTop: 2 },
+  footerPriceLabel: { fontSize: 12, color: C.navyLight, marginBottom: 2 },
+  footerPriceValue: { fontSize: 20, fontWeight: "700", color: C.navy, letterSpacing: -0.3 },
+  footerPriceSub: { fontSize: 11, color: C.gold, fontWeight: "500", marginTop: 2 },
 
   checkoutBtn: {
-    flexDirection: "row",
-    backgroundColor: C.gold,
-    borderRadius: 14,
-    height: 52,
-    paddingHorizontal: 22,
-    minWidth: 155,
+    backgroundColor: CTA,
+    borderRadius: 6,
+    height: 48,
+    paddingHorizontal: 28,
+    minWidth: 150,
     justifyContent: "center",
     alignItems: "center",
   },
-  checkoutBtnDisabled: { backgroundColor: C.border },
+  checkoutBtnDisabled: { backgroundColor: "#BDBDBD" },
   checkoutBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: "#fff",
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
 });
 

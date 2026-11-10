@@ -31,17 +31,18 @@ import {
   getCart,
 } from "../api/physicalGoldApi";
 import { debounce } from "../../utils/debounce";
+import { withPrice } from "../utils/productPrice";
 
 const C = {
   bg: "#FFFFFF",
   bgCard: "#FFFFFF",
-  gold: "#6C4AB6",
-  goldBright: "#8466C9",
-  goldText: "#6C4AB6",
-  textPrimary: "#1C1C1E",
-  textSecondary: "#7A7A80",
-  textMuted: "#A79C93",
-  border: "#E7E0DA",
+  gold: "#503189",
+  goldBright: "#8A73B8",
+  goldText: "#503189",
+  textPrimary: "#333333",
+  textSecondary: "#757575",
+  textMuted: "#9E9E9E",
+  border: "#E0E0E0",
 };
 
 const PgSearchScreen = ({ navigation }) => {
@@ -217,7 +218,7 @@ const PgSearchScreen = ({ navigation }) => {
           });
 
           const results = response?.data?.results || response?.results || [];
-          setProducts(results);
+          setProducts(withPrice(results)); // hide ₹0 / unpriced products
           setTotalResults(response?.data?.total || results.length);
         } catch (error) {
           console.error("[PgSearch] Error:", error);
@@ -579,9 +580,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "rgba(108,74,182,0.08)",
+    backgroundColor: "rgba(80,49,137,0.08)",
     borderWidth: 1,
-    borderColor: "rgba(108,74,182,0.20)",
+    borderColor: "rgba(80,49,137,0.20)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -598,12 +599,12 @@ const styles = StyleSheet.create({
   },
   filterBadgeText: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#FFF",
   },
   resultsText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.textSecondary,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -626,7 +627,7 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 48, marginBottom: 16 },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.textPrimary,
     marginBottom: 6,
   },
@@ -668,7 +669,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.textPrimary,
   },
   filterSection: {
@@ -679,12 +680,12 @@ const styles = StyleSheet.create({
   },
   filterText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.textPrimary,
   },
   filterLabel: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.textPrimary,
     marginBottom: 12,
   },
@@ -698,17 +699,17 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   sortOptionActive: {
-    backgroundColor: "rgba(108,74,182,0.08)",
+    backgroundColor: "rgba(80,49,137,0.08)",
     borderColor: C.gold,
   },
   sortOptionText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.textSecondary,
   },
   sortOptionTextActive: {
     color: C.textPrimary,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   purityOptions: {
     flexDirection: "row",
@@ -723,17 +724,17 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   purityChipActive: {
-    backgroundColor: "rgba(108,74,182,0.08)",
+    backgroundColor: "rgba(80,49,137,0.08)",
     borderColor: C.gold,
   },
   purityChipText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.textSecondary,
   },
   purityChipTextActive: {
     color: C.textPrimary,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   rangeInputs: {
     flexDirection: "row",
@@ -753,7 +754,7 @@ const styles = StyleSheet.create({
   },
   rangeSeparator: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.textMuted,
   },
   inStockRow: {
@@ -798,7 +799,7 @@ const styles = StyleSheet.create({
   },
   clearBtnText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.textSecondary,
   },
   applyBtn: {
@@ -810,7 +811,7 @@ const styles = StyleSheet.create({
   },
   applyBtnText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#FFF",
   },
   searchIcon: {
@@ -820,7 +821,7 @@ const styles = StyleSheet.create({
   clearIcon: {
     fontSize: 18,
     color: C.textMuted,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   filterIcon: {
     fontSize: 20,
@@ -829,7 +830,7 @@ const styles = StyleSheet.create({
   closeIcon: {
     fontSize: 24,
     color: C.textPrimary,
-    fontWeight: "700",
+    fontWeight: "600",
   },
 });
 

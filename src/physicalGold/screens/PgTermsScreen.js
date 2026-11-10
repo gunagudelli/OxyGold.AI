@@ -6,13 +6,13 @@ import FadeSlideIn from "../components/FadeSlideIn";
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#6C4AB6",
-  goldLight: "#F7F4ED",
-  navy: "#1C1C1E",
-  navyMid: "#48484C",
-  navyLight: "#7A7A80",
-  border: "#E7E0DA",
-  divider: "#EEEBE8",
+  gold: "#503189",
+  goldLight: "#F7F7F9",
+  navy: "#333333",
+  navyMid: "#555555",
+  navyLight: "#757575",
+  border: "#E0E0E0",
+  divider: "#EEEEF3",
 };
 
 const PgTermsScreen = ({ navigation }) => {
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   mainTitle: {
     fontSize: 18,
-    fontWeight: "900",
+    fontWeight: "700",
     color: C.navy,
     marginBottom: 20,
     letterSpacing: -0.3,
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.navy,
     marginBottom: 8,
     letterSpacing: 0.2,

@@ -11,16 +11,16 @@ import { LinearGradient } from "expo-linear-gradient";
 // its popup says "Zero Making Charges + 100% GST" and adds a Making row.
 const THEMES = {
   gold: { header: ["#E0B43A", "#B8860B"], accent: "#B8860B", soft: "#FFF8E6" },
-  silver: { header: ["#8B5CF6", "#6D28D9"], accent: "#7C3AED", soft: "#F5F3FF" },
+  silver: { header: ["#503189", "#6D28D9"], accent: "#503189", soft: "#F4F0FA" },
 };
-const GREEN = "#047857";
+const GREEN = "#15803D";
 const fmt2 = (n) => Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 // ─── Confetti burst ──────────────────────────────────────────────────────────
 // Coloured paper pieces pop out of the gift icon, fly up and outward, then
 // flutter down over the card and fade. Clipped to the card so it never
 // covers the rest of the screen.
-const CONFETTI_COLORS = ["#F59E0B", "#EF4444", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899", "#FACC15"];
+const CONFETTI_COLORS = ["#F59E0B", "#E53935", "#10B981", "#3B82F6", "#503189", "#503189", "#FACC15"];
 const CONFETTI_COUNT = 28;
 const BURST_ORIGIN_Y = 96; // centre of the gift icon = header's bottom edge
 
@@ -249,10 +249,10 @@ const s = StyleSheet.create({
     shadowRadius: 6,
   },
   body: { paddingHorizontal: 22, paddingTop: 42, paddingBottom: 20, alignItems: "center" },
-  title: { fontSize: 21, fontWeight: "800", color: "#1A1A1A", textAlign: "center" },
-  saved: { marginTop: 6, fontSize: 16, fontWeight: "800", color: GREEN, textAlign: "center" },
-  message: { marginTop: 8, fontSize: 13, lineHeight: 19, color: "#5A5A5A", textAlign: "center" },
-  metal: { fontWeight: "800" },
+  title: { fontSize: 22, fontWeight: "600", color: "#333333", textAlign: "center" },
+  saved: { marginTop: 6, fontSize: 16, fontWeight: "700", color: GREEN, textAlign: "center" },
+  message: { marginTop: 8, fontSize: 13, lineHeight: 19, color: "#555555", textAlign: "center" },
+  metal: { fontWeight: "700" },
   breakdown: {
     alignSelf: "stretch",
     marginTop: 18,
@@ -263,13 +263,13 @@ const s = StyleSheet.create({
     gap: 9,
   },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  rowLabel: { fontSize: 13, color: "#5A5A5A" },
-  rowValue: { fontSize: 13, fontWeight: "600", color: "#1A1A1A" },
-  waiverLabel: { fontSize: 13, fontWeight: "600", color: GREEN },
+  rowLabel: { fontSize: 13, color: "#555555" },
+  rowValue: { fontSize: 13, fontWeight: "500", color: "#333333" },
+  waiverLabel: { fontSize: 13, fontWeight: "500", color: GREEN },
   divider: { height: 1, backgroundColor: "rgba(0,0,0,0.08)" },
-  payLabel: { fontSize: 14, fontWeight: "800", color: "#1A1A1A" },
-  payValue: { fontSize: 16, fontWeight: "800", color: GREEN },
+  payLabel: { fontSize: 14, fontWeight: "700", color: "#333333" },
+  payValue: { fontSize: 16, fontWeight: "700", color: GREEN },
   ctaWrap: { alignSelf: "stretch", borderRadius: 14, overflow: "hidden" },
   cta: { paddingVertical: 14, alignItems: "center" },
-  ctaText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  ctaText: { color: "#FFFFFF", fontSize: 15, fontWeight: "600" },
 });

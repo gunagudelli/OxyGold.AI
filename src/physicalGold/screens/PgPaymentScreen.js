@@ -10,14 +10,14 @@ import PgLoader from '../components/PgLoader';
 const C = {
   bg: '#FFFFFF',
   card: '#FFFFFF',
-  gold: '#6C4AB6',
-  navy: '#1C1C1E',
-  navyLight: '#7A7A80',
-  textMuted: '#A79C93',
-  border: '#E7E0DA',
-  green: '#2ECC71',
-  greenBg: '#E8F5E9',
-  red: '#C85A54',
+  gold: '#503189',
+  navy: '#333333',
+  navyLight: '#757575',
+  textMuted: '#9E9E9E',
+  border: '#E0E0E0',
+  green: '#1F8A4C',
+  greenBg: '#EAF8F1',
+  red: '#E53935',
   redBg: '#FDECEA',
 };
 
@@ -449,8 +449,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 14, backgroundColor: C.card,
     borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  webviewTitle: { fontSize: 16, fontWeight: '700', color: C.navy },
-  cancelText: { fontSize: 14, color: C.red, fontWeight: '600' },
+  webviewTitle: { fontSize: 16, fontWeight: '600', color: C.navy },
+  cancelText: { fontSize: 14, color: C.red, fontWeight: '500' },
 
   loadingOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -462,17 +462,17 @@ const styles = StyleSheet.create({
 
   spinnerOuter: { width: 110, height: 110, justifyContent: 'center', alignItems: 'center', marginBottom: 36 },
   spinner: { position: 'absolute', width: 110, height: 110, borderRadius: 55 },
-  spinnerArc: { width: 110, height: 110, borderRadius: 55, borderWidth: 4, borderColor: 'transparent', borderTopColor: C.gold, borderRightColor: 'rgba(108,74,182,0.25)' },
-  spinnerInner: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(108,74,182,0.08)', borderWidth: 1, borderColor: 'rgba(108,74,182,0.20)', justifyContent: 'center', alignItems: 'center' },
+  spinnerArc: { width: 110, height: 110, borderRadius: 55, borderWidth: 4, borderColor: 'transparent', borderTopColor: C.gold, borderRightColor: 'rgba(80,49,137,0.25)' },
+  spinnerInner: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(80,49,137,0.08)', borderWidth: 1, borderColor: 'rgba(80,49,137,0.20)', justifyContent: 'center', alignItems: 'center' },
 
-  title: { fontSize: 22, fontWeight: '700', color: C.navy, marginBottom: 10 },
+  title: { fontSize: 22, fontWeight: '600', color: C.navy, marginBottom: 10 },
   statusText: { fontSize: 14, color: C.navyLight, marginBottom: 32, textAlign: 'center' },
   attemptText: { fontSize: 11, color: C.textMuted, marginTop: -24, marginBottom: 24 },
 
   infoCard: { width: '100%', backgroundColor: C.card, borderRadius: 14, padding: 18, gap: 12, borderWidth: 1, borderColor: C.border },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between' },
   infoLabel: { fontSize: 13, color: C.navyLight },
-  infoValue: { fontSize: 13, fontWeight: '700', color: C.navy },
+  infoValue: { fontSize: 13, fontWeight: '600', color: C.navy },
 
   note: { marginTop: 28, fontSize: 12, color: C.textMuted, textAlign: 'center', lineHeight: 18 },
 
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   detailLabel: { fontSize: 13, color: C.navyLight, fontWeight: '500' },
-  detailValue: { fontSize: 13, fontWeight: '700', color: C.navy, flex: 1, textAlign: 'right', marginLeft: 12 },
+  detailValue: { fontSize: 13, fontWeight: '600', color: C.navy, flex: 1, textAlign: 'right', marginLeft: 12 },
   statusSuccess: { color: C.green },
   statusFailed: { color: C.red },
   divider: { height: 1, backgroundColor: C.border },
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.gold, paddingVertical: 12, paddingHorizontal: 24,
     borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 12, width: '100%',
   },
-  downloadBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  downloadBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 
   primaryBtn: {
     backgroundColor: C.gold, paddingVertical: 16, borderRadius: 12,
@@ -510,17 +510,17 @@ const styles = StyleSheet.create({
     shadowColor: C.gold, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25, shadowRadius: 8, elevation: 5,
   },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  primaryBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 
   secondaryBtn: {
     backgroundColor: C.card, borderWidth: 1.5,
     borderColor: C.border, paddingVertical: 16, borderRadius: 12,
     justifyContent: 'center', alignItems: 'center', width: '100%',
   },
-  secondaryBtnText: { color: C.navy, fontSize: 15, fontWeight: '800' },
+  secondaryBtnText: { color: C.navy, fontSize: 15, fontWeight: '700' },
 
-  errorBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 32, backgroundColor: '#6C4AB6', borderRadius: 8 },
-  errorBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  errorBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 32, backgroundColor: '#503189', borderRadius: 8 },
+  errorBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 });
 
 export default PgPaymentScreen;

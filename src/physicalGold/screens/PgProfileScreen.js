@@ -36,16 +36,16 @@ const SHOW_WALLET = false;
 
 // ─── Design Tokens — premium, restrained. One accent, used sparingly. ────────
 const T = {
-  ink: "#1C1C1E",
-  subtle: "#7A7A80",
+  ink: "#333333",
+  subtle: "#757575",
   faint: "#ACACB2",
   bg: "#FFFFFF",
   surface: "#FFFFFF",
-  divider: "#EDEBE7",
-  gold: "#6C4AB6",
-  goldTint: "rgba(108,74,182,0.08)",
-  goldBorder: "rgba(108,74,182,0.24)",
-  danger: "#C0392B",
+  divider: "#EEEEF3",
+  gold: "#503189",
+  goldTint: "rgba(80,49,137,0.08)",
+  goldBorder: "rgba(80,49,137,0.24)",
+  danger: "#E53935",
 };
 
 // ─── SectionHead — title + optional subtitle above a group of rows ──────────
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
     padding: 18,
     paddingHorizontal: 16 + 18,
-    backgroundColor: "#6C4AB6",
+    backgroundColor: "#503189",
   },
 
   // ── Guest state — not logged in ──
@@ -855,7 +855,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   guestIconWrap: { marginBottom: 16 },
-  guestTitle: { fontSize: 17, fontWeight: "700", color: T.ink, marginBottom: 6 },
+  guestTitle: { fontSize: 18, fontWeight: "600", color: T.ink, marginBottom: 6 },
   guestSubtitle: {
     fontSize: 13,
     color: T.subtle,
@@ -864,12 +864,12 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   guestLoginBtn: {
-    backgroundColor: "#6C4AB6",
+    backgroundColor: "#503189",
     borderRadius: 12,
     paddingHorizontal: 32,
     paddingVertical: 13,
   },
-  guestLoginBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  guestLoginBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   avatar: {
     width: 54,
     height: 54,
@@ -883,13 +883,13 @@ const styles = StyleSheet.create({
   avatarImg: { width: "100%", height: "100%" },
   heroInfo: { flex: 1, minWidth: 0 },
   heroName: {
-    fontSize: 15.5,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "600",
     color: "#FFFFFF",
     marginBottom: 2,
     letterSpacing: -0.2,
   },
-  heroEmail: { fontSize: 11.5, fontWeight: "400", color: "#E0D2C8" },
+  heroEmail: { fontSize: 12, fontWeight: "400", color: "#E0D2C8" },
   idBadge: {
     alignSelf: "flex-start",
     backgroundColor: "rgba(255,255,255,0.16)",
@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     marginTop: 6,
   },
-  idBadgeText: { fontSize: 10.5, fontWeight: "700", color: "#FFFFFF", letterSpacing: 0.2 },
+  idBadgeText: { fontSize: 11, fontWeight: "600", color: "#FFFFFF", letterSpacing: 0.2 },
   heroEditBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -909,12 +909,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 7,
   },
-  heroEditBtnText: { fontSize: 12, fontWeight: "600", color: "#FFFFFF" },
+  heroEditBtnText: { fontSize: 12, fontWeight: "500", color: "#FFFFFF" },
 
   // ── Account summary — three plain columns, small icon chips ──
   statsRow: { flexDirection: "row" },
   statsRowTinted: {
-    backgroundColor: "rgba(108,74,182,0.16)",
+    backgroundColor: "rgba(80,49,137,0.16)",
     borderRadius: 14,
     paddingVertical: 6,
   },
@@ -940,13 +940,13 @@ const styles = StyleSheet.create({
   statIconBoxWallet:    { backgroundColor: "rgba(150,140,210,0.16)" },
   statIconBoxOrders:    { backgroundColor: "rgba(140,47,59,0.14)" },
   statIconBoxAddresses: { backgroundColor: "rgba(106,44,110,0.14)" },
-  statLabel: { fontSize: 10.5, fontWeight: "400", color: T.subtle },
-  statValue: { fontSize: 14, fontWeight: "700", color: T.ink },
+  statLabel: { fontSize: 11, fontWeight: "400", color: T.subtle },
+  statValue: { fontSize: 14, fontWeight: "600", color: T.ink },
 
   // ── Section — no extra card, lives inside the shared panel ──
   section: { marginBottom: 4 },
   sectionHead: { marginBottom: 14 },
-  sectionTitle: { fontSize: 13.5, fontWeight: "700", color: T.ink },
+  sectionTitle: { fontSize: 14, fontWeight: "600", color: T.ink },
   sectionSubtitle: { fontSize: 11, fontWeight: "400", color: T.subtle, marginTop: 2 },
 
   // ── Info list — one row per field ──
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
   infoRowDivider: { borderBottomWidth: 1, borderBottomColor: T.divider },
   infoRowLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 0 },
   infoLabel: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: "400",
     color: T.subtle,
     flexShrink: 0,
@@ -970,24 +970,24 @@ const styles = StyleSheet.create({
   infoValue: {
     flexShrink: 1,
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "500",
     color: T.ink,
     textAlign: "right",
   },
   infoValueEmpty: { fontWeight: "400", color: T.faint, fontStyle: "italic" },
   verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 0 },
-  verifiedBadgeText: { fontSize: 10, fontWeight: "700", color: T.gold },
+  verifiedBadgeText: { fontSize: 10, fontWeight: "600", color: T.gold },
   infoInput: {
     flex: 1,
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "500",
     color: T.ink,
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: T.divider,
     borderRadius: 8,
-    backgroundColor: "#FAFAF9",
+    backgroundColor: "#F7F7F9",
   },
   infoInputFocused: {
     borderColor: T.gold,
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
     borderColor: T.goldBorder,
   },
   genderOptionText: { fontSize: 12, fontWeight: "500", color: T.subtle },
-  genderOptionTextActive: { color: T.gold, fontWeight: "700" },
+  genderOptionTextActive: { color: T.gold, fontWeight: "600" },
 
   // Edit mode actions — Cancel (outlined) + Save (filled), side by side
   editActionsRow: { flexDirection: "row", gap: 10, marginTop: 18 },
@@ -1024,7 +1024,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  cancelBtnText: { fontSize: 13, fontWeight: "600", color: T.subtle },
+  cancelBtnText: { fontSize: 13, fontWeight: "500", color: T.subtle },
   saveBtn: {
     flex: 1,
     backgroundColor: T.gold,
@@ -1035,7 +1035,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   saveBtnDisabled: { backgroundColor: T.faint },
-  saveBtnText: { fontSize: 13, fontWeight: "600", color: "#fff" },
+  saveBtnText: { fontSize: 13, fontWeight: "500", color: "#fff" },
 
   // ── Quick Actions — plain list rows, small rounded icon container ──
   linkRow: {
@@ -1067,7 +1067,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logoutBtnDisabled: { opacity: 0.6 },
-  logoutBtnText: { fontSize: 13, fontWeight: "600", color: T.danger },
+  logoutBtnText: { fontSize: 13, fontWeight: "500", color: T.danger },
   deleteAccountBtn: {
     flexDirection: "row",
     alignItems: "center",

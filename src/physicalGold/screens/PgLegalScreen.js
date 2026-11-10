@@ -7,11 +7,11 @@ import FadeSlideIn from "../components/FadeSlideIn";
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#6C4AB6",
-  navy: "#1C1C1E",
-  navyLight: "#7A7A80",
-  border: "#E7E0DA",
-  divider: "#EEEBE8",
+  gold: "#503189",
+  navy: "#333333",
+  navyLight: "#757575",
+  border: "#E0E0E0",
+  divider: "#EEEEF3",
 };
 
 const LINKS = [
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   },
   rowDivider: { borderBottomWidth: 1, borderBottomColor: C.divider },
   rowIcon: { width: 18, textAlign: "center" },
-  rowText: { flex: 1, fontSize: 13.5, fontWeight: "500", color: C.navy },
+  rowText: { flex: 1, fontSize: 14, fontWeight: "500", color: C.navy },
 });
 
 export default PgLegalScreen;

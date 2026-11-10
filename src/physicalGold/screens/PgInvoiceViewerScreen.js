@@ -19,12 +19,12 @@ import { downloadInvoicePDF, openInvoicePDF } from '../../utils/downloadInvoice'
 const C = {
   bg: '#FFFFFF',
   surface: '#FFFFFF',
-  border: '#E7E0DA',
-  gold: '#6C4AB6',
-  textPri: '#1C1C1E',
-  textSec: '#7A7A80',
-  textTer: '#A79C93',
-  error: '#C85A54',
+  border: '#E0E0E0',
+  gold: '#503189',
+  textPri: '#333333',
+  textSec: '#757575',
+  textTer: '#9E9E9E',
+  error: '#E53935',
 };
 
 const PgInvoiceViewerScreen = ({ navigation, route }) => {
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
 
   actionBtnText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: C.textPri,
   },
 
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
 
   retryBtnText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#fff',
   },
 });

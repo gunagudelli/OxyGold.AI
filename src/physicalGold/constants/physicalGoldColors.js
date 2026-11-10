@@ -1,28 +1,28 @@
 // Brand accent is the ASKOXY.AI "Grocery" purple (see PG_HOME_THEME below).
 export const PG_COLORS = {
   // Brand
-  gold:        '#6C4AB6',
-  goldLight:   '#F3ECFA',
-  goldDark:    '#6C4AB6',
-  goldBg:      '#F3ECFA',
+  gold:        '#503189',
+  goldLight:   '#F4F0FA',
+  goldDark:    '#503189',
+  goldBg:      '#F4F0FA',
 
   // Grays
-  darkGray:    '#1C1C1E',
+  darkGray:    '#333333',
   medGray:     '#7C706A',
-  lightGray:   '#A79C93',
+  lightGray:   '#9E9E9E',
 
   // Backgrounds
-  background:  '#F8F7F6',
+  background:  '#F7F7F9',
   surface:     '#FFFFFF',
-  border:      '#E7E0DA',
+  border:      '#E0E0E0',
 
   // Status
-  success:     '#2ECC71',
-  successBg:   '#E8F5E9',
-  error:       '#C85A54',
+  success:     '#1F8A4C',
+  successBg:   '#EAF8F1',
+  error:       '#E53935',
   errorBg:     '#FDECEA',
-  warning:     '#D4A574',
-  warningBg:   '#FDF6ED',
+  warning:     '#F59E0B',
+  warningBg:   '#FFF8E6',
 };
 
 // Home top band — same lavender "Grocery" theme as the ASKOXY.AI home screen
@@ -33,10 +33,10 @@ export const PG_HOME_THEME = {
   top:    ['#B9A3E8', '#C0ACEB'],
   search: ['#C0ACEB', '#C9B7EE'],
   band:   ['#C9B7EE', '#D6C7F2'],
-  accent: '#6C4AB6',
-  tint:   '#F3ECFA',
+  accent: '#503189',
+  tint:   '#F4F0FA',
 };
 
 // App header (every screen): a gradient of the Home footer's deep purple, with
 // light icons/title on top.
-export const PG_HEADER_GRADIENT = ['#2A1F4A', '#3E2E6B'];
+export const PG_HEADER_GRADIENT = ['#4B3888', '#5A44A0'];

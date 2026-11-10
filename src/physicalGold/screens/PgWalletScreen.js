@@ -20,16 +20,16 @@ import FadeSlideIn from '../components/FadeSlideIn';
 const C = {
   bg: '#FFFFFF',
   card: '#FFFFFF',
-  gold: '#6C4AB6',
-  navy: '#1C1C1E',
-  navyLight: '#7A7A80',
-  green: '#2ECC71',
-  greenBg: '#E8F5E9',
-  red: '#C85A54',
+  gold: '#503189',
+  navy: '#333333',
+  navyLight: '#757575',
+  green: '#1F8A4C',
+  greenBg: '#EAF8F1',
+  red: '#E53935',
   redBg: '#FDECEA',
-  border: '#E7E0DA',
-  divider: '#EEEBE8',
-  textMuted: '#A79C93',
+  border: '#E0E0E0',
+  divider: '#EEEEF3',
+  textMuted: '#9E9E9E',
 };
 
 const FILTERS = ['ALL', 'CREDIT', 'DEBIT'];
@@ -224,7 +224,7 @@ const PgWalletScreen = ({ navigation }) => {
                           {credit ? '+' : '−'}{formatINR(tx.amount)}
                         </Text>
                         <View style={styles.txStatusRow}>
-                          <View style={[styles.txStatusDot, { backgroundColor: isSuccess ? C.green : '#D4A574' }]} />
+                          <View style={[styles.txStatusDot, { backgroundColor: isSuccess ? C.green : '#F59E0B' }]} />
                           <Text style={styles.txStatusText}>{tx.status}</Text>
                         </View>
                       </View>
@@ -275,14 +275,14 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     color: 'rgba(255,255,255,0.55)',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
   balanceValue: {
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.5,
   },
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   balanceFooterText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     color: 'rgba(255,255,255,0.45)',
     letterSpacing: 1,
     textTransform: 'uppercase',
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: C.gold, borderColor: C.gold },
   filterChipText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     color: C.navyLight,
     letterSpacing: 1,
     textTransform: 'uppercase',
@@ -343,13 +343,13 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     color: C.navyLight,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
   sectionCountRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  sectionCountText: { fontSize: 10, fontWeight: '800', color: C.textMuted },
+  sectionCountText: { fontSize: 10, fontWeight: '700', color: C.textMuted },
 
   stateBox: {
     borderRadius: 16,
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 10,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: C.textMuted,
   },
 
@@ -403,22 +403,22 @@ const styles = StyleSheet.create({
   },
   txIconWrapCredit: { backgroundColor: C.greenBg },
   txIconWrapDebit: { backgroundColor: C.redBg },
-  txTitle: { fontSize: 13, fontWeight: '700', color: C.navy },
+  txTitle: { fontSize: 13, fontWeight: '600', color: C.navy },
   txDate: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     color: C.textMuted,
     marginTop: 2,
     textTransform: 'uppercase',
   },
   txRight: { alignItems: 'flex-end' },
-  txAmount: { fontSize: 14, fontWeight: '900', color: C.navy, letterSpacing: -0.2 },
+  txAmount: { fontSize: 14, fontWeight: '700', color: C.navy, letterSpacing: -0.2 },
   txAmountCredit: { color: C.green },
   txStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
   txStatusDot: { width: 5, height: 5, borderRadius: 3 },
   txStatusText: {
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: '700',
     color: C.textMuted,
     letterSpacing: 0.4,
   },
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(200,90,84,0.25)',
   },
-  errorText: { fontSize: 12, fontWeight: '700', color: C.red },
+  errorText: { fontSize: 12, fontWeight: '600', color: C.red },
 });
 
 export default PgWalletScreen;

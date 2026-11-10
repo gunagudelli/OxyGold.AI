@@ -79,7 +79,7 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
           {/* Success Icon */}
           <View style={styles.successContainer}>
             <View style={styles.successIcon}>
-              <Ionicons name="checkmark" size={40} color="#2ECC71" />
+              <Ionicons name="checkmark" size={40} color="#1F8A4C" />
             </View>
             <Text style={styles.successTitle}>Order Confirmed!</Text>
             <Text style={styles.successSubtitle}>Your order has been placed successfully</Text>
@@ -140,7 +140,7 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
           {/* Failed Icon */}
           <View style={styles.failedContainer}>
             <View style={styles.failedIcon}>
-              <Ionicons name="close" size={40} color="#C85A54" />
+              <Ionicons name="close" size={40} color="#E53935" />
             </View>
             <Text style={styles.failedTitle}>Payment Failed</Text>
             <Text style={styles.failedSubtitle}>Unable to process your payment</Text>
@@ -192,11 +192,11 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
 const C = {
   bg: '#FFFFFF',
   surface: '#FFFFFF',
-  border: '#E7E0DA',
-  gold: '#6C4AB6',
-  textPri: '#1C1C1E',
-  textSec: '#7A7A80',
-  textTer: '#A79C93',
+  border: '#E0E0E0',
+  gold: '#503189',
+  textPri: '#333333',
+  textSec: '#757575',
+  textTer: '#9E9E9E',
 };
 
 const styles = StyleSheet.create({
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   loadingContent: { alignItems: 'center', gap: 16 },
-  loadingText: { fontSize: 16, fontWeight: '700', color: C.textPri },
+  loadingText: { fontSize: 16, fontWeight: '600', color: C.textPri },
   loadingSubtext: { fontSize: 13, color: C.textSec, textAlign: 'center' },
 
   successContainer: { alignItems: 'center', marginTop: 20, marginBottom: 24, gap: 8 },
@@ -212,13 +212,13 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EAF8F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
   },
-  checkmark: { fontSize: 30, color: '#2ECC71', fontWeight: '800' },
-  successTitle: { fontSize: 18, fontWeight: '800', color: C.textPri },
+  checkmark: { fontSize: 28, color: '#1F8A4C', fontWeight: '700' },
+  successTitle: { fontSize: 18, fontWeight: '700', color: C.textPri },
   successSubtitle: { fontSize: 13, color: C.textSec, textAlign: 'center' },
 
   failedContainer: { alignItems: 'center', marginTop: 20, marginBottom: 24, gap: 8 },
@@ -231,8 +231,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  xmark: { fontSize: 30, color: '#C85A54', fontWeight: '800' },
-  failedTitle: { fontSize: 18, fontWeight: '800', color: C.textPri },
+  xmark: { fontSize: 28, color: '#E53935', fontWeight: '700' },
+  failedTitle: { fontSize: 18, fontWeight: '700', color: C.textPri },
   failedSubtitle: { fontSize: 13, color: C.textSec, textAlign: 'center' },
 
   detailsBox: {
@@ -245,23 +245,23 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  detailLabel: { fontSize: 12.5, color: C.textSec, fontWeight: '500' },
-  detailValue: { fontSize: 12.5, fontWeight: '700', color: C.textPri, flex: 1, textAlign: 'right', marginLeft: 12 },
-  statusSuccess: { color: '#2ECC71' },
-  statusFailed: { color: '#C85A54' },
+  detailLabel: { fontSize: 13, color: C.textSec, fontWeight: '500' },
+  detailValue: { fontSize: 13, fontWeight: '600', color: C.textPri, flex: 1, textAlign: 'right', marginLeft: 12 },
+  statusSuccess: { color: '#1F8A4C' },
+  statusFailed: { color: '#E53935' },
   divider: { height: 1, backgroundColor: C.border },
 
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
   primaryBtn: {
     flex: 1,
     maxWidth: 160,
-    backgroundColor: '#6C4AB6',
+    backgroundColor: '#503189',
     paddingVertical: 11,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  primaryBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
 
   secondaryBtn: {
     flex: 1,
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  secondaryBtnText: { color: C.textPri, fontSize: 13, fontWeight: '700' },
+  secondaryBtnText: { color: C.textPri, fontSize: 13, fontWeight: '600' },
 });
 
 export default PgPaymentStatusScreen;

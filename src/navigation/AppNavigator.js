@@ -59,6 +59,9 @@ const AppNavigator = ({ navigationRef }) => {
             playing the same slide_from_right transition used for actually
             drilling into a screen (Cart, Product Details, etc). */}
         <Stack.Screen name="PgHome"           component={PgHomeScreen} options={{ animation: 'none' }} />
+        {/* A category's products — same screen component as Home, opened with
+            { category } so it gets its own back/swipe-back. */}
+        <Stack.Screen name="PgCategory"       component={PgHomeScreen} />
         <Stack.Screen name="PgProductDetails" component={PgProductDetailsScreen} />
         <Stack.Screen name="PgCart"           component={PgCartScreen} />
         <Stack.Screen name="PgAddress"        component={PgAddressScreen} />

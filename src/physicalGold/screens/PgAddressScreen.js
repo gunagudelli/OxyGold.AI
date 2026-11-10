@@ -46,15 +46,15 @@ const INDIAN_STATES = [
 const C = {
   bg: "#FFFFFF",
   surface: "#FFFFFF",
-  border: "#E7E0DA",
-  gold: "#6C4AB6",
-  goldLight: "#8466C9",
-  goldDim: "rgba(108,74,182,0.10)",
-  goldDimBorder: "rgba(108,74,182,0.20)",
-  textPri: "#1C1C1E",
-  textSec: "#7A7A80",
-  textTer: "#A79C93",
-  error: "#C0392B",
+  border: "#E0E0E0",
+  gold: "#503189",
+  goldLight: "#8A73B8",
+  goldDim: "rgba(80,49,137,0.10)",
+  goldDimBorder: "rgba(80,49,137,0.20)",
+  textPri: "#333333",
+  textSec: "#757575",
+  textTer: "#9E9E9E",
+  error: "#E53935",
   success: "#1F8A4C",
 };
 
@@ -880,7 +880,7 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 100 },
 
   sectionHeader: { marginBottom: 12 },
-  sectionTitle: { fontSize: 13, fontWeight: "600", color: C.textPri },
+  sectionTitle: { fontSize: 13, fontWeight: "500", color: C.textPri },
 
   addBtn: {
     alignSelf: "center",
@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  addBtnText: { fontSize: 13.5, fontWeight: "700", color: "#fff", letterSpacing: 0.2 },
+  addBtnText: { fontSize: 14, fontWeight: "600", color: "#fff", letterSpacing: 0.2 },
 
   addressesList: { gap: 12 },
   addressCard: {
@@ -927,18 +927,18 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
   },
-  addressTypeText: { fontSize: 11, fontWeight: "700", color: C.textPri },
+  addressTypeText: { fontSize: 11, fontWeight: "600", color: C.textPri },
   addressActions: { flexDirection: "row", gap: 8 },
   iconBtn: { padding: 6 },
   addressBody: { flexDirection: "row", gap: 8 },
   addressLine1: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.textPri,
     lineHeight: 19,
     marginBottom: 2,
   },
-  addressLine2: { fontSize: 12.5, color: C.textSec, lineHeight: 18 },
+  addressLine2: { fontSize: 13, color: C.textSec, lineHeight: 18 },
   addressFooter: {
     marginTop: 8,
     paddingTop: 8,
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: "center", paddingVertical: 48 },
   emptyText: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.textPri,
     marginTop: 12,
   },
@@ -979,7 +979,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: C.textPri },
+  modalTitle: { fontSize: 18, fontWeight: "600", color: C.textPri },
   closeBtn: { padding: 8, marginRight: -8 },
   modalScroll: { paddingHorizontal: 16, paddingVertical: 16, flexShrink: 1 },
 
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
   fieldHalf: { flex: 1 },
   fieldLabel: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.textSec,
     marginBottom: 8,
   },
@@ -1007,7 +1007,7 @@ const styles = StyleSheet.create({
   textArea: { minHeight: 80, textAlignVertical: "top" },
 
   errorText: { fontSize: 12, color: C.error, marginTop: 4 },
-  infoText: { fontSize: 12, color: C.textSec, marginTop: 4, fontWeight: "600" },
+  infoText: { fontSize: 12, color: C.textSec, marginTop: 4, fontWeight: "500" },
 
   typeSelector: { flexDirection: "row", gap: 10 },
   typeBtn: {
@@ -1020,14 +1020,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   typeBtnActive: { backgroundColor: C.goldDim, borderColor: C.gold },
-  typeBtnText: { fontSize: 13, fontWeight: "600", color: C.textSec },
-  typeBtnTextActive: { color: C.textPri, fontWeight: "700" },
+  typeBtnText: { fontSize: 13, fontWeight: "500", color: C.textSec },
+  typeBtnTextActive: { color: C.textPri, fontWeight: "600" },
 
   locationStatusRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10, marginTop: -4 },
-  locationStatusText: { fontSize: 11.5, color: C.textTer, fontWeight: "500" },
+  locationStatusText: { fontSize: 12, color: C.textTer, fontWeight: "500" },
 
   gpsIntroText: {
-    fontSize: 12.5, color: C.textSec, fontWeight: "500",
+    fontSize: 13, color: C.textSec, fontWeight: "500",
     textAlign: "center", marginBottom: 10,
   },
   gpsBtn: {
@@ -1035,14 +1035,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: C.goldDimBorder, backgroundColor: C.goldDim,
     borderRadius: 12, paddingVertical: 13, marginBottom: 4,
   },
-  gpsBtnText: { fontSize: 13, fontWeight: "700", color: C.gold },
+  gpsBtnText: { fontSize: 13, fontWeight: "600", color: C.gold },
 
   orDivider: {
     flexDirection: "row", alignItems: "center", gap: 10,
     marginTop: 18, marginBottom: 18,
   },
   orDividerLine: { flex: 1, height: 1, backgroundColor: C.border },
-  orDividerText: { fontSize: 10.5, fontWeight: "700", color: C.textTer, letterSpacing: 0.5 },
+  orDividerText: { fontSize: 11, fontWeight: "600", color: C.textTer, letterSpacing: 0.5 },
 
   confirmBtn: {
     backgroundColor: C.gold,
@@ -1053,7 +1053,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   confirmBtnDisabled: { backgroundColor: C.border },
-  confirmBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", letterSpacing: 0.2 },
+  confirmBtnText: { fontSize: 14, fontWeight: "600", color: "#fff", letterSpacing: 0.2 },
 
   dropdownBtn: {
     backgroundColor: C.surface,

@@ -33,13 +33,13 @@ import {
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#6C4AB6",
-  navy: "#1C1C1E",
-  navyLight: "#7A7A80",
-  textMuted: "#A79C93",
-  border: "#E7E0DA",
-  green: "#2ECC71",
-  red: "#C85A54",
+  gold: "#503189",
+  navy: "#333333",
+  navyLight: "#757575",
+  textMuted: "#9E9E9E",
+  border: "#E0E0E0",
+  green: "#1F8A4C",
+  red: "#E53935",
 };
 
 const PgPaymentHandlerScreen = ({ navigation, route }) => {
@@ -365,7 +365,7 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
               <View style={styles.spinnerArc} />
             </Animated.View>
             <View style={styles.spinnerInner}>
-              <Ionicons name="card" size={32} color="#6C4AB6" />
+              <Ionicons name="card" size={32} color="#503189" />
             </View>
           </Animated.View>
           <Text style={styles.processingTitle}>Processing Payment</Text>
@@ -404,7 +404,7 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
         <View style={styles.centerContainer}>
-          <Ionicons name="checkmark-circle" size={80} color="#2ECC71" />
+          <Ionicons name="checkmark-circle" size={80} color="#1F8A4C" />
           <Text style={styles.successTitle}>Payment Successful!</Text>
           <Text style={styles.successSubtitle}>
             Your order has been confirmed
@@ -465,7 +465,7 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
         <View style={styles.centerContainer}>
-          <Ionicons name="close-circle" size={80} color="#C85A54" />
+          <Ionicons name="close-circle" size={80} color="#E53935" />
           <Text style={styles.failedTitle}>Payment Failed</Text>
           <Text style={styles.failedSubtitle}>
             Unable to process your payment
@@ -532,22 +532,22 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: "transparent",
     borderTopColor: C.gold,
-    borderRightColor: "rgba(108,74,182,0.25)",
+    borderRightColor: "rgba(80,49,137,0.25)",
   },
   spinnerInner: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(108,74,182,0.08)",
+    backgroundColor: "rgba(80,49,137,0.08)",
     borderWidth: 1,
-    borderColor: "rgba(108,74,182,0.20)",
+    borderColor: "rgba(80,49,137,0.20)",
     justifyContent: "center",
     alignItems: "center",
   },
 
   processingTitle: {
     fontSize: 22,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.navy,
     marginBottom: 8,
     textAlign: "center",
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   infoLabel: { fontSize: 13, color: C.navyLight },
-  infoValue: { fontSize: 13, fontWeight: "700", color: C.navy },
+  infoValue: { fontSize: 13, fontWeight: "600", color: C.navy },
 
   note: {
     marginTop: 28,
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
 
   successTitle: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.navy,
     marginTop: 16,
     marginBottom: 8,
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
 
   failedTitle: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.navy,
     marginTop: 16,
     marginBottom: 8,
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
 
   errorTitle: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.navy,
     marginTop: 16,
     marginBottom: 8,
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   detailLabel: { fontSize: 13, color: C.navyLight },
-  detailValue: { fontSize: 13, fontWeight: "700", color: C.navy },
+  detailValue: { fontSize: 13, fontWeight: "600", color: C.navy },
   statusSuccess: { color: C.green },
   statusFailed: { color: C.red },
   divider: {
@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
     width: "100%",
     gap: 8,
   },
-  invoiceButtonText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  invoiceButtonText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 
   primaryButton: {
     backgroundColor: C.gold,
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     width: "100%",
   },
-  primaryButtonText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  primaryButtonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 
   secondaryButton: {
     backgroundColor: C.card,
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
   },
-  secondaryButtonText: { color: C.navy, fontSize: 15, fontWeight: "800" },
+  secondaryButtonText: { color: C.navy, fontSize: 15, fontWeight: "700" },
 });
 
 export default PgPaymentHandlerScreen;

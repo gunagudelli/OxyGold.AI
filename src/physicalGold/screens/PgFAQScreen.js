@@ -7,13 +7,13 @@ import FadeSlideIn from "../components/FadeSlideIn";
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#6C4AB6",
-  goldLight: "#F7F4ED",
-  navy: "#1C1C1E",
-  navyMid: "#48484C",
-  navyLight: "#7A7A80",
-  border: "#E7E0DA",
-  divider: "#EEEBE8",
+  gold: "#503189",
+  goldLight: "#F7F7F9",
+  navy: "#333333",
+  navyMid: "#555555",
+  navyLight: "#757575",
+  border: "#E0E0E0",
+  divider: "#EEEEF3",
 };
 
 const FAQS = [
@@ -114,7 +114,7 @@ const PgFAQScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
-  mainTitle: { fontSize: 18, fontWeight: "900", color: C.navy, letterSpacing: -0.3, marginBottom: 4 },
+  mainTitle: { fontSize: 18, fontWeight: "600", color: C.navy, letterSpacing: -0.3, marginBottom: 4 },
   subtitle: { fontSize: 13, color: C.navyLight, marginBottom: 18, lineHeight: 19 },
 
   faqCard: {
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     marginBottom: 10, overflow: "hidden",
   },
   faqHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, gap: 12 },
-  faqQuestion: { flex: 1, fontSize: 13.5, fontWeight: "700", color: C.navy, lineHeight: 19 },
+  faqQuestion: { flex: 1, fontSize: 14, fontWeight: "600", color: C.navy, lineHeight: 19 },
   faqBody: { paddingHorizontal: 14, paddingBottom: 14, paddingTop: 2, borderTopWidth: 1, borderTopColor: C.divider },
   faqAnswer: { fontSize: 13, color: C.navyMid, lineHeight: 20, fontWeight: "500" },
 
@@ -130,10 +130,10 @@ const styles = StyleSheet.create({
     marginTop: 10, padding: 18, backgroundColor: C.goldLight, borderRadius: 14,
     borderWidth: 1, borderColor: C.border,
   },
-  helpTitle: { fontSize: 15, fontWeight: "800", color: C.navy, marginBottom: 6 },
+  helpTitle: { fontSize: 15, fontWeight: "600", color: C.navy, marginBottom: 6 },
   helpText: { fontSize: 13, color: C.navyMid, lineHeight: 19, marginBottom: 10 },
   helpLine: { fontSize: 13, color: C.navyMid, lineHeight: 21 },
-  helpLabel: { fontWeight: "800", color: C.navy },
+  helpLabel: { fontWeight: "700", color: C.navy },
 });
 
 export default PgFAQScreen;

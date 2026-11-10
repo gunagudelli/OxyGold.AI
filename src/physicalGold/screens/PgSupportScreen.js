@@ -29,15 +29,15 @@ import {
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#6C4AB6",
-  goldLight: "#F7F4ED",
-  goldTint: "rgba(108,74,182,0.08)",
-  navy: "#1C1C1E",
-  navyMid: "#48484C",
-  navyLight: "#7A7A80",
-  border: "#E7E0DA",
-  divider: "#EEEBE8",
-  danger: "#C0392B",
+  gold: "#503189",
+  goldLight: "#F7F7F9",
+  goldTint: "rgba(80,49,137,0.08)",
+  navy: "#333333",
+  navyMid: "#555555",
+  navyLight: "#757575",
+  border: "#E0E0E0",
+  divider: "#EEEEF3",
+  danger: "#E53935",
   dangerTint: "rgba(192,57,43,0.08)",
   warn: "#B8860B",
   warnTint: "rgba(184,134,11,0.10)",
@@ -358,7 +358,7 @@ const PgSupportScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
-  mainTitle: { fontSize: 18, fontWeight: "900", color: C.navy, letterSpacing: -0.3, marginBottom: 4 },
+  mainTitle: { fontSize: 18, fontWeight: "600", color: C.navy, letterSpacing: -0.3, marginBottom: 4 },
   subtitle: { fontSize: 13, color: C.navyLight, marginBottom: 16, lineHeight: 19 },
 
   newQueryBtn: {
@@ -366,19 +366,19 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     backgroundColor: C.gold, borderRadius: 9, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 18,
   },
-  newQueryBtnText: { color: "#fff", fontSize: 12.5, fontWeight: "800" },
+  newQueryBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
 
   formCard: {
     backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border,
     padding: 16, marginBottom: 18,
   },
-  formLabel: { fontSize: 12.5, fontWeight: "700", color: C.navy, marginBottom: 8 },
+  formLabel: { fontSize: 13, fontWeight: "600", color: C.navy, marginBottom: 8 },
   formInput: {
     borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 12,
     fontSize: 13, color: C.navy, minHeight: 90, marginBottom: 12,
   },
   attachBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
-  attachBtnText: { fontSize: 12.5, color: C.gold, fontWeight: "700" },
+  attachBtnText: { fontSize: 13, color: C.gold, fontWeight: "600" },
   previewRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
   previewImg: { width: 56, height: 56, borderRadius: 8, backgroundColor: C.divider },
   formActions: { flexDirection: "row", gap: 10, marginTop: 4 },
@@ -386,49 +386,49 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: "center", paddingVertical: 12, borderRadius: 10,
     borderWidth: 1, borderColor: C.border,
   },
-  formCancelBtnText: { fontSize: 13, fontWeight: "700", color: C.navyMid },
+  formCancelBtnText: { fontSize: 13, fontWeight: "600", color: C.navyMid },
   formSubmitBtn: {
     flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 10,
     backgroundColor: C.gold,
   },
-  formSubmitBtnText: { fontSize: 13, fontWeight: "800", color: "#fff" },
+  formSubmitBtnText: { fontSize: 13, fontWeight: "700", color: "#fff" },
 
   tabsRow: {
     flexDirection: "row", backgroundColor: C.goldLight, borderRadius: 10, padding: 3, marginBottom: 14,
   },
   tab: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 8 },
   tabActive: { backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
-  tabText: { fontSize: 12, fontWeight: "700", color: C.navyLight },
+  tabText: { fontSize: 12, fontWeight: "600", color: C.navyLight },
   tabTextActive: { color: C.navy },
 
   emptyBox: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 10 },
-  emptyText: { fontSize: 13, color: C.navyLight, fontWeight: "600" },
+  emptyText: { fontSize: 13, color: C.navyLight, fontWeight: "500" },
 
   ticketCard: {
     backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.border,
     padding: 14, marginBottom: 10,
   },
   ticketHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8 },
-  ticketId: { fontSize: 12.5, fontWeight: "800", color: C.navy, flex: 1 },
+  ticketId: { fontSize: 13, fontWeight: "700", color: C.navy, flex: 1 },
   statusPill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
-  statusPillText: { fontSize: 10, fontWeight: "800" },
+  statusPillText: { fontSize: 10, fontWeight: "700" },
   ticketQuery: { fontSize: 13, color: C.navyMid, lineHeight: 19, marginBottom: 6, fontWeight: "500" },
   ticketDate: { fontSize: 11, color: C.navyLight, marginBottom: 4 },
   attachRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
-  attachText: { fontSize: 11.5, color: C.navyLight, flex: 1 },
+  attachText: { fontSize: 12, color: C.navyLight, flex: 1 },
   replyBox: { marginTop: 10, padding: 10, backgroundColor: C.goldTint, borderRadius: 8 },
-  replyLabel: { fontSize: 10.5, fontWeight: "800", color: C.gold, marginBottom: 4 },
-  replyText: { fontSize: 12.5, color: C.navyMid, lineHeight: 18 },
+  replyLabel: { fontSize: 11, fontWeight: "700", color: C.gold, marginBottom: 4 },
+  replyText: { fontSize: 13, color: C.navyMid, lineHeight: 18 },
   cancelBtn: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", marginTop: 10 },
-  cancelBtnText: { fontSize: 12, fontWeight: "700", color: C.danger },
+  cancelBtnText: { fontSize: 12, fontWeight: "600", color: C.danger },
 
   helpBox: {
     marginTop: 10, padding: 18, backgroundColor: C.goldLight, borderRadius: 14,
     borderWidth: 1, borderColor: C.border,
   },
-  helpTitle: { fontSize: 14, fontWeight: "800", color: C.navy, marginBottom: 8 },
+  helpTitle: { fontSize: 14, fontWeight: "600", color: C.navy, marginBottom: 8 },
   helpLine: { fontSize: 13, color: C.navyMid, lineHeight: 21 },
-  helpLabel: { fontWeight: "800", color: C.navy },
+  helpLabel: { fontWeight: "700", color: C.navy },
 });
 
 export default PgSupportScreen;

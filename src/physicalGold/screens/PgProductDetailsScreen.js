@@ -37,6 +37,7 @@ import {
 } from "../api/physicalGoldApi";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { useApiCall } from "../../hooks/useApiCall";
+import { withPrice } from "../utils/productPrice";
 
 const { width: SW, height: SH } = Dimensions.get("window");
 
@@ -44,21 +45,21 @@ const { width: SW, height: SH } = Dimensions.get("window");
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#6C4AB6",
-  goldLight: "#F7F4ED",
-  goldMid: "#9A80DA",
-  goldDim: "rgba(108,74,182,0.10)",
-  navy: "#1C1C1E",
-  navyMid: "#48484C",
-  navyLight: "#7A7A80",
-  green: "#146C3B",
-  greenDark: "#146C3B",
-  greenLight: "#E8F5E9",
-  red: "#C0392B",
-  redDark: "#C0392B",
+  gold: "#503189",
+  goldLight: "#F7F7F9",
+  goldMid: "#8A73B8",
+  goldDim: "rgba(80,49,137,0.10)",
+  navy: "#333333",
+  navyMid: "#555555",
+  navyLight: "#757575",
+  green: "#15803D",
+  greenDark: "#15803D",
+  greenLight: "#EAF8F1",
+  red: "#E53935",
+  redDark: "#E53935",
   redLight: "#FDECEA",
-  border: "#E7E0DA",
-  divider: "#EEEBE8",
+  border: "#E0E0E0",
+  divider: "#EEEEF3",
 };
 
 const ALL_VIEWS = [
@@ -297,7 +298,8 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
   useEffect(() => {
     let alive = true;
     getProductRecommendations(productId)
-      .then((rec) => { if (alive) setSimilarProducts(rec.similarProducts || []); })
+      // ₹0 / unpriced products are hidden from Similar Products too.
+      .then((rec) => { if (alive) setSimilarProducts(withPrice(rec.similarProducts)); })
       .catch(() => {});
     return () => { alive = false; };
   }, [productId]);
@@ -572,7 +574,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
             onPress={() => navigation.goBack()}
             activeOpacity={0.85}
           >
-            <Ionicons name="arrow-back" size={15} color="#1C1C1E" style={{ marginRight: 6 }} />
+            <Ionicons name="arrow-back" size={15} color="#333333" style={{ marginRight: 6 }} />
             <Text style={s.emptyBtnText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -652,7 +654,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               activeOpacity={0.8}
             >
-              <Ionicons name="share-social-outline" size={20} color="#6C4AB6" />
+              <Ionicons name="share-social-outline" size={20} color="#503189" />
             </TouchableOpacity>
 
             {/* Image */}
@@ -1078,6 +1080,7 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
 
               <PgActionButton
                 size="lg"
+                variant="cta"
                 label="Buy Now"
                 onPress={handleBuyNow}
                 disabled={!selectedVariant || cartLoading}
@@ -1265,7 +1268,7 @@ const s = StyleSheet.create({
     paddingVertical: 6,
     zIndex: 4,
   },
-  badgeOfferText: { fontSize: 11, fontWeight: "700", color: "#fff" },
+  badgeOfferText: { fontSize: 11, fontWeight: "600", color: "#fff" },
 
   // Arrows — circular translucent-white buttons so they stay visible over
   // any image content now that the hero is full-bleed.
@@ -1320,7 +1323,7 @@ const s = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "#E7E0DA",
+    backgroundColor: "#E0E0E0",
   },
   dotActive: { width: 16, backgroundColor: C.gold },
 
@@ -1338,23 +1341,23 @@ const s = StyleSheet.create({
   },
   coinWeight: {
     fontSize: 32,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.gold,
     lineHeight: 36,
   },
   coinLine: {
     width: 44,
     height: 1,
-    backgroundColor: "rgba(108,74,182,0.3)",
+    backgroundColor: "rgba(80,49,137,0.3)",
     marginVertical: 4,
   },
-  coinSub: { fontSize: 10, fontWeight: "600", color: C.gold },
+  coinSub: { fontSize: 10, fontWeight: "500", color: C.gold },
 
   // ── Body ─────────────────────────────────────────────────────────────────
   body: { paddingHorizontal: 16, paddingTop: 14 },
   name: {
-    fontSize: 19,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "600",
     color: C.navy,
     lineHeight: 24,
     letterSpacing: -0.3,
@@ -1369,7 +1372,7 @@ const s = StyleSheet.create({
   priceBlock: { alignItems: "flex-start", marginTop: 8, marginBottom: 8 },
   priceValue: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.green,
     letterSpacing: -0.5,
   },
@@ -1383,7 +1386,7 @@ const s = StyleSheet.create({
     fontSize: 13,
     color: C.red,
     textDecorationLine: "line-through",
-    fontWeight: "600",
+    fontWeight: "500",
   },
   discPill: {
     backgroundColor: C.goldLight,
@@ -1391,7 +1394,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  discPillText: { fontSize: 10, fontWeight: "700", color: C.navy },
+  discPillText: { fontSize: 10, fontWeight: "600", color: C.navy },
 
   // ── Trust icons strip ──────────────────────────────────────────────────────
   trustGrid: {
@@ -1406,8 +1409,8 @@ const s = StyleSheet.create({
   },
   trustGridItem: { flex: 1, alignItems: "center", gap: 6, paddingHorizontal: 4 },
   trustGridLabel: {
-    fontSize: 10.5,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "500",
     color: C.navyMid,
     textAlign: "center",
     lineHeight: 13,
@@ -1421,7 +1424,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  freeDeliveryNote: { fontSize: 12, fontWeight: "600", color: C.navyLight },
+  freeDeliveryNote: { fontSize: 12, fontWeight: "500", color: C.navyLight },
 
   // Variant selector
   variantInPrice: {
@@ -1432,7 +1435,7 @@ const s = StyleSheet.create({
   },
   variantInPriceLabel: {
     fontSize: 10,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.navyMid,
     letterSpacing: 0.8,
     marginBottom: 8,
@@ -1450,12 +1453,12 @@ const s = StyleSheet.create({
   },
   totalChargesLabel: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.navy,
   },
   totalChargesValue: {
     fontSize: 18,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.green,
     letterSpacing: -0.3,
   },
@@ -1479,7 +1482,7 @@ const s = StyleSheet.create({
   },
   secTitle: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.navy,
   },
 
@@ -1493,7 +1496,7 @@ const s = StyleSheet.create({
     width: "100%",
     aspectRatio: 1,
     borderRadius: 12,
-    backgroundColor: "#F7F4ED",
+    backgroundColor: "#F7F7F9",
     overflow: "hidden",
     marginBottom: 6,
   },
@@ -1503,11 +1506,11 @@ const s = StyleSheet.create({
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(108,74,182,0.06)",
+    backgroundColor: "rgba(80,49,137,0.06)",
   },
   similarName: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.navy,
     lineHeight: 16,
     marginBottom: 2,
@@ -1518,7 +1521,7 @@ const s = StyleSheet.create({
     color: C.navyLight,
     marginBottom: 2,
   },
-  similarPrice: { fontSize: 13, fontWeight: "800", color: C.green },
+  similarPrice: { fontSize: 13, fontWeight: "700", color: C.green },
   similarPriceNA: { fontSize: 11, color: C.navyLight, fontStyle: "italic" },
 
   // ── Specifications Dropdown ───────────────────────────────────────────────
@@ -1529,18 +1532,18 @@ const s = StyleSheet.create({
   },
   specDropdownTitle: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.navy,
   },
   specViewMoreWrap: { flexDirection: "row", alignItems: "center", gap: 3 },
-  specViewMoreText: { fontSize: 12.5, fontWeight: "600", color: C.navyMid },
+  specViewMoreText: { fontSize: 13, fontWeight: "500", color: C.navyMid },
   specDropdownContent: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: C.divider,
   },
-  priceBreakupRetry: { fontSize: 12, fontWeight: "700", color: C.gold },
+  priceBreakupRetry: { fontSize: 12, fontWeight: "600", color: C.gold },
   priceBreakupState: {
     flexDirection: "row",
     alignItems: "center",
@@ -1573,18 +1576,18 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: C.goldDim,
   },
-  chipWeight: { fontSize: 15, fontWeight: "700", color: C.navy },
+  chipWeight: { fontSize: 15, fontWeight: "600", color: C.navy },
   chipWeightActive: { color: C.navy },
   chipPurity: { fontSize: 10, color: C.navyLight, marginTop: 1 },
   chipPurityActive: { color: C.gold },
   chipPrice: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.navyMid,
     marginTop: 3,
   },
   chipPriceActive: { color: C.green },
-  chipOosText: { fontSize: 9, color: C.red, marginTop: 3, fontWeight: "700" },
+  chipOosText: { fontSize: 9, color: C.red, marginTop: 3, fontWeight: "600" },
   chipDot: {
     width: 4,
     height: 4,
@@ -1595,7 +1598,7 @@ const s = StyleSheet.create({
 
   // ── Spec Rows ─────────────────────────────────────────────────────────────
   waiverLabelRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  waiverText: { fontSize: 13, fontWeight: "700", color: C.green },
+  waiverText: { fontSize: 13, fontWeight: "600", color: C.green },
   specRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1607,7 +1610,7 @@ const s = StyleSheet.create({
   specLabel: { fontSize: 13, color: C.navyLight },
   specVal: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.navy,
     flex: 1,
     textAlign: "right",
@@ -1616,12 +1619,12 @@ const s = StyleSheet.create({
 
   // ── Cart Message ──────────────────────────────────────────────────────────
   cartMsg: { flexDirection: "row", alignItems: "center", borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1 },
-  cartMsgOk: { backgroundColor: "#E8F5E9", borderColor: "#E8F5E9" },
+  cartMsgOk: { backgroundColor: "#EAF8F1", borderColor: "#EAF8F1" },
   cartMsgErr: { backgroundColor: "#FDECEA", borderColor: "#FDECEA" },
-  cartMsgText: { flex: 1, fontSize: 13, fontWeight: "600" },
+  cartMsgText: { flex: 1, fontSize: 13, fontWeight: "500" },
   cartMsgOkText: { color: C.green },
   cartMsgErrText: { color: C.red },
-  viewCartLink: { fontSize: 12.5, fontWeight: "700", color: C.gold, marginLeft: 8 },
+  viewCartLink: { fontSize: 13, fontWeight: "600", color: C.gold, marginLeft: 8 },
 
   // ── AI Model Preview ──────────────────────────────────────────────────────
   previewDesc: {
@@ -1647,7 +1650,7 @@ const s = StyleSheet.create({
   },
   previewBtnText: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.navy,
   },
   previewNoteRow: {
@@ -1683,13 +1686,13 @@ const s = StyleSheet.create({
   },
   footerLabel: {
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.navyLight,
     letterSpacing: 0.3,
   },
   footerPrice: {
     fontSize: 20,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.green,
     letterSpacing: -0.5,
   },
@@ -1713,7 +1716,7 @@ const s = StyleSheet.create({
   },
   cartBtnText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#fff",
     letterSpacing: 0.2,
   },
@@ -1739,8 +1742,8 @@ const s = StyleSheet.create({
     marginBottom: 18,
   },
   emptyTitle: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "500",
     color: C.navy,
     marginBottom: 6,
   },
@@ -1758,7 +1761,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 28,
     paddingVertical: 13,
   },
-  emptyBtnText: { fontSize: 14, fontWeight: "600", color: "#1C1C1E" },
+  emptyBtnText: { fontSize: 14, fontWeight: "500", color: "#333333" },
 
   // ── Fullscreen Modal ──────────────────────────────────────────────────────
   modal: {
@@ -1806,10 +1809,10 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.20)",
   },
-  modalNavText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  modalNavText: { fontSize: 14, fontWeight: "600", color: "#fff" },
   modalViewLabel: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "rgba(255,255,255,0.85)",
   },
   modalCounter: {

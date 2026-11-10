@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 // − qty + stepper shown in place of "Add to Cart" once the item is in the
 // cart. Same white pill and pink-magenta edge as PgActionButton, so the
 // button keeps its shape and simply turns into a counter.
-const ACCENT = "#C0267E";
+const ACCENT = "#503189";
 
 const PgQtyStepper = ({ qty, onIncrement, onDecrement, loading, style }) => (
   <View style={[styles.wrap, style]}>
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   qtyBox: { flex: 1, alignItems: "center", justifyContent: "center" },
-  qty: { fontSize: 14, fontWeight: "800", color: ACCENT },
+  qty: { fontSize: 14, fontWeight: "700", color: ACCENT },
 });
 
 export default memo(PgQtyStepper);

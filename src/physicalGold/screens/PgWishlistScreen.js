@@ -33,17 +33,17 @@ import { resolveImageUrl } from "../utils/resolveImageUrl";
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#6C4AB6",
-  goldBright: "#8466C9",
-  goldMuted: "rgba(108,74,182,0.10)",
-  goldBorder: "rgba(108,74,182,0.20)",
-  goldText: "#6C4AB6",
-  textPrimary: "#1C1C1E",
-  textSecondary: "#7A7A80",
-  textMuted: "#A79C93",
-  border: "#E7E0DA",
+  gold: "#503189",
+  goldBright: "#8A73B8",
+  goldMuted: "rgba(80,49,137,0.10)",
+  goldBorder: "rgba(80,49,137,0.20)",
+  goldText: "#503189",
+  textPrimary: "#333333",
+  textSecondary: "#757575",
+  textMuted: "#9E9E9E",
+  border: "#E0E0E0",
   green: "#1F8A4C",
-  red: "#C0392B",
+  red: "#E53935",
 };
 
 // ─── Resolve all possible field variations from API ───────────────────────────
@@ -395,7 +395,7 @@ const s = StyleSheet.create({
     marginBottom: 14,
   },
   headerAccent: { width: 3, height: 18, borderRadius: 2, backgroundColor: C.gold },
-  headerTitle: { fontSize: 17, fontWeight: "700", color: C.textPrimary, letterSpacing: -0.3 },
+  headerTitle: { fontSize: 18, fontWeight: "600", color: C.textPrimary, letterSpacing: -0.3 },
   countPill: {
     backgroundColor: C.goldMuted,
     borderRadius: 20,
@@ -404,32 +404,26 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.goldBorder,
   },
-  countText: { fontSize: 11, fontWeight: "700", color: C.textPrimary },
+  countText: { fontSize: 11, fontWeight: "600", color: C.textPrimary },
 
   // ── Grid — 10px gutters, cards in a row share one height ──────────────────
   row: { flexDirection: "row", alignItems: "stretch", paddingHorizontal: 11 },
   col: { width: "50%", padding: 5 },
 
   // ── Card — same shell as ProductCard on Home ─────────────────────────────────
+  // No box/shadow — same as the Home product cards: soft rounded image
+  // tile with the text below it.
   card: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#EEE8E0",
-    shadowColor: "#2A1F4A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
   },
 
   // ── Image — white square, "contain" so every product sits the same size ──
   imageWrap: {
     width: "100%",
     aspectRatio: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F7F7F9",
+    borderRadius: 12,
     position: "relative",
     overflow: "hidden",
     padding: 12,
@@ -451,7 +445,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
-  offBadgeText: { fontSize: 9.5, fontWeight: "800", color: "#FFFFFF", letterSpacing: 0.2 },
+  offBadgeText: { fontSize: 10, fontWeight: "700", color: "#FFFFFF", letterSpacing: 0.2 },
 
   heartBtn: {
     position: "absolute",
@@ -471,20 +465,20 @@ const s = StyleSheet.create({
   },
 
   // ── Info ─────────────────────────────────────────────────────────────────────
-  info: { flex: 1, paddingHorizontal: 10, paddingTop: 10, paddingBottom: 10, backgroundColor: "#FFFFFF" },
-  name: { fontSize: 13, fontWeight: "600", color: C.textPrimary, lineHeight: 18, minHeight: 36 },
+  info: { flex: 1, paddingHorizontal: 2, paddingTop: 10, paddingBottom: 10, backgroundColor: "#FFFFFF" },
+  name: { fontSize: 13, fontWeight: "500", color: C.textPrimary, lineHeight: 18, minHeight: 36 },
   metaRow: { flexDirection: "row", marginTop: 6 },
   metaBadge: { backgroundColor: "#F7F1E6", borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
-  metaText: { fontSize: 10, fontWeight: "600", color: "#8B5A2B" },
+  metaText: { fontSize: 10, fontWeight: "500", color: "#8B5A2B" },
   priceBlock: { flex: 1, justifyContent: "flex-end", marginTop: 8 },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: 1 },
-  priceRupee: { fontSize: 11, fontWeight: "700", color: "#0E6B57" },
-  priceAmount: { fontSize: 15, fontWeight: "900", color: "#0E6B57", lineHeight: 19, flexShrink: 1 },
+  priceRupee: { fontSize: 11, fontWeight: "600", color: "#15803D" },
+  priceAmount: { fontSize: 15, fontWeight: "700", color: "#15803D", lineHeight: 19, flexShrink: 1 },
   priceStrike: {
     fontSize: 11,
-    color: "#C0392B",
+    color: "#E53935",
     textDecorationLine: "line-through",
-    fontWeight: "600",
+    fontWeight: "500",
     marginLeft: 6,
     flexShrink: 1,
   },
@@ -506,7 +500,7 @@ const s = StyleSheet.create({
     marginBottom: 18,
   },
   emptyEmoji: { fontSize: 32 },
-  emptyTitle: { fontSize: 16, fontWeight: "700", color: C.textPrimary, marginBottom: 8, textAlign: "center" },
+  emptyTitle: { fontSize: 16, fontWeight: "600", color: C.textPrimary, marginBottom: 8, textAlign: "center" },
   emptySubtitle: { fontSize: 13, color: C.textMuted, textAlign: "center", marginBottom: 26, lineHeight: 19 },
   browseBtn: {
     backgroundColor: C.gold,
@@ -519,7 +513,7 @@ const s = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  browseBtnText: { fontSize: 13, fontWeight: "800", color: "#fff" },
+  browseBtnText: { fontSize: 13, fontWeight: "700", color: "#fff" },
 });
 
 export default PgWishlistScreen;

@@ -18,13 +18,13 @@ import { resolveImageUrl } from "../utils/resolveImageUrl";
 // options, price, GST note and Buy Now — without leaving Home. "View Full
 // Details" still goes to the full Product Details screen.
 const C = {
-  navy: "#1A1A1A",
+  navy: "#333333",
   grey: "#6B6B6B",
-  line: "#EEEEEE",
+  line: "#EEEEF3",
   gold: "#B8860B",
-  violet: "#7C3AED",
-  green: "#047857",
-  accent: "#C0267E",
+  violet: "#503189",
+  green: "#15803D",
+  accent: "#503189",
 };
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
@@ -165,7 +165,7 @@ const ProductQuickViewSheet = ({ visible, product, onClose, onBuyNow, buyingNow,
                             activeOpacity={0.8}
                             style={[s.chip, active && { borderColor: metalColor, backgroundColor: `${metalColor}12` }]}
                           >
-                            <Text style={[s.chipText, active && { color: metalColor, fontWeight: "800" }]}>
+                            <Text style={[s.chipText, active && { color: metalColor, fontWeight: "700" }]}>
                               {v.weight}g
                             </Text>
                           </TouchableOpacity>
@@ -225,7 +225,7 @@ const s = StyleSheet.create({
     maxHeight: "85%",
     paddingTop: 8,
   },
-  handle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: "#DDDDDD" },
+  handle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: "#E0E0E0" },
   close: {
     position: "absolute",
     top: 12,
@@ -234,7 +234,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#F3F3F3",
+    backgroundColor: "#F7F7F9",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -242,7 +242,7 @@ const s = StyleSheet.create({
   imageBox: {
     height: 200,
     borderRadius: 16,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#F7F7F9",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -257,11 +257,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  offBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },
-  name: { marginTop: 14, fontSize: 18, fontWeight: "800", color: C.navy },
-  purity: { marginTop: 3, fontSize: 13, fontWeight: "700" },
+  offBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
+  name: { marginTop: 14, fontSize: 18, fontWeight: "500", color: C.navy },
+  purity: { marginTop: 3, fontSize: 13, fontWeight: "600" },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 10 },
-  price: { fontSize: 22, fontWeight: "900", color: C.navy },
+  price: { fontSize: 22, fontWeight: "700", color: C.navy },
   mrp: { fontSize: 14, color: C.grey, textDecorationLine: "line-through" },
   gstTag: {
     flexDirection: "row",
@@ -269,13 +269,13 @@ const s = StyleSheet.create({
     alignSelf: "flex-start",
     gap: 5,
     marginTop: 8,
-    backgroundColor: "#ECFDF5",
+    backgroundColor: "#EAF8F1",
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  gstTagText: { fontSize: 12, fontWeight: "700", color: C.green },
-  sectionLabel: { marginTop: 16, marginBottom: 8, fontSize: 13, fontWeight: "700", color: C.navy },
+  gstTagText: { fontSize: 12, fontWeight: "600", color: C.green },
+  sectionLabel: { marginTop: 16, marginBottom: 8, fontSize: 13, fontWeight: "600", color: C.navy },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     minWidth: 60,
@@ -286,8 +286,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  chipText: { fontSize: 13, fontWeight: "600", color: C.navy },
-  weightOnly: { marginTop: 12, fontSize: 13, fontWeight: "600", color: C.navy },
+  chipText: { fontSize: 13, fontWeight: "500", color: C.navy },
+  weightOnly: { marginTop: 12, fontSize: 13, fontWeight: "500", color: C.navy },
   desc: { marginTop: 14, fontSize: 13, lineHeight: 19, color: C.grey },
   footer: {
     flexDirection: "row",
@@ -307,7 +307,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  detailsBtnText: { fontSize: 14, fontWeight: "700", color: C.accent },
+  detailsBtnText: { fontSize: 14, fontWeight: "600", color: C.accent },
   buyBtn: {
     flex: 1,
     height: 48,
@@ -317,5 +317,5 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   buyBtnDisabled: { opacity: 0.5 },
-  buyBtnText: { fontSize: 15, fontWeight: "800", color: "#FFFFFF" },
+  buyBtnText: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
 });

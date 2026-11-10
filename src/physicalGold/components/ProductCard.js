@@ -186,7 +186,7 @@ const ProductCard = ({
     <TouchableOpacity style={[s.card, flat && s.cardFlat]} onPress={() => onPress?.(product)} activeOpacity={0.9}>
 
       {/* ── Image — white tile, contained product shot ─────────────────────── */}
-      <View style={[s.imageWrap, imageAspectRatio ? { aspectRatio: imageAspectRatio } : null]}>
+      <View style={[s.imageWrap, flat && s.imageWrapFlat, imageAspectRatio ? { aspectRatio: imageAspectRatio } : null]}>
         {imageUrl && !imgError ? (
           <Image
             source={{ uri: imageUrl }}
@@ -225,7 +225,7 @@ const ProductCard = ({
               <Ionicons
                 name={isInWishlist ? 'heart' : 'heart-outline'}
                 size={16}
-                color={isInWishlist ? '#C85A54' : '#7A7A80'}
+                color={isInWishlist ? '#E53935' : '#757575'}
               />
             </Animated.View>
           </TouchableOpacity>
@@ -233,7 +233,7 @@ const ProductCard = ({
       </View>
 
       {/* ── Name, purity, price, action ────────────────────────────────────── */}
-      <View style={s.info}>
+      <View style={[s.info, flat && s.infoFlat]}>
         <Text style={s.name} numberOfLines={2} ellipsizeMode="tail">
           {name}
         </Text>
@@ -296,10 +296,10 @@ const ProductCard = ({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             {addingCart ? (
-              <ActivityIndicator size="small" color="#176B4D" />
+              <ActivityIndicator size="small" color="#15803D" />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={14} color="#176B4D" />
+                <Ionicons name="checkmark-circle" size={14} color="#15803D" />
                 <Text style={s.inCartText}>In Cart</Text>
               </>
             )}
@@ -323,25 +323,17 @@ const ProductCard = ({
 const s = StyleSheet.create({
 
   // ── Card shell — rounded, hairline border, whisper of shadow ──────────────
+  // No box around the card — the image sits on its own soft rounded tile and
+  // the text runs below it on the page background.
   card: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#EEE8E0',
-    shadowColor: '#2A1F4A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
   },
 
+  // Category product list keeps its edge-to-edge grid lines.
   cardFlat: {
-    borderRadius: 0,
+    borderWidth: 1,
     borderColor: '#E5E7EB',
-    shadowOpacity: 0,
-    elevation: 0,
   },
 
   // ── Image area — square tile on plain white ───────────────────────────────
@@ -349,10 +341,16 @@ const s = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EEEEF3',
     position: 'relative',
     overflow: 'hidden',
-    padding: 12,
+    padding: 4,
   },
+  imageWrapFlat: { borderRadius: 0, borderWidth: 0, backgroundColor: '#FFFFFF' },
+  // Bordered category-grid cells keep their inner padding.
+  infoFlat: { paddingHorizontal: 10 },
   image: {
     width: '100%',
     height: '100%',
@@ -375,8 +373,8 @@ const s = StyleSheet.create({
     paddingVertical: 3,
   },
   offBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.2,
   },
@@ -393,7 +391,7 @@ const s = StyleSheet.create({
   },
   badgeDarkText: {
     fontSize: 9,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
@@ -418,7 +416,7 @@ const s = StyleSheet.create({
 
   // ── Info ───────────────────────────────────────────────────────────────────
   info: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 2,
     paddingTop: 10,
     paddingBottom: 10,
     flex: 1,
@@ -426,8 +424,8 @@ const s = StyleSheet.create({
   },
   name: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#1C1C1E',
+    fontWeight: '500',
+    color: '#333333',
     lineHeight: 18,
     minHeight: 36, // two lines, so cards in a row line up
   },
@@ -443,7 +441,7 @@ const s = StyleSheet.create({
   },
   metaText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#8B5A2B',
   },
   priceBlock: {
@@ -458,27 +456,27 @@ const s = StyleSheet.create({
   },
   priceRupee: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#0E6B57',
+    fontWeight: '600',
+    color: '#333333',
   },
   priceAmount: {
     fontSize: 15,
-    fontWeight: '900',
-    color: '#0E6B57',
+    fontWeight: '600',
+    color: '#333333',
     lineHeight: 19,
     flexShrink: 1,
   },
   priceStrike: {
     fontSize: 11,
-    color: '#C0392B',
+    color: '#9E9E9E',
     textDecorationLine: 'line-through',
-    fontWeight: '600',
+    fontWeight: '500',
     marginLeft: 6,
     flexShrink: 1,
   },
   priceNA: {
     fontSize: 11,
-    color: '#A79C93',
+    color: '#9E9E9E',
     fontStyle: 'italic',
     lineHeight: 19,
   },
@@ -492,22 +490,22 @@ const s = StyleSheet.create({
     gap: 4,
     borderRadius: 20,
     borderWidth: 1.3,
-    backgroundColor: '#EAF3EE',
+    backgroundColor: '#EAF8F1',
     borderColor: '#B7D2C2',
   },
-  inCartText: { fontSize: 12, fontWeight: '700', color: '#176B4D', textTransform: 'uppercase' },
+  inCartText: { fontSize: 12, fontWeight: '600', color: '#15803D', textTransform: 'uppercase' },
   detailsBtn: {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#D6C7F2',
-    backgroundColor: '#F3ECFA',
+    backgroundColor: '#F4F0FA',
   },
   detailsBtnText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#6C4AB6',
+    fontWeight: '600',
+    color: '#503189',
   },
 });
 

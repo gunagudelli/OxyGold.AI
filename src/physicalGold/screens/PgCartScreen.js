@@ -22,6 +22,8 @@ import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GstWaiverModal from "../components/GstWaiverModal";
+import BillDetailsCard from "../components/BillDetailsCard";
+import PgQtyStepper from "../components/PgQtyStepper";
 import { getProductImages, getUserAddresses } from "../api/physicalGoldApi";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { FLATLIST_OPTIMIZATIONS, keyExtractor } from "../../utils/flatListOptimizations";
@@ -29,26 +31,31 @@ import { FLATLIST_OPTIMIZATIONS, keyExtractor } from "../../utils/flatListOptimi
 const C = {
   bg: "#FFFFFF",
   card: "#FFFFFF",
-  gold: "#6C4AB6",
-  goldLight: "#F7F4ED",
-  goldMid: "#9A80DA",
-  goldDim: "rgba(108,74,182,0.10)",
-  goldDimBorder: "rgba(108,74,182,0.25)",
-  navy: "#1C1C1E",
-  navyMid: "#48484C",
-  navyLight: "#7A7A80",
-  green: "#1F8A4C",
-  red: "#C0392B",
-  border: "#E7E0DA",
-  divider: "#EEEBE8",
+  gold: "#503189",
+  goldLight: "#F4F0FA",
+  goldMid: "#8A73B8",
+  goldDim: "rgba(80,49,137,0.10)",
+  goldDimBorder: "rgba(80,49,137,0.25)",
+  navy: "#333333",
+  navyMid: "#555555",
+  navyLight: "#757575",
+  green: "#1F8A4C", // savings/FREE — ASKOXY.AI's softer green
+  red: "#E53935",
+  border: "#E0E0E0",
+  divider: "#EEEEF3",
   surfaceAlt: "#FFFFFF",
 };
 
 
 // ── Section Header ────────────────────────────────────────────────────────────
+const toTitleCase = (text) =>
+  String(text || "").toLowerCase().replace(/(^|\s|\()(\S)/g, (m, sep, ch) => sep + ch.toUpperCase());
+
+const SAVE_GREEN = "#15803D";
+
 const SectionHeader = ({ title }) => (
   <View style={styles.sectionHeader}>
-    <Text style={styles.sectionTitle}>{title}</Text>
+    <Text style={styles.sectionTitle}>{toTitleCase(title)}</Text>
   </View>
 );
 
@@ -73,6 +80,16 @@ const getCartItemTotal = (item) => {
 const getCartItemMrpTotal = (item) => Number(item?.mrp || 0) * (Number(item?.quantity) || 1);
 
 // ── Cart Item Row — Image LEFT, Details RIGHT ─────────────────────────────────
+// Size text for the subtitle — skipped when it just repeats the weight
+// ("10 Gram" vs 10g), and "Gram" is only added to a bare number.
+const getSizeLabel = (item) => {
+  const size = String(item?.size ?? "").trim();
+  if (!size) return null;
+  const num = parseFloat(size);
+  if (item?.weight != null && Number.isFinite(num) && num === Number(item.weight)) return null;
+  return /[a-z]/i.test(size) ? size : `${size} Gram`;
+};
+
 const CartItemRow = ({ item, busy, imageUrl, onRemove, onIncrement, onDecrement, onImagePress }) => (
   <View style={[styles.itemCard, busy && { opacity: 0.65 }]}>
     {busy && (
@@ -129,22 +146,22 @@ const CartItemRow = ({ item, busy, imageUrl, onRemove, onIncrement, onDecrement,
           {[
             item.purity || null,
             item.weight ? `${item.weight}g` : null,
-            item.size ? `${item.size} Gram` : null,
+            getSizeLabel(item),
           ].filter(Boolean).join(" · ")}
         </Text>
       ) : null}
 
       {/* Qty stepper + Line total */}
       <View style={styles.qtyTotalRow}>
-        <View style={styles.qtyStepper}>
-          <TouchableOpacity style={[styles.stepBtn, busy && styles.stepBtnOff]} onPress={onDecrement} disabled={busy} activeOpacity={0.8}>
-            <Text style={styles.stepBtnText}>−</Text>
-          </TouchableOpacity>
-          <Text style={styles.qtyValue}>{item.quantity ?? 1}</Text>
-          <TouchableOpacity style={[styles.stepBtn, busy && styles.stepBtnOff]} onPress={onIncrement} disabled={busy} activeOpacity={0.8}>
-            <Text style={styles.stepBtnText}>+</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Same − qty + pill as the Home product cards; at qty 1 the
+            left button is a bin (handleDecrement removes the item). */}
+        <PgQtyStepper
+          qty={item.quantity ?? 1}
+          loading={busy}
+          onIncrement={onIncrement}
+          onDecrement={onDecrement}
+          style={styles.qtyPill}
+        />
 
         <View style={{ alignItems: "flex-end" }}>
           <Text style={styles.lineTotalValue}>₹{getCartItemTotal(item).toLocaleString("en-IN")}</Text>
@@ -397,10 +414,9 @@ const PgCartScreen = ({ navigation }) => {
           contentContainerStyle={styles.scroll}
         >
         <FadeSlideIn>
-          <SectionHeader title={`${cartItems.length} ITEM${cartItems.length > 1 ? "S" : ""} IN CART`} />
-
-          {/* ── Items list ── */}
+          {/* ── Items list (heading inside the card) ── */}
           <View style={styles.listCard}>
+            <SectionHeader title={`${cartItems.length} ITEM${cartItems.length > 1 ? "S" : ""} IN CART`} />
             <FlatList
               data={cartItems}
               keyExtractor={keyExtractor}
@@ -423,76 +439,23 @@ const PgCartScreen = ({ navigation }) => {
             />
           </View>
 
-          {/* ── Order Summary ── */}
-          <View style={styles.summaryCard}>
-            <SectionHeader title="ORDER SUMMARY" />
-            <SummaryRow label={`Subtotal (${cartItems.length} items)`} value={`₹${subtotal.toLocaleString("en-IN")}`} />
-            <View style={styles.specDivider} />
-            {/* Always shown, ₹0 included — same as the web order summary. */}
-            <SummaryRow label="Making Charges" value={`₹${making.toLocaleString("en-IN")}`} />
-            <View style={styles.specDivider} />
-            {totalDiscountAmount > 0 && totalDiscountAmount >= gst - 1 ? (
-              // Backend's discount is the waived GST — show GST struck out as FREE;
-              // tapping it re-opens the "100% GST Paid" popup.
-              <TouchableOpacity
-                style={styles.specRow}
-                onPress={() => setShowGstModal(true)}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityHint="Shows GST waiver details"
-              >
-                <View style={styles.discountLabelRow}>
-                  <Text style={styles.specLabel}>GST (3%)</Text>
-                  <Ionicons name="information-circle-outline" size={13} color={C.green} />
-                </View>
-                <View style={styles.discountLabelRow}>
-                  <Text style={styles.strikeValue}>₹{Number(gst || totalDiscountAmount).toLocaleString("en-IN")}</Text>
-                  <Text style={styles.specFree}>FREE</Text>
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <>
-                <View style={styles.specRow}>
-                  <Text style={styles.specLabel}>GST (3%)</Text>
-                  <Text style={styles.specValue}>₹{Number(gst || 0).toLocaleString("en-IN")}</Text>
-                </View>
-                {totalDiscountAmount > 0 && (
-                  <>
-                    <View style={styles.specDivider} />
-                    <TouchableOpacity
-                      style={styles.specRow}
-                      onPress={() => setShowGstModal(true)}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityHint="Shows discount details"
-                    >
-                      <View style={styles.discountLabelRow}>
-                        <Text style={styles.discountText}>Discount</Text>
-                        <Ionicons name="information-circle-outline" size={13} color={C.green} />
-                      </View>
-                      <Text style={styles.discountText}>-₹{Number(totalDiscountAmount).toLocaleString("en-IN")}</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </>
-            )}
-            <View style={styles.specDivider} />
-            <SummaryRow
-              label={`Delivery Fee${Number(deliveryDistanceKm) > 0 ? ` (${deliveryDistanceKm} km)` : ""}`}
-              value={deliveryFee > 0 ? `₹${deliveryFee.toLocaleString("en-IN")}` : "FREE"}
-              isFree={deliveryFee <= 0}
-            />
-            {deliveryFee > 0 && ratePerKm !== null && deliveryDistanceKm !== null && (
-              <Text style={styles.deliveryRateNote}>₹{ratePerKm}/km delivery rate</Text>
-            )}
-            <View style={styles.grandRow}>
-              <Text style={styles.grandLabel}>Total</Text>
-              <Text style={styles.grandValue}>₹{grand.toLocaleString("en-IN")}</Text>
-            </View>
-            <View style={styles.secureNoteRow}>
-              <Ionicons name="shield-checkmark-outline" size={13} color={C.navyLight} />
-              <Text style={styles.secureNoteText}>Secure & Encrypted Checkout</Text>
-            </View>
+          {/* ── Bill details — shared with Checkout so both look the same ── */}
+          <BillDetailsCard
+            itemCount={cartItems.length}
+            subtotal={subtotal}
+            making={making}
+            gst={gst}
+            discount={totalDiscountAmount}
+            deliveryFee={deliveryFee}
+            deliveryDistanceKm={deliveryDistanceKm}
+            ratePerKm={ratePerKm}
+            total={grand}
+            onDiscountPress={() => setShowGstModal(true)}
+          />
+
+          <View style={styles.secureNoteRow}>
+            <Ionicons name="shield-checkmark-outline" size={13} color={C.navyLight} />
+            <Text style={styles.secureNoteText}>Secure & Encrypted Checkout</Text>
           </View>
         </FadeSlideIn>
         </ScrollView>
@@ -549,21 +512,24 @@ const PgCartScreen = ({ navigation }) => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 40 },
+  // Light grey page with white cards — same look as My Orders / Checkout.
+  root: { flex: 1, backgroundColor: "#F4F3F8" },
+  scroll: { paddingTop: 12, paddingBottom: 24 },
 
-  sectionHeader: { marginBottom: 12 },
-  sectionTitle: { fontSize: 13, fontWeight: "600", color: C.navy },
+  sectionHeader: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
+  sectionTitle: { fontSize: 15, fontWeight: "500", color: C.navy },
 
-  // ── List card wrapper ──
+  // ── Items — flat full-width section (no boxed card) ──
   listCard: {
-    backgroundColor: C.card,
-    borderRadius: 18,
-    marginBottom: 14,
-    overflow: "hidden",
-    shadowColor: "rgba(34,30,28,0.06)",
+    marginHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#ECEAF2",
+    shadowColor: "#2A1F4A",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 1,
   },
@@ -590,7 +556,7 @@ const styles = StyleSheet.create({
     width: 108,
     height: 108,
     borderRadius: 14,
-    backgroundColor: C.goldLight,
+    backgroundColor: "#F7F7F9",
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
@@ -608,22 +574,22 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "rgba(228,187,103,0.4)",
   },
-  fallbackWeight: { fontSize: 13, fontWeight: "700", color: "#E4BB67" },
+  fallbackWeight: { fontSize: 13, fontWeight: "600", color: "#E4BB67" },
   fallbackDivider: { width: 22, height: 1, backgroundColor: "rgba(228,187,103,0.4)", marginVertical: 3 },
-  fallbackPurity: { fontSize: 9, fontWeight: "700", color: "rgba(228,187,103,0.7)", letterSpacing: 0.4 },
+  fallbackPurity: { fontSize: 9, fontWeight: "600", color: "rgba(228,187,103,0.7)", letterSpacing: 0.4 },
 
   purityPill: {
     position: "absolute", bottom: 5, left: 5,
     backgroundColor: "rgba(34,30,28,0.88)",
     borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2,
   },
-  purityPillText: { fontSize: 9, fontWeight: "600", color: "#E4BB67", letterSpacing: 0.4 },
+  purityPillText: { fontSize: 9, fontWeight: "500", color: "#E4BB67", letterSpacing: 0.4 },
 
   // Details — right side, fills remaining width
   detailsCol: { flex: 1, gap: 5 },
 
   nameRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  itemName: { flex: 1, fontSize: 15, fontWeight: "700", color: C.navy, lineHeight: 19 },
+  itemName: { flex: 1, fontSize: 15, fontWeight: "500", color: C.navy, lineHeight: 20 },
 
   deleteBtn: {
     width: 28, height: 28, borderRadius: 8,
@@ -631,7 +597,7 @@ const styles = StyleSheet.create({
     justifyContent: "center", alignItems: "center", flexShrink: 0,
   },
 
-  itemSubtitle: { fontSize: 12, color: C.navyLight },
+  itemSubtitle: { fontSize: 13, color: C.navyLight },
 
   // Qty stepper + line total — plain row, no boxed background
   qtyTotalRow: {
@@ -641,6 +607,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   qtyStepper: { flexDirection: "row", alignItems: "center", gap: 10 },
+  qtyPill: { width: 112 },
   stepBtn: {
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: C.card,
@@ -648,69 +615,98 @@ const styles = StyleSheet.create({
     justifyContent: "center", alignItems: "center",
   },
   stepBtnOff: { backgroundColor: C.divider },
-  stepBtnText: { fontSize: 16, fontWeight: "600", color: C.navy, lineHeight: 18 },
-  qtyValue: { fontSize: 14, fontWeight: "600", color: C.navy, minWidth: 18, textAlign: "center" },
+  stepBtnText: { fontSize: 16, fontWeight: "500", color: C.navy, lineHeight: 18 },
+  qtyValue: { fontSize: 14, fontWeight: "500", color: C.navy, minWidth: 18, textAlign: "center" },
 
-  lineTotalValue: { fontSize: 15, fontWeight: "800", color: C.green },
+  lineTotalValue: { fontSize: 15, fontWeight: "600", color: C.navy },
   offerRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
   offerStrike: {
     fontSize: 11,
-    color: C.red,
+    color: C.navyLight, // grey strike-through MRP (red was harsh)
     textDecorationLine: "line-through",
-    fontWeight: "600",
+    fontWeight: "500",
   },
-  offerPct: { fontSize: 10, fontWeight: "700", color: C.gold },
+  offerPct: { fontSize: 11, fontWeight: "600", color: "#1F8A4C" },
 
   // ── Summary card ──
+  // Flat summary section; rows spaced rather than ruled.
   summaryCard: {
     backgroundColor: C.card,
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: C.border,
+    paddingBottom: 14,
   },
-  specRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 9 },
-  specDivider: { height: 1, backgroundColor: C.divider },
-  specLabel: { fontSize: 13, color: C.navyLight },
-  specValue: { fontSize: 13, fontWeight: "700", color: C.navy },
-  specFree: { fontSize: 13, fontWeight: "600", color: C.green },
+  priceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEF3",
+  },
+  priceHeaderText: { fontSize: 16, fontWeight: "700", color: "#333333" },
+  priceBody: { paddingHorizontal: 16, paddingTop: 6 },
+  priceDivider: {
+    borderTopWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#D1D5DB",
+    marginVertical: 8,
+  },
+  savingsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    backgroundColor: "#EAF8F1",
+    borderRadius: 8,
+  },
+  savingsText: { fontSize: 13, fontWeight: "600", color: SAVE_GREEN },
+  specRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 7 },
+  specDivider: { height: 0 },
+  specLabel: { fontSize: 14, color: C.navyMid },
+  specValue: { fontSize: 14, fontWeight: "500", color: C.navy },
+  specFree: { fontSize: 14, fontWeight: "600", color: C.green },
   discountLabelRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  discountText: { fontSize: 13, fontWeight: "600", color: C.green },
+  discountText: { fontSize: 14, fontWeight: "500", color: C.green },
   strikeValue: { fontSize: 12, color: C.navyLight, textDecorationLine: "line-through" },
-  deliveryRateNote: { fontSize: 10.5, color: C.navyLight, textAlign: "right", marginTop: -3, marginBottom: 6 },
+  deliveryRateNote: { fontSize: 11, color: C.navyLight, textAlign: "right", marginTop: -3, marginBottom: 6 },
   grandRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.divider,
+    paddingVertical: 4,
   },
-  grandLabel: { fontSize: 15, fontWeight: "700", color: C.navy },
-  grandValue: { fontSize: 20, fontWeight: "800", color: C.green },
+  grandLabel: { fontSize: 15, fontWeight: "700", color: "#333333" },
+  grandValue: { fontSize: 18, fontWeight: "700", color: "#333333" },
   secureNoteRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 5, marginTop: 12,
+    gap: 5, marginTop: 14, marginBottom: 6,
   },
-  secureNoteText: { fontSize: 11.5, fontWeight: "500", color: C.navyLight },
+  secureNoteText: { fontSize: 12, fontWeight: "500", color: C.navyLight },
 
   // ── Footer ──
   footer: {
     backgroundColor: C.card,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingBottom: 24,
+    paddingBottom: 18,
     paddingTop: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 10,
   },
   footerInner: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 16 },
   footerLeft: { flex: 1 },
-  footerLabel: { fontSize: 11, fontWeight: "600", color: C.navyLight, letterSpacing: 0.3, marginBottom: 1 },
-  footerAmount: { fontSize: 22, fontWeight: "800", color: C.green, letterSpacing: -0.5 },
+  footerLabel: { fontSize: 11, fontWeight: "500", color: C.navyLight, letterSpacing: 0.3, marginBottom: 1 },
+  footerAmount: { fontSize: 20, fontWeight: "600", color: C.navy, letterSpacing: -0.2 },
   footerSub: { fontSize: 11, color: C.navyLight, marginTop: 2 },
   checkoutBtn: {
     flex: 1,
     flexDirection: "row",
-    backgroundColor: C.gold, borderRadius: 14, height: 52,
+    backgroundColor: "#FB641B", borderRadius: 6, height: 48,
     justifyContent: "center", alignItems: "center",
   },
-  checkoutBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", letterSpacing: 0.2 },
+  checkoutBtnText: { fontSize: 15, fontWeight: "700", color: "#fff", letterSpacing: 0.3 },
 
   // ── Empty state ──
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80, paddingHorizontal: 24 },
@@ -718,12 +714,12 @@ const styles = StyleSheet.create({
     width: 80, height: 80, borderRadius: 40, backgroundColor: C.goldLight,
     justifyContent: "center", alignItems: "center", marginBottom: 16,
   },
-  emptyTitle: { fontSize: 16, fontWeight: "700", color: C.navy, marginBottom: 6 },
+  emptyTitle: { fontSize: 16, fontWeight: "600", color: C.navy, marginBottom: 6 },
   emptySubtitle: { fontSize: 13, color: C.navyLight, marginBottom: 24, textAlign: "center" },
   browseBtn: {
     backgroundColor: C.gold, borderRadius: 13, paddingHorizontal: 28, paddingVertical: 14,
   },
-  browseBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", letterSpacing: 0.1 },
+  browseBtnText: { fontSize: 14, fontWeight: "600", color: "#fff", letterSpacing: 0.1 },
 
   // ── Image Modal ──
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)", justifyContent: "center", alignItems: "center" },

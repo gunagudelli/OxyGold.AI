@@ -18,15 +18,15 @@ import { downloadInvoicePDF, openInvoicePDF, shareInvoicePDF } from '../../utils
 const C = {
   bg: '#FFFFFF',
   surface: '#FFFFFF',
-  border: '#E7E0DA',
-  gold: '#6C4AB6',
-  goldDim: 'rgba(108,74,182,0.10)',
-  goldDimBorder: 'rgba(108,74,182,0.22)',
-  textPri: '#1C1C1E',
-  textSec: '#7A7A80',
-  textTer: '#A79C93',
+  border: '#E0E0E0',
+  gold: '#503189',
+  goldDim: 'rgba(80,49,137,0.10)',
+  goldDimBorder: 'rgba(80,49,137,0.22)',
+  textPri: '#333333',
+  textSec: '#757575',
+  textTer: '#9E9E9E',
   success: '#1F8A4C',
-  successBg: '#E8F5E9',
+  successBg: '#EAF8F1',
 };
 
 const Row = ({ label, value, bold }) => (
@@ -248,14 +248,14 @@ const styles = StyleSheet.create({
 
   invoiceTitle: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: C.textTer,
     letterSpacing: 1,
   },
 
   invoiceNumber: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '700',
     color: C.textPri,
     marginTop: 4,
   },
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
 
   statusText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: C.success,
   },
 
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
 
   cardTitle: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: C.textTer,
     letterSpacing: 1,
     marginBottom: 12,
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEBE8',
+    borderBottomColor: '#EEEEF3',
   },
 
   rowLabel: {
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
 
   rowValue: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: C.textPri,
     textAlign: 'right',
     flex: 1,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
 
   rowValueBold: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     color: C.textPri,
   },
 
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   },
 
   itemCard: {
-    backgroundColor: '#EEEBE8',
+    backgroundColor: '#EEEEF3',
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
@@ -350,15 +350,15 @@ const styles = StyleSheet.create({
 
   itemName: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: C.textPri,
     flex: 1,
   },
 
   itemPrice: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#6C4AB6',
+    fontWeight: '700',
+    color: '#503189',
   },
 
   itemDetails: {
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
 
   actionBtnText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#fff',
   },
 });

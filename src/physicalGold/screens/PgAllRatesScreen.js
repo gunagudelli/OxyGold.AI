@@ -20,16 +20,16 @@ const C = {
   bg:           "#FFFFFF",
   bgCard:       "#FFFFFF",
   navy:         "#15151A",
-  gold:         "#6C4AB6",
-  goldBright:   "#8466C9",
-  goldMuted:    "rgba(108,74,182,0.08)",
-  textPrimary:  "#1C1C1E",
-  textSecondary:"#7A7A80",
-  textMuted:    "#A79C93",
-  green:        "#146C3B",
-  red:          "#C0392B",
-  border:       "#E7E0DA",
-  divider:      "#EEEBE8",
+  gold:         "#503189",
+  goldBright:   "#8A73B8",
+  goldMuted:    "rgba(80,49,137,0.08)",
+  textPrimary:  "#333333",
+  textSecondary:"#757575",
+  textMuted:    "#9E9E9E",
+  green:        "#15803D",
+  red:          "#E53935",
+  border:       "#E0E0E0",
+  divider:      "#EEEEF3",
   shadowDark:   "rgba(34,30,28,0.08)",
 };
 
@@ -384,29 +384,29 @@ const styles = StyleSheet.create({
   },
   trendSvg: { position: "absolute", left: 0, top: 4 },
   heroTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  heroBrand: { fontSize: 12, fontWeight: "800", color: "rgba(255,255,255,0.7)", letterSpacing: 1 },
+  heroBrand: { fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.7)", letterSpacing: 1 },
   liveBadge: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4 },
-  liveDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#4ADE80" },
-  liveBadgeText: { fontSize: 9, fontWeight: "800", color: "#4ADE80", letterSpacing: 0.5 },
+  liveDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#1F8A4C" },
+  liveBadgeText: { fontSize: 9, fontWeight: "700", color: "#1F8A4C", letterSpacing: 0.5 },
 
-  heroLabel: { fontSize: 11, fontWeight: "600", color: "rgba(255,255,255,0.5)", marginBottom: 4 },
-  heroPrice: { fontSize: 28, fontWeight: "800", color: "#FFFFFF", letterSpacing: -0.6, marginBottom: 12 },
-  heroPriceUnit: { fontSize: 13, fontWeight: "700", color: "rgba(255,255,255,0.45)" },
+  heroLabel: { fontSize: 11, fontWeight: "500", color: "rgba(255,255,255,0.5)", marginBottom: 4 },
+  heroPrice: { fontSize: 28, fontWeight: "700", color: "#FFFFFF", letterSpacing: -0.6, marginBottom: 12 },
+  heroPriceUnit: { fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.45)" },
 
   heroStatRow: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 11 },
   heroStat: { flex: 1, gap: 2 },
   heroStatDivider: { width: 1, height: 24, backgroundColor: "rgba(255,255,255,0.12)", marginHorizontal: 14 },
-  heroStatLabel: { fontSize: 10.5, fontWeight: "600", color: "rgba(255,255,255,0.55)" },
-  heroStatValue: { fontSize: 13.5, fontWeight: "700", color: "#FFFFFF" },
-  heroStatUnit: { fontSize: 9.5, fontWeight: "700", color: "rgba(255,255,255,0.45)" },
+  heroStatLabel: { fontSize: 11, fontWeight: "500", color: "rgba(255,255,255,0.55)" },
+  heroStatValue: { fontSize: 14, fontWeight: "600", color: "#FFFFFF" },
+  heroStatUnit: { fontSize: 10, fontWeight: "600", color: "rgba(255,255,255,0.45)" },
 
   heroUpdated: { fontSize: 10, color: "rgba(255,255,255,0.38)", marginTop: 10, textAlign: "right" },
 
   // ── Section ──
   sectionHead: { marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: "800", color: C.textPrimary, letterSpacing: -0.3 },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: C.textPrimary, letterSpacing: -0.3 },
   updatedPill: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 },
-  sectionSubtitle: { fontSize: 11.5, fontWeight: "600", color: C.textSecondary },
+  sectionSubtitle: { fontSize: 12, fontWeight: "500", color: C.textSecondary },
 
   // ── Provider list — one flat surface, rows separated by a hairline, not
   // boxed cards ──
@@ -418,22 +418,22 @@ const styles = StyleSheet.create({
   cardDivider: { borderBottomWidth: 1, borderBottomColor: C.divider },
   cardTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
 
-  rowName: { fontSize: 13, fontWeight: "700", color: C.textPrimary },
+  rowName: { fontSize: 13, fontWeight: "500", color: C.textPrimary },
   rowDash: { fontSize: 13, color: C.textMuted },
 
   // ── Comparison header — brand name left, "OXYGOLD.AI" right ──
   compareHeaderRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
   compareHeaderLabel: { flex: 1 },
-  compareHeaderCol: { flex: 1, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.4, textAlign: "center" },
+  compareHeaderCol: { flex: 1, fontSize: 10, fontWeight: "700", letterSpacing: 0.4, textAlign: "center" },
 
   // ── One row per metal — label left, [their price | diff | our price] right ──
   compareRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8 },
   compareRowDivider: { borderBottomWidth: 1, borderBottomColor: C.divider },
-  compareLabel: { flex: 1, fontSize: 12, fontWeight: "600", color: C.textSecondary },
+  compareLabel: { flex: 1, fontSize: 12, fontWeight: "500", color: C.textSecondary },
   compareValuesRow: { flex: 2, flexDirection: "row", alignItems: "center" },
   compareValueCol: { flex: 1, alignItems: "center" },
-  compareTheirValue: { fontSize: 13.5, fontWeight: "700", color: C.textPrimary },
-  compareOurValue: { fontSize: 13.5, fontWeight: "800", color: C.gold },
+  compareTheirValue: { fontSize: 14, fontWeight: "600", color: C.textPrimary },
+  compareOurValue: { fontSize: 14, fontWeight: "700", color: C.gold },
 
   diffBadge: {
     minWidth: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2,
@@ -443,21 +443,21 @@ const styles = StyleSheet.create({
   diffBadgeHigher: { backgroundColor: "rgba(192,57,43,0.10)" },
   diffBadgeNeutral: { backgroundColor: C.divider },
   diffBadgeArrow: { marginTop: -1 },
-  diffBadgeText: { fontSize: 10.5, fontWeight: "800" },
+  diffBadgeText: { fontSize: 11, fontWeight: "700" },
 
   visitBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
     borderTopWidth: 1, borderTopColor: C.divider, marginTop: 2, paddingTop: 10,
   },
-  visitBtnText: { fontSize: 12, fontWeight: "700", color: C.textPrimary },
+  visitBtnText: { fontSize: 12, fontWeight: "600", color: C.textPrimary },
 
   // ── States ──
   centerState: { alignItems: "center", paddingVertical: 60, gap: 8, paddingHorizontal: 24 },
-  errorTitle: { fontSize: 15, fontWeight: "700", color: C.textPrimary, marginTop: 4 },
-  errorSubtitle: { fontSize: 12.5, color: C.textMuted, textAlign: "center" },
+  errorTitle: { fontSize: 15, fontWeight: "600", color: C.textPrimary, marginTop: 4 },
+  errorSubtitle: { fontSize: 13, color: C.textMuted, textAlign: "center" },
   retryBtn: { marginTop: 14, backgroundColor: C.gold, borderRadius: 12, paddingHorizontal: 22, paddingVertical: 11 },
-  retryBtnText: { fontSize: 13.5, fontWeight: "700", color: "#FFFFFF" },
-  emptyTitle: { fontSize: 13.5, fontWeight: "600", color: C.textSecondary, textAlign: "center" },
+  retryBtnText: { fontSize: 14, fontWeight: "600", color: "#FFFFFF" },
+  emptyTitle: { fontSize: 14, fontWeight: "500", color: C.textSecondary, textAlign: "center" },
 });
 
 export default PgAllRatesScreen;

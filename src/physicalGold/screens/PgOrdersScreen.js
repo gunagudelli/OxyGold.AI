@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   FlatList,
   Alert,
+  Image,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
@@ -17,22 +19,24 @@ import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
 import FadeSlideIn from "../components/FadeSlideIn";
 import { downloadInvoicePDF, openInvoicePDF } from "../../utils/downloadInvoice";
+import { resolveImageUrl } from "../utils/resolveImageUrl";
+import { colors } from "../theme";
 
 const C = {
   bg: "#FFFFFF",
   surface: "#FFFFFF",
-  border: "#E7E0DA",
-  gold: "#6C4AB6",
-  goldLight: "#6C4AB6",
-  goldDim: "rgba(108,74,182,0.10)",
-  goldDimBorder: "rgba(108,74,182,0.22)",
-  textPri: "#1C1C1E",
-  textSec: "#7A7A80",
-  textTer: "#A79C93",
+  border: "#E0E0E0",
+  gold: "#503189",
+  goldLight: "#503189",
+  goldDim: "rgba(80,49,137,0.10)",
+  goldDimBorder: "rgba(80,49,137,0.22)",
+  textPri: "#333333",
+  textSec: "#757575",
+  textTer: "#9E9E9E",
   success: "#1F8A4C",
-  successBg: "#E8F5E9",
-  warning: "#D4A574",
-  warningBg: "#FDF6ED",
+  successBg: "#EAF8F1",
+  warning: "#F59E0B",
+  warningBg: "#FFF8E6",
 };
 
 const getStatusColor = (status) => {
@@ -45,9 +49,9 @@ const getStatusColor = (status) => {
     case "PROCESSING":
       return { bg: C.warningBg, color: C.warning, icon: "time" };
     case "CANCELLED":
-      return { bg: "#FDECEA", color: "#C85A54", icon: "close-circle" };
+      return { bg: "#FDECEA", color: "#E53935", icon: "close-circle" };
     default:
-      return { bg: "#EEEBE8", color: C.textTer, icon: "help-circle" };
+      return { bg: "#EEEEF3", color: C.textTer, icon: "help-circle" };
   }
 };
 
@@ -71,63 +75,106 @@ const TrackingTimeline = ({ tracking, loading }) => {
   }
 
   const { trackingNumber, statusLabel, deliveryBoy, deliveryAddress, timeline } = tracking;
+  const partnerName = deliveryBoy
+    ? [deliveryBoy.firstName, deliveryBoy.lastName].filter(Boolean).join(" ")
+    : "";
+  const partnerPhone =
+    deliveryBoy?.phoneNumber || deliveryBoy?.mobileNumber || deliveryBoy?.phone || null;
+  const events = Array.isArray(timeline) ? timeline : [];
+
+  const InfoRow = ({ icon, label, value, right }) => (
+    <View style={styles.tkRow}>
+      <View style={styles.tkRowIcon}>
+        <Ionicons name={icon} size={15} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.tkRowLabel}>{label}</Text>
+        <Text style={styles.tkRowValue} numberOfLines={2}>
+          {value}
+        </Text>
+      </View>
+      {right}
+    </View>
+  );
 
   return (
     <View style={styles.trackingPanel}>
-      {trackingNumber ? (
-        <View style={styles.trackingRow}>
-          <Text style={styles.trackingLabel}>Tracking No.</Text>
-          <Text style={styles.trackingValue}>{trackingNumber}</Text>
-        </View>
-      ) : null}
-
+      {/* Current status banner */}
       {statusLabel ? (
-        <View style={styles.trackingRow}>
-          <Text style={styles.trackingLabel}>Status</Text>
-          <Text style={styles.trackingValue}>{statusLabel}</Text>
+        <View style={styles.tkStatus}>
+          <Ionicons name="bicycle-outline" size={18} color="#FFFFFF" />
+          <Text style={styles.tkStatusText}>{statusLabel}</Text>
         </View>
       ) : null}
 
-      {deliveryBoy ? (
-        <View style={styles.trackingRow}>
-          <Text style={styles.trackingLabel}>Delivery Partner</Text>
-          <Text style={styles.trackingValue}>
-            {[deliveryBoy.firstName, deliveryBoy.lastName].filter(Boolean).join(" ")}
-            {deliveryBoy.vehicleNumber ? ` · ${deliveryBoy.vehicleNumber}` : ""}
-          </Text>
+      {/* Details */}
+      {(trackingNumber || partnerName || deliveryAddress) && (
+        <View style={styles.tkInfo}>
+          {trackingNumber ? (
+            <InfoRow icon="barcode-outline" label="Tracking No." value={trackingNumber} />
+          ) : null}
+          {partnerName ? (
+            <InfoRow
+              icon="person-outline"
+              label="Delivery partner"
+              value={`${partnerName}${deliveryBoy?.vehicleNumber ? ` · ${deliveryBoy.vehicleNumber}` : ""}`}
+              right={
+                partnerPhone ? (
+                  <TouchableOpacity
+                    style={styles.tkCall}
+                    onPress={() => Linking.openURL(`tel:${partnerPhone}`)}
+                    accessibilityLabel="Call delivery partner"
+                  >
+                    <Ionicons name="call" size={14} color="#FFFFFF" />
+                    <Text style={styles.tkCallText}>Call</Text>
+                  </TouchableOpacity>
+                ) : null
+              }
+            />
+          ) : null}
+          {deliveryAddress ? (
+            <InfoRow icon="location-outline" label="Delivering to" value={deliveryAddress} />
+          ) : null}
         </View>
-      ) : null}
+      )}
 
-      {deliveryAddress ? (
-        <View style={styles.trackingRow}>
-          <Text style={styles.trackingLabel}>Delivering To</Text>
-          <Text style={[styles.trackingValue, { flex: 1, textAlign: "right" }]} numberOfLines={2}>
-            {deliveryAddress}
-          </Text>
-        </View>
-      ) : null}
-
-      {Array.isArray(timeline) && timeline.length > 0 && (
-        <View style={styles.timelineWrap}>
-          {timeline.map((event, i) => (
-            <View key={`${event.status}-${i}`} style={styles.timelineItem}>
-              <View style={styles.timelineDotCol}>
-                <View style={[styles.timelineDot, i === 0 && styles.timelineDotActive]} />
-                {i < timeline.length - 1 && <View style={styles.timelineLine} />}
-              </View>
-              <View style={{ flex: 1, paddingBottom: 14 }}>
-                <Text style={styles.timelineStatus}>{event.statusLabel || event.status}</Text>
-                {event.description ? (
-                  <Text style={styles.timelineDesc}>{event.description}</Text>
-                ) : null}
-                {event.timestamp ? (
-                  <Text style={styles.timelineTime}>
-                    {new Date(event.timestamp).toLocaleString("en-IN")}
+      {/* Stepper — newest first: the top step is the current one */}
+      {events.length > 0 && (
+        <View style={styles.tkSteps}>
+          {events.map((event, i) => {
+            const current = i === 0;
+            const last = i === events.length - 1;
+            return (
+              <View key={`${event.status}-${i}`} style={styles.tkStep}>
+                <View style={styles.tkStepRail}>
+                  <View style={[styles.tkStepDot, current ? styles.tkStepDotCurrent : styles.tkStepDotDone]}>
+                    <Ionicons
+                      name={current ? "ellipse" : "checkmark"}
+                      size={current ? 8 : 12}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                  {!last && <View style={styles.tkStepLine} />}
+                </View>
+                <View style={[styles.tkStepBody, last && { paddingBottom: 0 }]}>
+                  <Text style={[styles.tkStepTitle, current && { color: colors.primary }]}>
+                    {event.statusLabel || event.status}
                   </Text>
-                ) : null}
+                  {event.description ? <Text style={styles.tkStepDesc}>{event.description}</Text> : null}
+                  {event.timestamp ? (
+                    <Text style={styles.tkStepTime}>
+                      {new Date(event.timestamp).toLocaleString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
     </View>
@@ -164,67 +211,79 @@ const OrderCard = ({ order, userId, onViewInvoice, onDownloadInvoice }) => {
     }
   };
 
+  const firstItem = order.items?.[0] || {};
+  const imageUrl = resolveImageUrl(
+    firstItem.imageUrl || firstItem.productImage || firstItem.frontViewurl || firstItem.image,
+  );
+  const statusText = String(order.orderStatus || "Unknown")
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/^\w/, (c) => c.toUpperCase());
+  const placedOn = new Date(order.createdAt || order.orderDate || order.paymentExpiry);
+  const placedText = Number.isNaN(placedOn.getTime())
+    ? orderDate
+    : placedOn.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
   return (
-    <View style={styles.orderCard}>
-      <View style={styles.orderHeader}>
+    <View style={styles.ocCard}>
+      {/* Status + order no. */}
+      <View style={styles.ocTop}>
+        <View style={[styles.ocStatusPill, { backgroundColor: statusInfo.bg }]}>
+          <Ionicons name={statusInfo.icon} size={13} color={statusInfo.color} />
+          <Text style={[styles.ocStatusText, { color: statusInfo.color }]}>{statusText}</Text>
+        </View>
+        <Text style={styles.ocOrderNo}>#{displayOrderId}</Text>
+      </View>
+
+      {/* Product summary */}
+      <TouchableOpacity
+        style={styles.ocBody}
+        onPress={() => onViewInvoice(orderNumber)}
+        activeOpacity={0.75}
+      >
+        <View style={styles.ocImage}>
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={{ width: "100%", height: "100%" }} resizeMode="contain" />
+          ) : (
+            <Ionicons name="cube-outline" size={24} color={colors.primary} />
+          )}
+        </View>
         <View style={{ flex: 1 }}>
-          <View style={styles.orderTopRow}>
-            <Text style={styles.orderId}>Order #{displayOrderId}</Text>
-            <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
-          </View>
-          <Text style={styles.orderDate}>{orderDate}</Text>
-        </View>
-      </View>
-
-      <View style={styles.orderBody}>
-        <View style={styles.itemInfo}>
-          <View style={styles.statusRow}>
-            <Ionicons name={statusInfo.icon} size={11} color={statusInfo.color} />
-            <Text style={[styles.statusLabel, { color: statusInfo.color }]}>
-              {order.orderStatus || "Unknown"}
-            </Text>
-          </View>
-          <Text style={styles.itemCount}>
-            {itemCount} item{itemCount !== 1 ? "s" : ""}
+          <Text style={styles.ocName} numberOfLines={2}>
+            {firstItem.productName || "Gold Product"}
+            {itemCount > 1 ? ` + ${itemCount - 1} more` : ""}
           </Text>
-          <Text style={styles.itemDesc} numberOfLines={1}>
-            {order.items?.[0]?.productName || "Gold Product"}
-            {itemCount > 1 ? ` +${itemCount - 1}` : ""}
+          <Text style={styles.ocMeta}>
+            {itemCount} item{itemCount !== 1 ? "s" : ""} · Placed {placedText}
           </Text>
+          <Text style={styles.ocAmount}>₹{Number(order.totalAmount || 0).toLocaleString("en-IN")}</Text>
         </View>
-        <View style={styles.amountInfo}>
-          <Text style={styles.amountLabel}>Total</Text>
-          <Text style={styles.amount}>
-            ₹{Number(order.totalAmount || 0).toLocaleString("en-IN")}
-          </Text>
-        </View>
-      </View>
-
-      {/* Invoice Actions */}
-      <View style={styles.actionRow}>
-        <TouchableOpacity
-          style={styles.invoiceBtn}
-          onPress={() => onViewInvoice(orderNumber)}
-        >
-          <Ionicons name="eye-outline" size={16} color={C.gold} />
-          <Text style={styles.invoiceBtnText}>View Invoice</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.invoiceBtn}
-          onPress={() => onDownloadInvoice(orderNumber)}
-        >
-          <Ionicons name="download-outline" size={16} color={C.gold} />
-          <Text style={styles.invoiceBtnText}>Download</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity style={styles.trackToggle} onPress={handleToggleTracking} activeOpacity={0.75}>
-        <Ionicons name="navigate-outline" size={14} color={C.textSec} />
-        <Text style={styles.trackToggleText}>{showTracking ? "Hide Tracking" : "Track Order"}</Text>
-        <Ionicons name={showTracking ? "chevron-up" : "chevron-down"} size={14} color={C.textTer} />
+        <Ionicons name="chevron-forward" size={18} color={colors.textDisabled} />
       </TouchableOpacity>
 
-      {showTracking && <TrackingTimeline tracking={tracking} loading={trackingLoading} />}
+      {/* Actions */}
+      <View style={styles.ocActions}>
+        <TouchableOpacity style={styles.ocAction} onPress={handleToggleTracking} activeOpacity={0.7}>
+          <Ionicons name="navigate-outline" size={15} color={colors.primary} />
+          <Text style={styles.ocActionText}>{showTracking ? "Hide tracking" : "Track order"}</Text>
+        </TouchableOpacity>
+        <View style={styles.ocActionDivider} />
+        <TouchableOpacity style={styles.ocAction} onPress={() => onViewInvoice(orderNumber)} activeOpacity={0.7}>
+          <Ionicons name="document-text-outline" size={15} color={colors.primary} />
+          <Text style={styles.ocActionText}>Invoice</Text>
+        </TouchableOpacity>
+        <View style={styles.ocActionDivider} />
+        <TouchableOpacity style={styles.ocAction} onPress={() => onDownloadInvoice(orderNumber)} activeOpacity={0.7}>
+          <Ionicons name="download-outline" size={15} color={colors.primary} />
+          <Text style={styles.ocActionText}>Download</Text>
+        </TouchableOpacity>
+      </View>
+
+      {showTracking && (
+        <View style={styles.ocTracking}>
+          <TrackingTimeline tracking={tracking} loading={trackingLoading} />
+        </View>
+      )}
     </View>
   );
 };
@@ -387,29 +446,20 @@ const PgOrdersScreen = ({ navigation, route }) => {
               return (
                 <TouchableOpacity
                   key={item.key}
-                  style={[
-                    styles.filterChip,
-                    isActive && styles.filterChipActive,
-                    isActive && { borderColor: statusInfo.color },
-                  ]}
+                  style={[styles.filterChip, isActive && styles.filterChipActive]}
                   onPress={() => setFilter(item.key)}
                   activeOpacity={0.7}
                 >
                   <Ionicons
                     name={item.icon}
                     size={14}
-                    color={isActive ? statusInfo.color : C.textTer}
+                    color={isActive ? "#FFFFFF" : C.textSec}
                   />
                   <Text
-                    style={[
-                      styles.filterChipText,
-                      isActive && styles.filterChipTextActive,
-                      isActive && { color: statusInfo.color },
-                    ]}
+                    style={[styles.filterChipText, isActive && styles.filterChipTextActive]}
                   >
                     {item.label}
                   </Text>
-                  {isActive && <View style={[styles.filterDot, { backgroundColor: statusInfo.color }]} />}
                 </TouchableOpacity>
               );
             })}
@@ -445,15 +495,16 @@ const PgOrdersScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
+  // Light grey page so the white order cards stand out (was all white).
+  root: { flex: 1, backgroundColor: "#F4F3F8" },
   center: { justifyContent: "center", alignItems: "center" },
 
   /* FILTER - Modern Compact Design */
   filterContainer: {
-    backgroundColor: C.surface,
+    backgroundColor: "#FFFFFF",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: "#ECEAF2",
   },
 
   filterContent: {
@@ -465,33 +516,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#EEEBE8",
-    borderWidth: 1.5,
-    borderColor: "transparent",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#DCD6E6",
   },
 
-  filterChipActive: {
-    backgroundColor: C.surface,
-    borderWidth: 1.5,
-    shadowColor: "rgba(0,0,0,0.08)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+  // Selected filter: filled brand purple, white text.
+  filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
 
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: C.textTer,
-  },
+  filterChipText: { fontSize: 12.5, fontWeight: "500", color: C.textSec },
 
-  filterChipTextActive: {
-    fontWeight: "600",
-  },
+  filterChipTextActive: { fontWeight: "600", color: "#FFFFFF" },
 
   filterDot: {
     width: 5,
@@ -505,7 +543,151 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
-  /* ORDER CARD */
+  /* ORDER CARD — status pill, product summary with image, action bar */
+  ocCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#ECEAF2",
+    shadowColor: "#2A1F4A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  ocTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingTop: 12,
+  },
+  ocStatusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  ocStatusText: { fontSize: 12, fontWeight: "600" },
+  ocOrderNo: { fontSize: 12, fontWeight: "500", color: colors.textSecondary },
+  ocBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+  },
+  ocImage: {
+    width: 68,
+    height: 68,
+    borderRadius: 12,
+    backgroundColor: "#F7F5FB",
+    borderWidth: 1,
+    borderColor: "#ECEAF2",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  ocName: { fontSize: 14, fontWeight: "600", color: colors.text, lineHeight: 19 },
+  ocMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 3 },
+  ocAmount: { fontSize: 16, fontWeight: "700", color: colors.text, marginTop: 6 },
+  // Tinted action bar so the actions read as buttons.
+  ocActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#ECEAF2",
+    backgroundColor: "#FAF8FD",
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  ocAction: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+  },
+  ocActionText: { fontSize: 13, fontWeight: "600", color: colors.primary },
+  ocActionDivider: { width: 1, height: 20, backgroundColor: "#E4E0EC" },
+  ocTracking: {
+    paddingHorizontal: 14,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#ECEAF2",
+  },
+
+  /* TRACK ORDER — status banner, info box, stepper */
+  tkStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginTop: 14,
+  },
+  tkStatusText: { fontSize: 14, fontWeight: "600", color: "#FFFFFF", flex: 1 },
+  tkInfo: {
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ECEAF2",
+    backgroundColor: "#FAF8FD",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  tkRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 9 },
+  tkRowIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#EFE9FA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tkRowLabel: { fontSize: 11, color: colors.textMuted },
+  tkRowValue: { fontSize: 13, fontWeight: "600", color: colors.text, marginTop: 1 },
+  tkCall: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#1F8A4C",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  tkCallText: { fontSize: 12, fontWeight: "600", color: "#FFFFFF" },
+  tkSteps: { marginTop: 16, paddingLeft: 2 },
+  tkStep: { flexDirection: "row", gap: 12 },
+  tkStepRail: { alignItems: "center", width: 22 },
+  tkStepDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tkStepDotDone: { backgroundColor: "#1F8A4C" },
+  tkStepDotCurrent: {
+    backgroundColor: colors.primary,
+    borderWidth: 4,
+    borderColor: "#E4DAF7",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  tkStepLine: { width: 2, flex: 1, backgroundColor: "#BFE3CB", marginVertical: 2 },
+  tkStepBody: { flex: 1, paddingBottom: 18 },
+  tkStepTitle: { fontSize: 13.5, fontWeight: "600", color: colors.text },
+  tkStepDesc: { fontSize: 12, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
+  tkStepTime: { fontSize: 11, color: colors.textMuted, marginTop: 3 },
+
+  /* ORDER CARD (previous layout) */
   orderCard: {
     backgroundColor: C.surface,
     borderRadius: 12,
@@ -530,7 +712,7 @@ const styles = StyleSheet.create({
 
   orderId: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.textPri,
   },
 
@@ -556,7 +738,7 @@ const styles = StyleSheet.create({
 
   statusLabel: {
     fontSize: 10,
-    fontWeight: "600",
+    fontWeight: "500",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -569,7 +751,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#EEEBE8",
+    borderBottomColor: "#EEEEF3",
   },
 
   itemInfo: {
@@ -578,7 +760,7 @@ const styles = StyleSheet.create({
 
   itemCount: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.textPri,
   },
 
@@ -597,12 +779,12 @@ const styles = StyleSheet.create({
     color: C.textTer,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    fontWeight: "600",
+    fontWeight: "500",
   },
 
   amount: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.textPri,
     marginTop: 2,
   },
@@ -628,7 +810,7 @@ const styles = StyleSheet.create({
 
   invoiceBtnText: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
     color: C.textPri,
   },
 
@@ -641,20 +823,20 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "#EEEBE8",
+    borderTopColor: "#EEEEF3",
   },
-  trackToggleText: { fontSize: 12, fontWeight: "600", color: C.textSec },
+  trackToggleText: { fontSize: 12, fontWeight: "500", color: C.textSec },
 
-  trackingLoading: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 14, justifyContent: "center" },
+  trackingLoading: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 18, justifyContent: "center" },
   trackingLoadingText: { fontSize: 12, color: C.textTer },
 
-  trackingEmpty: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 14, justifyContent: "center" },
+  trackingEmpty: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 18, justifyContent: "center" },
   trackingEmptyText: { fontSize: 12, color: C.textTer },
 
-  trackingPanel: { marginTop: 10, paddingTop: 4 },
+  trackingPanel: { paddingTop: 0 },
   trackingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 5 },
-  trackingLabel: { fontSize: 11.5, color: C.textTer, fontWeight: "600" },
-  trackingValue: { fontSize: 12.5, color: C.textPri, fontWeight: "700" },
+  trackingLabel: { fontSize: 12, color: C.textTer, fontWeight: "500" },
+  trackingValue: { fontSize: 13, color: C.textPri, fontWeight: "600" },
 
   timelineWrap: { marginTop: 10 },
   timelineItem: { flexDirection: "row", gap: 10 },
@@ -662,9 +844,9 @@ const styles = StyleSheet.create({
   timelineDot: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: C.border, marginTop: 3 },
   timelineDotActive: { backgroundColor: C.gold },
   timelineLine: { width: 1.5, flex: 1, backgroundColor: C.border, marginTop: 2 },
-  timelineStatus: { fontSize: 12.5, fontWeight: "700", color: C.textPri },
-  timelineDesc: { fontSize: 11.5, color: C.textSec, marginTop: 2, lineHeight: 16 },
-  timelineTime: { fontSize: 10.5, color: C.textTer, marginTop: 3 },
+  timelineStatus: { fontSize: 13, fontWeight: "600", color: C.textPri },
+  timelineDesc: { fontSize: 12, color: C.textSec, marginTop: 2, lineHeight: 16 },
+  timelineTime: { fontSize: 11, color: C.textTer, marginTop: 3 },
 
   /* EMPTY */
   emptyContainer: {
@@ -693,7 +875,7 @@ const styles = StyleSheet.create({
 
   shopBtnText: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#fff",
   },
 });

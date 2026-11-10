@@ -780,6 +780,50 @@ export const paymentWebhook = async (orderIdOrTxnId) => {
   }
 };
 
+// ─── Coupons & Offers (same endpoints as the oxygold.ai web cart) ────────────
+
+/**
+ * Active coupons the user can pick from.
+ * GET /api/oxygold-api/coupons/available
+ * @returns {Promise<Array>} coupons — {id, code, name, description, discountType,
+ *   discountValue, minimumOrderAmount, maximumDiscountAmount, applyTo,
+ *   categoryName, endDateTime, active, …}; [] on any failure.
+ */
+export const getAvailableCoupons = async () => {
+  try {
+    const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/coupons/available`);
+    if (response?.success === false) return [];
+    const data = extractData(response);
+    const list = Array.isArray(data) ? data : [];
+    return list.filter((c) => c && (c.active === undefined || c.active === true));
+  } catch (error) {
+    console.error('[PhysicalGoldApi] getAvailableCoupons failed:', error.message);
+    return [];
+  }
+};
+
+/**
+ * Validate a coupon against the user's current cart.
+ * POST /api/oxygold-api/coupons/apply  { couponCode }
+ * @returns {Promise<{couponCode, discountType, discountValue, eligibleAmount,
+ *   discountAmount, finalAmount, message}>}
+ * @throws {Error} with the backend's reason when the coupon isn't valid.
+ */
+export const applyCoupon = async (couponCode) => {
+  const code = String(couponCode || '').trim().toUpperCase();
+  if (!code) throw new Error('Please enter a coupon code.');
+  try {
+    const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/coupons/apply`, { couponCode: code });
+    if (response?.success === false) {
+      throw new Error(response?.message || 'Invalid or ineligible coupon code.');
+    }
+    return extractData(response);
+  } catch (error) {
+    // Prefer the backend's own reason ("Minimum order ₹…", "Expired", …).
+    throw new Error(error?.data?.message || error?.message || 'Invalid or ineligible coupon code.');
+  }
+};
+
 /**
  * Generate invoice
  * @param {number|string} orderId - Order ID (internal DB ID)

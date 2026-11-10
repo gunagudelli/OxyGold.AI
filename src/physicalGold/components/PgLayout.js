@@ -25,9 +25,9 @@ import { PG_HEADER_GRADIENT } from "../constants/physicalGoldColors";
 const HEADER_COLORS = {
   primary: "#FFFFFF",
   accent: "#CF8B17",
-  interactive: "#6C4AB6",
-  text: "#1C1C1E",
-  textSecondary: "#7A7A80",
+  interactive: "#503189",
+  text: "#333333",
+  textSecondary: "#757575",
 };
 
 // ─── HEADER ─────────────────────────────────────────
@@ -61,7 +61,7 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
             // A tinted header flows straight into the screen's own band, so
             // it drops the divider line.
             borderBottomWidth: tinted ? 0 : 1,
-            borderBottomColor: headerDark ? "rgba(255,255,255,0.12)" : "#E7E0DA",
+            borderBottomColor: headerDark ? "rgba(255,255,255,0.12)" : "#E0E0E0",
           },
         ]}
       >
@@ -117,17 +117,19 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
 const TABS = [
   { name: "PgHome", label: "Home", icon: "home" },
   { name: "PgWishlist", label: "Wishlist", icon: "heart" },
+  { name: "PgCart", label: "Cart", icon: "cart" },
   { name: "PgProfile", label: "Profile", icon: "person" },
 ];
 
-const PgBottomBar = ({ activeTab, onTabPress, wishlistCount = 0 }) => {
+const PgBottomBar = ({ activeTab, onTabPress, wishlistCount = 0, cartCount = 0 }) => {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[b.bar, { paddingBottom: insets.bottom + 6 }]}>
       {TABS.map((tab) => {
         const active = activeTab === tab.name;
-        const count = tab.name === "PgWishlist" ? wishlistCount : 0;
+        const count =
+          tab.name === "PgWishlist" ? wishlistCount : tab.name === "PgCart" ? cartCount : 0;
 
         return (
           <TouchableOpacity
@@ -142,7 +144,7 @@ const PgBottomBar = ({ activeTab, onTabPress, wishlistCount = 0 }) => {
                 color={
                   active
                     ? HEADER_COLORS.interactive
-                    : "#A79C93"
+                    : "#9E9E9E"
                 }
               />
 
@@ -174,6 +176,7 @@ const PgBottomBarConnected = () => {
   const userId = useSelector(selectUserId);
   const dispatch = useDispatch();
   const wishlistCount = useSelector(selectWishlistCount);
+  const cartCount = useSelector(selectCartCount);
 
   React.useEffect(() => {
     const unsubscribe = navigation.addListener("focus", async () => {
@@ -195,7 +198,7 @@ const PgBottomBarConnected = () => {
     while (current?.routes) {
       const route = current.routes[current.index ?? 0];
       if (route?.state) current = route.state;
-      else return route?.name || "PgHome";
+      else return route?.name === "PgCategory" ? "PgHome" : route?.name || "PgHome";
     }
     return "PgHome";
   };
@@ -205,6 +208,7 @@ const PgBottomBarConnected = () => {
       activeTab={getActiveTab()}
       onTabPress={(name) => navigation.navigate(name)}
       wishlistCount={wishlistCount}
+      cartCount={cartCount}
     />
   );
 };
@@ -242,6 +246,7 @@ const PgLayout = ({
   headerBg,
   headerDark,
   headerGradient,
+  contentBg, // optional: colour behind the screen content (Home uses violet)
 }) => {
   return (
     <View style={l.root}>
@@ -256,7 +261,7 @@ const PgLayout = ({
         headerGradient={headerGradient}
       />
 
-      <View style={l.content}>{children}</View>
+      <View style={[l.content, contentBg && { backgroundColor: contentBg }]}>{children}</View>
 
       {!hideBottomBar && <PgBottomBarConnected />}
     </View>
@@ -271,7 +276,7 @@ const h = StyleSheet.create({
     backgroundColor: HEADER_COLORS.primary,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#E7E0DA",
+    borderBottomColor: "#E0E0E0",
   },
   inner: {
     flexDirection: "row",
@@ -294,17 +299,17 @@ const h = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     paddingHorizontal: 3,
-    backgroundColor: "#6C4AB6",
+    backgroundColor: "#503189",
     justifyContent: "center",
     alignItems: "center",
   },
-  cartBadgeText: { color: "#fff", fontSize: 9, fontWeight: "700" },
+  cartBadgeText: { color: "#fff", fontSize: 9, fontWeight: "600" },
   logoImg: { width: 132, height: 22 },
   title: {
     flex: 1,
     textAlign: "center",
     color: HEADER_COLORS.text,
-    fontWeight: "600",
+    fontWeight: "500",
     fontSize: 16,
     letterSpacing: -0.2,
   },
@@ -339,17 +344,17 @@ const b = StyleSheet.create({
     position: "absolute",
     top: -6,
     right: -10,
-    backgroundColor: "#C0392B",
+    backgroundColor: "#E53935",
     borderRadius: 10,
     paddingHorizontal: 5,
   },
   badgeText: { color: "#fff", fontSize: 10 },
-  label: { fontSize: 10, fontWeight: "400", color: "#A79C93" },
-  labelActive: { color: "#1C1C1E", fontWeight: "600" },
+  label: { fontSize: 10, fontWeight: "400", color: "#9E9E9E" },
+  labelActive: { color: "#333333", fontWeight: "500" },
   dot: {
     width: 4,
     height: 4,
-    backgroundColor: "#6C4AB6",
+    backgroundColor: "#503189",
     borderRadius: 2,
   },
 });

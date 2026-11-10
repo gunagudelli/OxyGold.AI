@@ -19,11 +19,11 @@ import { persistTokens } from "../../services/apiClient";
 import { API_AUTH, API_ROLE } from "../../constants/api";
 
 const C = {
-  emerald: "#6C4AB6",
-  charcoal: "#1C1C1E",
-  muted: "#7A7A80",
-  border: "#E7E0DA",
-  error: "#C0392B",
+  emerald: "#503189",
+  charcoal: "#333333",
+  muted: "#757575",
+  border: "#E0E0E0",
+  error: "#E53935",
 };
 
 // ─── Half-screen login sheet ────────────────────────────────────────────────
@@ -326,7 +326,7 @@ const s = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#E7E0DA",
+    backgroundColor: "#E0E0E0",
     alignSelf: "center",
     marginBottom: 16,
   },
@@ -335,7 +335,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  title: { fontSize: 18, fontWeight: "700", color: C.charcoal },
+  title: { fontSize: 18, fontWeight: "600", color: C.charcoal },
   subtitle: { fontSize: 13, color: C.muted, marginTop: 6, marginBottom: 20, lineHeight: 18 },
   inputRow: {
     flexDirection: "row",
@@ -349,9 +349,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "500",
     color: C.charcoal,
-    backgroundColor: "#F4F5F7",
+    backgroundColor: "#F7F7F9",
   },
   input: { flex: 1, paddingHorizontal: 12, paddingVertical: 14, fontSize: 15, color: C.charcoal },
   otpRow: { flexDirection: "row", gap: 10 },
@@ -375,7 +375,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaInlineText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  ctaInlineText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   errorText: { color: C.error, fontSize: 12, marginTop: 10 },
   cta: {
     backgroundColor: C.emerald,
@@ -385,7 +385,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginTop: 20,
   },
-  ctaText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  ctaText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   changeNumberBtn: { alignSelf: "center", marginTop: 14 },
-  changeNumberText: { color: C.emerald, fontSize: 13, fontWeight: "600" },
+  changeNumberText: { color: C.emerald, fontSize: 13, fontWeight: "500" },
 });
