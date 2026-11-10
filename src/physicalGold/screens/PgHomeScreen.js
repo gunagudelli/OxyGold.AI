@@ -66,7 +66,7 @@ const BANNER_WIDTH = SCREEN_WIDTH - 32;
 // Home banner on/off.
 const SHOW_HOME_BANNER = true;
 // Diwali greeting + firework blast on Home — set false after the festival.
-const SHOW_DIWALI = true;
+const SHOW_DIWALI = false;
 // The "Happy Diwali" pop-up shows once per app launch (first time Home opens).
 let diwaliGreetingShown = false;
 // Promotional banners — add more images here and the carousel pages through

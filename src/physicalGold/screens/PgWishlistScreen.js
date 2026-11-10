@@ -16,6 +16,7 @@ import { selectUserId } from "../../store/authSlice";
 import { setWishlistCount, setCartCount } from "../../store/cartSlice";
 import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
+import PgGuestPrompt from "../components/PgGuestPrompt";
 import FadeSlideIn from "../components/FadeSlideIn";
 import PgActionButton from "../components/PgActionButton";
 import PgQtyStepper from "../components/PgQtyStepper";
@@ -295,6 +296,19 @@ const PgWishlistScreen = ({ navigation }) => {
     }
     return r;
   }, [items]);
+
+  // ── Guest — needs login ──────────────────────────────────────────────────────
+  if (!userId) {
+    return (
+      <PgLayout title="My Wishlist" showBack onBack={() => navigation.goBack()}>
+        <PgGuestPrompt
+          icon="heart-outline"
+          title="Login to see your wishlist"
+          subtitle="Save gold & silver items you love and find them here anytime."
+        />
+      </PgLayout>
+    );
+  }
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {

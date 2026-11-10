@@ -20,6 +20,7 @@ import { apiGet, apiPost, apiDelete } from "../../services/apiClient";
 import { PHYSICAL_GOLD_BASE_URL } from "../../constants/api";
 import PgLayout from "../components/PgLayout";
 import PgLoader from "../components/PgLoader";
+import PgGuestPrompt from "../components/PgGuestPrompt";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GstWaiverModal from "../components/GstWaiverModal";
 import BillDetailsCard from "../components/BillDetailsCard";
@@ -370,6 +371,19 @@ const PgCartScreen = ({ navigation }) => {
     }
     navigation.navigate("PgCheckout", { cartTotal: totalPayableAmount, cartItems });
   };
+
+  // ── Guest — needs login ──
+  if (!userId) {
+    return (
+      <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()}>
+        <PgGuestPrompt
+          icon="cart-outline"
+          title="Login to see your cart"
+          subtitle="Add gold & silver products to your cart and checkout securely."
+        />
+      </PgLayout>
+    );
+  }
 
   // ── Loading ──
   if (loading) {

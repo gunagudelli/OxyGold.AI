@@ -2,8 +2,8 @@ import React, { memo } from "react";
 import { Text, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
 import { colors } from "../theme";
 
-// Shared "Buy Now" / "Add to Cart" button. Default: white pill with a thin
-// brand-purple border and label (secondary action). `variant="cta"`: filled
+// Shared "Buy Now" / "Add to Cart" button. Default: soft lavender pill with
+// a violet label — same look as "View Details" (secondary action). `variant="cta"`: filled
 // orange — the one main buy action on a screen. `size="lg"` is the
 // full-height footer button on Product Details; the default is the compact
 // card chip.
@@ -35,9 +35,11 @@ const styles = StyleSheet.create({
   btn: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1.3,
-    borderColor: ACCENT,
+    // Same look as the product card's "View Details" button: soft lavender
+    // fill, light violet border, violet label.
+    backgroundColor: "#F4F0FA",
+    borderWidth: 1,
+    borderColor: "#D6C7F2",
   },
   btnSm: { height: 32, paddingHorizontal: 16, borderRadius: 20 },
   btnLg: { flex: 1, height: 50, paddingHorizontal: 16, borderRadius: 12 },
@@ -47,7 +49,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: ACCENT,
-    textTransform: "uppercase",
   },
   labelLg: { fontSize: 14, letterSpacing: 0.3 },
   labelCta: { color: colors.onPrimary },
