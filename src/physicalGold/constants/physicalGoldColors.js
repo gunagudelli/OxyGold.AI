@@ -39,4 +39,5 @@ export const PG_HOME_THEME = {
 
 // App header (every screen): a gradient of the Home footer's deep purple, with
 // light icons/title on top.
-export const PG_HEADER_GRADIENT = ['#4B3888', '#5A44A0'];
+// Same violet as the Home banner: deep at the top → mid violet at the bottom.
+export const PG_HEADER_GRADIENT = ['#2E1E62', '#4B3888'];

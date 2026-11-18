@@ -151,16 +151,13 @@ const PgAddressScreen = ({ navigation, route }) => {
 
   const fetchAddresses = async () => {
     if (!userId) {
-      console.log("[Addresses] No userId available");
       setLoading(false);
       return;
     }
     try {
       setLoading(true);
-      console.log("[Addresses] Fetching addresses for userId:", userId);
 
       const addressList = await getUserAddresses(userId);
-      console.log("[Addresses] Loaded:", addressList.length, "addresses");
 
       const transformedAddresses = addressList.map((addr) => ({
         id: addr.id,
@@ -179,8 +176,6 @@ const PgAddressScreen = ({ navigation, route }) => {
       setAddresses(transformedAddresses);
       performanceMonitor.endMeasure('PgAddressScreen');
     } catch (e) {
-      console.log("[Addresses Error]", e.message);
-      console.log("[Addresses Error] Status:", e?.status);
       Alert.alert("Error", "Failed to load addresses");
       setAddresses([]);
     } finally {
@@ -247,7 +242,6 @@ const PgAddressScreen = ({ navigation, route }) => {
         setAddressForm((prev) => ({ ...prev, latitude: String(lat), longitude: String(lng) }));
       }
     } catch (error) {
-      console.log("[Geocoding] Failed:", error?.message);
     } finally {
       setGeocoding(false);
     }
@@ -287,7 +281,6 @@ const PgAddressScreen = ({ navigation, route }) => {
         address: uniqueAddressParts.join(", ") || result.formatted_address,
       };
     } catch (error) {
-      console.log("[ReverseGeocoding] Failed:", error?.message);
       return null;
     }
   };
@@ -384,7 +377,6 @@ const PgAddressScreen = ({ navigation, route }) => {
             longitude = String(data.results[0].geometry.location.lng);
           }
         } catch (err) {
-          console.log("[Geocoding] Failed on save:", err?.message);
         }
       }
 
@@ -407,11 +399,9 @@ const PgAddressScreen = ({ navigation, route }) => {
 
       if (editingAddress?.id) {
         payload.id = Number(editingAddress.id);
-        console.log("[SaveAddress] Updating address:", payload);
         await updateAddress(payload);
         Alert.alert("Success", "Address updated successfully");
       } else {
-        console.log("[SaveAddress] Adding new address:", payload);
         await addAddress(payload);
         Alert.alert("Success", "Address added successfully");
       }

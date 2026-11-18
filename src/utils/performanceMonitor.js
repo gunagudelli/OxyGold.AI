@@ -17,7 +17,6 @@ class PerformanceMonitor {
       this.metrics[key].duration = this.metrics[key].endTime - this.metrics[key].startTime;
       
       if (__DEV__) {
-        console.log(`[Performance] ${key}: ${this.metrics[key].duration}ms`);
       }
       
       return this.metrics[key].duration;

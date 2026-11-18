@@ -91,7 +91,6 @@ export const saveTokens = async (accessToken, refreshToken, expiresIn) => {
     };
 
     await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
-    console.log("[tokenService] Tokens saved successfully");
   } catch (error) {
     console.error("[tokenService] Error saving tokens:", error);
     throw error;
@@ -105,7 +104,6 @@ export const saveTokens = async (accessToken, refreshToken, expiresIn) => {
 export const clearTokens = async () => {
   try {
     await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
-    console.log("[tokenService] Tokens cleared");
   } catch (error) {
     console.error("[tokenService] Error clearing tokens:", error);
   }
@@ -128,7 +126,6 @@ export const isTokenExpired = async () => {
     const isExpired = Date.now() >= tokenExpiresAt - TOKEN_BUFFER;
 
     if (isExpired) {
-      console.log("[tokenService] Token expired or expiring soon");
     }
 
     return isExpired;

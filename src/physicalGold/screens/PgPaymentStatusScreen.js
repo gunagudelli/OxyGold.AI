@@ -34,14 +34,12 @@ const PgPaymentStatusScreen = ({ navigation, route }) => {
     try {
       if (orderId) {
         const data = await getOrderDetails(orderId);
-        console.log('[PaymentStatus] Order details:', data);
         setOrderDetails(data);
       }
       setStatus('SUCCESS');
     } catch (error) {
       // Even if the details fetch fails, the order was already created
       // successfully by Checkout before navigating here — still show success.
-      console.log('[PaymentStatus] Order details fetch failed:', error.message);
       setStatus('SUCCESS');
     }
   };

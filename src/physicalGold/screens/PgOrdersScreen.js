@@ -300,11 +300,6 @@ const PgOrdersScreen = ({ navigation, route }) => {
   const [downloadingOrder, setDownloadingOrder] = useState(null);
 
   useEffect(() => {
-    console.log(
-      "[Orders] Redux Token:",
-      reduxAccessToken ? "present" : "missing",
-    );
-    console.log("[Orders] Redux UserId:", reduxUserId);
   }, [reduxAccessToken, reduxUserId]);
 
   useEffect(() => {
@@ -318,9 +313,7 @@ const PgOrdersScreen = ({ navigation, route }) => {
     const startTime = Date.now();
     try {
       setLoading(true);
-      console.log("[Orders Fetch] userId:", userId);
       const orders = await getUserOrders(userId);
-      console.log("[Orders Response]", orders);
       setOrders(orders);
     } catch (error) {
       console.error("[Orders Error]", error.message);
@@ -335,7 +328,6 @@ const PgOrdersScreen = ({ navigation, route }) => {
   };
 
   const handleViewInvoice = (orderNumber) => {
-    console.log("[Orders] View invoice for order:", orderNumber);
     const order = orders.find(o => (o.orderNumber || o.orderId) === orderNumber);
     if (order) {
       navigation.navigate("PgInvoiceDetails", { order });
@@ -345,7 +337,6 @@ const PgOrdersScreen = ({ navigation, route }) => {
   };
 
   const handleDownloadInvoice = async (orderNumber) => {
-    console.log("[Orders] Download invoice for order:", orderNumber);
 
     if (!reduxAccessToken) {
       Alert.alert("Error", "Session expired. Please login again.");

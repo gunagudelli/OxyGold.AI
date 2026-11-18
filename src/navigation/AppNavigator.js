@@ -13,7 +13,6 @@ import PgAddressScreen         from '../physicalGold/screens/PgAddressScreen';
 import PgOrdersScreen          from '../physicalGold/screens/PgOrdersScreen';
 import PgProfileScreen         from '../physicalGold/screens/PgProfileScreen';
 import PgPaymentStatusScreen   from '../physicalGold/screens/PgPaymentStatusScreen';
-import PgPaymentScreen         from '../physicalGold/screens/PgPaymentScreen';
 import PgPaymentMethodScreen   from '../physicalGold/screens/PgPaymentMethodScreen';
 import PgCheckoutScreen        from '../physicalGold/screens/PgCheckoutScreen';
 import PgPaymentHandlerScreen  from '../physicalGold/screens/PgPaymentHandlerScreen';

@@ -18,7 +18,6 @@ export const AuthProvider = ({ children }) => {
           setAccessToken(tokens.accessToken || null);
         }
       } catch (e) {
-        console.log("[AuthContext] Failed to load tokens:", e.message);
       } finally {
         setLoading(false);
       }

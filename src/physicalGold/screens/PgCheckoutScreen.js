@@ -40,6 +40,7 @@ import GstWaiverModal from "../components/GstWaiverModal";
 import CouponsSheet, { estimateCouponSaving } from "../components/CouponsSheet";
 import BillDetailsCard from "../components/BillDetailsCard";
 import PgQtyStepper from "../components/PgQtyStepper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ─── Design Tokens (mirrors PgCartScreen exactly) ────────────────────────────
 // Colours follow the ASKOXY.AI app's payment screen — a deeper, calmer purple
@@ -122,6 +123,8 @@ const getCheckoutItemDetails = (item) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PgCheckoutScreen = ({ navigation, route }) => {
+  // Bottom tab bar is hidden here, so the footer pads for the gesture bar itself.
+  const insets = useSafeAreaInsets();
   const userId = useSelector(selectUserId);
   const accessToken = useSelector(selectAccessToken);
   const { cartTotal: routeCartTotal, cartItems: routeCartItems, showGstPopup } = route?.params || {};
@@ -442,19 +445,12 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             ]
           );
         } else {
-          console.log("[Checkout] Address refetch returned empty while a known list existed — keeping the existing list.");
         }
       }
 
       // Fetch cart data from API
       if (cartRes.status === "fulfilled") {
         const cart = cartRes.value;
-        console.log('========================================');
-        console.log('[Checkout] Cart Data from API');
-        console.log('[Checkout] Cart:', JSON.stringify(cart, null, 2));
-        console.log('[Checkout] Total Items:', cart?.totalItemsInCart);
-        console.log('[Checkout] Total Amount:', cart?.totalPayableAmount);
-        console.log('========================================');
         
         setCartItems(cart?.itemsInCart || []);
         setCartTotal(cart?.totalPayableAmount || 0);
@@ -468,7 +464,6 @@ const PgCheckoutScreen = ({ navigation, route }) => {
         setRatePerKm(cart?.ratePerKm ?? null);
       } else if (routeCartTotal && routeCartItems) {
         // Fallback to route params if API fails
-        console.log('[Checkout] Using cart data from route params');
         setCartItems(routeCartItems);
         setCartTotal(routeCartTotal);
       }
@@ -556,7 +551,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   const handlePay = async () => {
     if (!accessToken) {
       Alert.alert("Session Expired", "Please login again", [
-        { text: "OK", onPress: () => navigation.replace("Login") },
+        { text: "OK", onPress: () => navigation.reset({ index: 0, routes: [{ name: "PgHome" }] }) },
       ]);
       return;
     }
@@ -656,7 +651,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           "Unable to create order. Your cart may be empty. Please add items to cart and try again.";
       } else if (err.message === "SESSION_EXPIRED") {
         Alert.alert("Session Expired", "Please login again", [
-          { text: "OK", onPress: () => navigation.replace("Login") },
+          { text: "OK", onPress: () => navigation.reset({ index: 0, routes: [{ name: "PgHome" }] }) },
         ]);
         return;
       } else if (/pin ?code/i.test(err.message || "")) {
@@ -688,14 +683,14 @@ const PgCheckoutScreen = ({ navigation, route }) => {
   // ── Loading ──
   if (loading) {
     return (
-      <PgLayout title="Checkout" showBack onBack={() => navigation.goBack()}>
+      <PgLayout title="Checkout" showBack onBack={() => navigation.goBack()} hideCart hideBottomBar>
         <PgLoader label="Loading checkout..." />
       </PgLayout>
     );
   }
 
   return (
-    <PgLayout title="Checkout" showBack onBack={() => navigation.goBack()}>
+    <PgLayout title="Checkout" showBack onBack={() => navigation.goBack()} hideCart hideBottomBar>
       <View style={styles.root}>
         <Animated.ScrollView
           showsVerticalScrollIndicator={false}
@@ -813,19 +808,6 @@ const PgCheckoutScreen = ({ navigation, route }) => {
                           </Text>
                         </View>
                         
-                        {/* Delete Button */}
-                        <TouchableOpacity
-                          style={styles.deleteAddrBtn}
-                          onPress={() => handleDeleteAddress(addr.id)}
-                          disabled={deletingAddressId === addr.id}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          {deletingAddressId === addr.id ? (
-                            <ActivityIndicator size="small" color={C.red} />
-                          ) : (
-                            <Ionicons name="trash-outline" size={18} color={C.red} />
-                          )}
-                        </TouchableOpacity>
                       </TouchableOpacity>
                       {index < arr.length - 1 && (
                         <View style={styles.itemDivider} />
@@ -886,15 +868,6 @@ const PgCheckoutScreen = ({ navigation, route }) => {
                               <Text style={styles.checkoutProductName} numberOfLines={2}>
                                 {getCheckoutItemName(item)}
                               </Text>
-                              <TouchableOpacity
-                                style={styles.removeProductAction}
-                                onPress={() => confirmRemoveCheckoutItem(item)}
-                                disabled={busy}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                accessibilityLabel="Remove item from cart"
-                              >
-                                <Ionicons name="trash-outline" size={14} color={C.red} />
-                              </TouchableOpacity>
                             </View>
                             {!!details && (
                               <Text style={styles.checkoutProductDetails} numberOfLines={1}>
@@ -1069,7 +1042,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             </View>
           )}
 
-          <View style={styles.footerBottomBar}>
+          <View style={[styles.footerBottomBar, { paddingBottom: 12 + insets.bottom }]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.footerPriceLabel}>Total Amount</Text>
               <Text style={styles.footerPriceValue}>
@@ -1466,8 +1439,9 @@ const styles = StyleSheet.create({
   payOptionsRow: {
     flexDirection: "row",
     gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
   payOption: {
     flex: 1,
@@ -1497,8 +1471,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginHorizontal: 12,
-    marginBottom: 6,
+    marginHorizontal: 16,
+    marginBottom: 4,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1508,18 +1482,21 @@ const styles = StyleSheet.create({
   footerBottomBar: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 16,
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    paddingTop: 12,
+    marginTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#F0EEF5",
   },
-  footerPriceLabel: { fontSize: 12, color: C.navyLight, marginBottom: 2 },
+  footerPriceLabel: { fontSize: 12, color: C.navyLight, marginBottom: 1 },
   footerPriceValue: { fontSize: 20, fontWeight: "700", color: C.navy, letterSpacing: -0.3 },
   footerPriceSub: { fontSize: 11, color: C.gold, fontWeight: "500", marginTop: 2 },
 
   checkoutBtn: {
     backgroundColor: CTA,
-    borderRadius: 6,
+    borderRadius: 10,
     height: 48,
     paddingHorizontal: 28,
     minWidth: 150,

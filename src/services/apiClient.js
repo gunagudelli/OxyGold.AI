@@ -28,7 +28,6 @@ const CONFIG = {
 let _store = null;
 export const setStore = (store) => {
   _store = store;
-  console.log('[apiClient] Store wired. Auth state:', store.getState()?.auth?.accessToken ? 'token present' : 'no token yet');
 };
 
 // ─── Session-expired navigation handler ──────────────────────────────────────
@@ -41,7 +40,6 @@ let _onSessionExpired = null;
  */
 export const setSessionExpiredHandler = (handler) => { 
   _onSessionExpired = handler;
-  console.log('[apiClient] Session expired handler registered');
 };
 
 // ─── Token readers (from Redux) ───────────────────────────────────────────────
@@ -105,13 +103,11 @@ const refreshAccessToken = async () => {
     try {
       const refreshToken = getRefreshToken();
       if (!refreshToken) {
-        console.log('[apiClient] No refresh token available');
         await clearAuthTokens();
         if (_onSessionExpired) _onSessionExpired();
         return null;
       }
 
-      console.log('[apiClient] Attempting token refresh...');
       const controller = new AbortController();
       const tid = setTimeout(() => controller.abort(), 15000);
 
@@ -124,7 +120,6 @@ const refreshAccessToken = async () => {
       clearTimeout(tid);
 
       if (!res.ok) {
-        console.log('[apiClient] Token refresh failed with status:', res.status);
         await clearAuthTokens();
         if (_onSessionExpired) _onSessionExpired();
         return null;
@@ -143,19 +138,16 @@ const refreshAccessToken = async () => {
       };
 
       if (!newTokens.accessToken) {
-        console.log('[apiClient] No access token in refresh response');
         await clearAuthTokens();
         if (_onSessionExpired) _onSessionExpired();
         return null;
       }
 
-      console.log('[apiClient] Token refresh successful');
       _store?.dispatch(setTokens(newTokens));
       await persistTokens(newTokens);
 
       return newTokens.accessToken;
     } catch (error) {
-      console.log('[apiClient] Token refresh error:', error.message);
       await clearAuthTokens();
       if (_onSessionExpired) _onSessionExpired();
       return null;
@@ -204,17 +196,13 @@ const buildError = (status, data) => {
 export const apiRequest = async (url, options = {}, retryCount = 0) => {
   // Proactive refresh: if token is about to expire, refresh before sending
   if (!options._retry && getToken() && isTokenExpiredOrExpiringSoon()) {
-    console.log('[apiClient] Token expiring soon, attempting proactive refresh');
     const newToken = await refreshAccessToken();
     if (!newToken) {
-      console.log('[apiClient] Proactive refresh failed, session expired');
       return { success: false, sessionExpired: true };
     }
-    console.log('[apiClient] Proactive refresh successful, continuing request');
   }
 
   const token = getToken();
-  console.log(`[apiClient] ${options.method || 'GET'} ${url} | token: ${token ? 'present (***' + token.slice(-6) + ')' : 'MISSING'}`);
 
   // No token → guest. Send the read-only guest key so browsing (categories,
   // products, images, rates) still works before login, instead of every
@@ -266,13 +254,10 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
     // auth-required failure, so it falls through to the regular error below
     // instead of clearing tokens and kicking them to Login.
     if (res.status === 401 && !options._retry && token) {
-      console.log('[apiClient] Got 401, attempting reactive token refresh');
       const newToken = await refreshAccessToken();
       if (!newToken) {
-        console.log('[apiClient] Reactive refresh failed, session expired');
         return { success: false, sessionExpired: true };
       }
-      console.log('[apiClient] Reactive refresh successful, retrying request');
       return apiRequest(url, { ...options, _retry: true }, retryCount);
     }
 
@@ -290,9 +275,6 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
   } catch (error) {
     clearTimeout(tid);
 
-    console.log('[apiClient] Catch block error:', error?.message || error);
-    console.log('[apiClient] Error name:', error?.name);
-    console.log('[apiClient] Error type:', typeof error);
 
     if (error.name === 'AbortError') {
       const te = new ApiError('Request timeout. Please check your connection.', 408, null);

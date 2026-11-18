@@ -13,11 +13,6 @@ const TokenDebugger = () => {
   const userId = useSelector(selectUserId);
 
   useEffect(() => {
-    console.log('=== TOKEN DEBUG ===');
-    console.log('Token exists:', !!token);
-    console.log('Token value:', token ? `***${token.slice(-8)}` : 'MISSING');
-    console.log('User ID:', userId);
-    console.log('==================');
   }, [token, userId]);
 
   return (

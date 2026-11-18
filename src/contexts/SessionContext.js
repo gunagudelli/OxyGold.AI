@@ -45,7 +45,6 @@ export const SessionProvider = ({ children, navigationRef }) => {
     if (sessionExpiredShown.current) return;
     sessionExpiredShown.current = true;
 
-    console.log('[SessionContext] Session expired, clearing tokens and redirecting...');
 
     // Clear Redux and AsyncStorage
     dispatch(clearTokens());

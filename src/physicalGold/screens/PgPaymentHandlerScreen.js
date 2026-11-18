@@ -55,11 +55,6 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
     paymentMode = "CASHFREE",
   } = route?.params || {};
 
-  console.log("[PgPaymentHandler] orderId:", orderId);
-  console.log("[PgPaymentHandler] orderNumber:", orderNumber);
-  console.log("[PgPaymentHandler] txnId:", txnId);
-  console.log("[PgPaymentHandler] paymentSessionId:", paymentSessionId);
-  console.log("[PgPaymentHandler] paymentMode:", paymentMode);
 
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null); // null | 'success' | 'failed'
@@ -117,11 +112,9 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
   const handleWalletPayment = async () => {
     setLoading(true);
     try {
-      console.log("[Wallet Payment] Processing...");
 
       // For wallet, verify payment immediately
       const result = await paymentWebhook(orderId);
-      console.log("[Wallet Payment] Webhook result:", result);
 
       if (
         result?.paymentStatus === "SUCCESS" ||
@@ -142,7 +135,6 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
   // ── Cashfree SDK Payment ─────────────────────────────────────────────────
   const startCashfreePayment = () => {
     try {
-      console.log("[Cashfree SDK] Starting payment...");
 
       if (!paymentSessionId) {
         throw new Error("No payment session ID received");
@@ -152,7 +144,6 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
       const cleanSessionId = paymentSessionId
         .replace(/(payment)+$/i, "")
         .trim();
-      console.log("[Cashfree SDK] Clean session ID:", cleanSessionId);
 
       // Validate session ID
       if (
@@ -165,9 +156,6 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
       // ✅ Try using txnId (TRXN-xxx) instead of orderId
       // Backend might be using txnId as Cashfree order_id
       const cashfreeOrderId = txnId || orderId.toString();
-      console.log("[Cashfree SDK] Cashfree order ID:", cashfreeOrderId);
-      console.log("[Cashfree SDK] orderId:", orderId);
-      console.log("[Cashfree SDK] txnId:", txnId);
 
       // Backend issues PRODUCTION session tokens — the web app's equivalent
       // checkout (CartSlider.tsx) loads Cashfree with `mode: "production"`.
@@ -178,7 +166,6 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
         cashfreeOrderId,
         CFEnvironment.PRODUCTION,
       );
-      console.log("[Cashfree SDK] Session:", JSON.stringify(session));
 
       // Set callback then launch
       CFPaymentGatewayService.setCallback({
@@ -195,24 +182,10 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
 
   // ── Cashfree Callbacks ───────────────────────────────────────────────────
   const handleCashfreeVerify = async (txId) => {
-    console.log(
-      "[Cashfree SDK] onVerify called with orderID....:",
-      orderId,
-      "txId:",
-      txId,
-    );
     setLoading(true);
     try {
-      console.log(
-        "[Cashfree SDK] Verifying payment for orderId....:",
-        orderId,
-        "txId:",
-        txId,
-      );
       // Verify payment via webhook using orderId
       const result = await paymentWebhook(txId);
-      console.log("[Cashfree SDK] Verifying with orderId:", orderId);
-      console.log("[Cashfree SDK] Webhook result:", result);
 
       if (
         result?.status === "SUCCESS" ||
@@ -247,16 +220,12 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
   const handlePaymentSuccess = async () => {
     try {
       // Try to generate invoice
-      console.log("[Invoice] Generating for orderId:", orderId);
-      console.log("[Invoice] orderNumber:", orderNumber);
 
       const invoice = await generateInvoice(orderId);
-      console.log("[Invoice] Generated successfully:", JSON.stringify(invoice));
 
       // Get invoice URL
       if (orderNumber) {
         const pdfUrl = getInvoicePdfUrl(orderNumber);
-        console.log("[Invoice] PDF URL:", pdfUrl);
         setInvoiceUrl(pdfUrl);
       } else {
         console.warn(
@@ -268,14 +237,11 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
     } catch (error) {
       console.error("[Invoice] Generation failed:", error);
       console.error("[Invoice] Error message:", error.message);
-      console.error("[Invoice] Error details:", JSON.stringify(error));
 
       // If invoice already exists (status 500), just get the URL
       if (error.message?.includes('already exists') || error.message?.includes('500')) {
-        console.log('[Invoice] Invoice already exists, getting PDF URL...');
         if (orderNumber) {
           const pdfUrl = getInvoicePdfUrl(orderNumber);
-          console.log("[Invoice] PDF URL:", pdfUrl);
           setInvoiceUrl(pdfUrl);
         }
         setStatus("success");
@@ -293,11 +259,6 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
 
   const handleViewInvoice = async () => {
     try {
-      console.log('========================================');
-      console.log('[View Invoice] Button Clicked');
-      console.log('[View Invoice] orderNumber:', orderNumber);
-      console.log('[View Invoice] invoiceUrl:', invoiceUrl);
-      console.log('========================================');
       
       if (!invoiceUrl) {
         console.error('[View Invoice] ❌ Invoice URL not available');
@@ -324,12 +285,9 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
         ]
       );
       
-      console.log('[View Invoice] ✅ Alert shown');
     } catch (error) {
-      console.log('========================================');
       console.error('[View Invoice] ❌ Error:', error);
       console.error('[View Invoice] Error message:', error.message);
-      console.log('========================================');
       Alert.alert("Error", "Unable to open invoice");
     }
   };

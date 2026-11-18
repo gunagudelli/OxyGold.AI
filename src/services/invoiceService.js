@@ -47,7 +47,6 @@ export const invoiceService = {
    */
   generateInvoice: async (orderId, accessToken) => {
     try {
-      console.log('[InvoiceService] Generating invoice');
 
       if (!orderId) {
         throw new Error('ORDER_ID_MISSING');
@@ -79,7 +78,6 @@ export const invoiceService = {
       const invoiceData = data?.data;
       const pdfUrl = invoiceData?.pdfUrl || invoiceData?.url;
 
-      console.log('[InvoiceService] Invoice generated successfully');
 
       return {
         invoiceNumber: invoiceData?.invoiceNumber,
@@ -100,7 +98,6 @@ export const invoiceService = {
    */
   getInvoicePreview: async (orderNumber, accessToken) => {
     try {
-      console.log('[InvoiceService] Fetching invoice preview');
 
       if (!orderNumber) {
         throw new Error('ORDER_NUMBER_MISSING');
@@ -127,7 +124,6 @@ export const invoiceService = {
         throw new Error(data?.message || 'Failed to fetch invoice preview');
       }
 
-      console.log('[InvoiceService] Invoice preview fetched successfully');
       return data?.data || data;
     } catch (error) {
       console.error('[InvoiceService] Get preview error:', error.message);
@@ -143,7 +139,6 @@ export const invoiceService = {
    */
   downloadInvoice: async (orderNumber, accessToken) => {
     try {
-      console.log('[InvoiceService] Downloading invoice');
 
       if (!orderNumber) {
         throw new Error('ORDER_NUMBER_MISSING');
@@ -171,7 +166,6 @@ export const invoiceService = {
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
 
-      console.log('[InvoiceService] Invoice downloaded successfully');
       return url;
     } catch (error) {
       console.error('[InvoiceService] Download error:', error.message);

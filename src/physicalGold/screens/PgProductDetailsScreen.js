@@ -510,17 +510,9 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
     setPreviewImageUrl(null);
 
     try {
-      console.log('========================================');
-      console.log('[ProductDetails] Generating AI Model Preview');
-      console.log('[ProductDetails] Image URL:', currentImageUrl);
-      console.log('[ProductDetails] Current View:', currentView?.label);
-      console.log('========================================');
 
       const result = await generateModelImage(currentImageUrl, 'MODEL');
       
-      console.log('========================================');
-      console.log('[ProductDetails] API Response:', result);
-      console.log('========================================');
       
       // API returns { success: true, message: "<url>" }
       const imageUrl = result?.message || result?.generatedImageUrl || result;
@@ -621,7 +613,6 @@ const PgProductDetailsScreen = ({ navigation, route }) => {
         message: `Check out ${product.name} on OXYGOLD.AI — ₹${fmt(price)}`,
       });
     } catch (err) {
-      console.log("[ProductDetails] Share failed:", err?.message);
     }
   };
 

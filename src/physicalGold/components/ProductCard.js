@@ -77,10 +77,10 @@ const ProductCard = ({
   const inCart = !!(defaultVariant && cartVariantIds?.has(String(defaultVariant.id)));
 
   // ── Safe field reads — covers every common API shape ─────────────────────
-  const name   = product?.productName
+  const name   = String(product?.productName
                || product?.name
                || product?.title
-               || 'Gold Product';
+               || 'Gold Product').trim();
 
   const rawPrice = embeddedVariant?.price
                 || product?.minPrice
@@ -186,7 +186,7 @@ const ProductCard = ({
     <TouchableOpacity style={[s.card, flat && s.cardFlat]} onPress={() => onPress?.(product)} activeOpacity={0.9}>
 
       {/* ── Image — white tile, contained product shot ─────────────────────── */}
-      <View style={[s.imageWrap, flat && s.imageWrapFlat, imageAspectRatio ? { aspectRatio: imageAspectRatio } : null]}>
+      <View style={[s.imageWrap, imageAspectRatio ? { aspectRatio: imageAspectRatio } : null]}>
         {imageUrl && !imgError ? (
           <Image
             source={{ uri: imageUrl }}
@@ -225,7 +225,7 @@ const ProductCard = ({
               <Ionicons
                 name={isInWishlist ? 'heart' : 'heart-outline'}
                 size={16}
-                color={isInWishlist ? '#E53935' : '#757575'}
+                color={isInWishlist ? '#C85A54' : '#7A7A80'}
               />
             </Animated.View>
           </TouchableOpacity>
@@ -233,7 +233,7 @@ const ProductCard = ({
       </View>
 
       {/* ── Name, purity, price, action ────────────────────────────────────── */}
-      <View style={[s.info, flat && s.infoFlat]}>
+      <View style={s.info}>
         <Text style={s.name} numberOfLines={2} ellipsizeMode="tail">
           {name}
         </Text>
@@ -296,10 +296,10 @@ const ProductCard = ({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             {addingCart ? (
-              <ActivityIndicator size="small" color="#15803D" />
+              <ActivityIndicator size="small" color="#176B4D" />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={14} color="#15803D" />
+                <Ionicons name="checkmark-circle" size={14} color="#176B4D" />
                 <Text style={s.inCartText}>In Cart</Text>
               </>
             )}
@@ -323,17 +323,25 @@ const ProductCard = ({
 const s = StyleSheet.create({
 
   // ── Card shell — rounded, hairline border, whisper of shadow ──────────────
-  // No box around the card — the image sits on its own soft rounded tile and
-  // the text runs below it on the page background.
   card: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#EEE8E0',
+    shadowColor: '#2A1F4A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
-  // Category product list keeps its edge-to-edge grid lines.
   cardFlat: {
-    borderWidth: 1,
+    borderRadius: 0,
     borderColor: '#E5E7EB',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 
   // ── Image area — square tile on plain white ───────────────────────────────
@@ -341,16 +349,10 @@ const s = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#EEEEF3',
     position: 'relative',
     overflow: 'hidden',
-    padding: 4,
+    padding: 12,
   },
-  imageWrapFlat: { borderRadius: 0, borderWidth: 0, backgroundColor: '#FFFFFF' },
-  // Bordered category-grid cells keep their inner padding.
-  infoFlat: { paddingHorizontal: 10 },
   image: {
     width: '100%',
     height: '100%',
@@ -373,8 +375,8 @@ const s = StyleSheet.create({
     paddingVertical: 3,
   },
   offBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9.5,
+    fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.2,
   },
@@ -391,7 +393,7 @@ const s = StyleSheet.create({
   },
   badgeDarkText: {
     fontSize: 9,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
@@ -416,7 +418,7 @@ const s = StyleSheet.create({
 
   // ── Info ───────────────────────────────────────────────────────────────────
   info: {
-    paddingHorizontal: 2,
+    paddingHorizontal: 10,
     paddingTop: 10,
     paddingBottom: 10,
     flex: 1,
@@ -424,8 +426,8 @@ const s = StyleSheet.create({
   },
   name: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#333333',
+    fontWeight: '600',
+    color: '#1C1C1E',
     lineHeight: 18,
     minHeight: 36, // two lines, so cards in a row line up
   },
@@ -441,7 +443,7 @@ const s = StyleSheet.create({
   },
   metaText: {
     fontSize: 10,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#8B5A2B',
   },
   priceBlock: {
@@ -456,27 +458,27 @@ const s = StyleSheet.create({
   },
   priceRupee: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#333333',
+    fontWeight: '700',
+    color: '#0E6B57',
   },
   priceAmount: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#333333',
+    fontWeight: '900',
+    color: '#0E6B57',
     lineHeight: 19,
     flexShrink: 1,
   },
   priceStrike: {
     fontSize: 11,
-    color: '#9E9E9E',
+    color: '#C0392B',
     textDecorationLine: 'line-through',
-    fontWeight: '500',
+    fontWeight: '600',
     marginLeft: 6,
     flexShrink: 1,
   },
   priceNA: {
     fontSize: 11,
-    color: '#9E9E9E',
+    color: '#A79C93',
     fontStyle: 'italic',
     lineHeight: 19,
   },
@@ -490,22 +492,22 @@ const s = StyleSheet.create({
     gap: 4,
     borderRadius: 20,
     borderWidth: 1.3,
-    backgroundColor: '#EAF8F1',
+    backgroundColor: '#EAF3EE',
     borderColor: '#B7D2C2',
   },
-  inCartText: { fontSize: 12, fontWeight: '600', color: '#15803D', textTransform: 'uppercase' },
+  inCartText: { fontSize: 12, fontWeight: '700', color: '#176B4D', textTransform: 'uppercase' },
   detailsBtn: {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#D6C7F2',
-    backgroundColor: '#F4F0FA',
+    backgroundColor: '#F3ECFA',
   },
   detailsBtnText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#503189',
+    fontWeight: '700',
+    color: '#6C4AB6',
   },
 });
 

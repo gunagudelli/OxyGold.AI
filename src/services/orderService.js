@@ -51,7 +51,6 @@ const cleanSessionId = (sessionId) => {
     cleaned = cleaned.replace(/payment$/i, '').trim();
   }
   
-  console.log('[OrderService] Session ID cleaned');
   return cleaned;
 };
 
@@ -74,7 +73,6 @@ export const orderService = {
    */
   validateProfile: async (userId, accessToken) => {
     try {
-      console.log('[OrderService] Validating profile');
 
       if (!accessToken) {
         throw new Error('AUTH_TOKEN_MISSING');
@@ -107,7 +105,6 @@ export const orderService = {
         throw new Error('INCOMPLETE_PROFILE');
       }
 
-      console.log('[OrderService] Profile validated successfully');
       return userProfile;
     } catch (error) {
       console.error('[OrderService] Profile validation error:', error.message);
@@ -123,7 +120,6 @@ export const orderService = {
    */
   fetchAddresses: async (userId, accessToken) => {
     try {
-      console.log('[OrderService] Fetching addresses');
 
       if (!accessToken) {
         throw new Error('AUTH_TOKEN_MISSING');
@@ -160,7 +156,6 @@ export const orderService = {
         throw new Error('NO_ADDRESSES');
       }
 
-      console.log('[OrderService] Addresses fetched:', addresses.length);
       return addresses;
     } catch (error) {
       console.error('[OrderService] Fetch addresses error:', error.message);
@@ -176,7 +171,6 @@ export const orderService = {
    */
   createOrder: async (payload, accessToken) => {
     try {
-      console.log('[OrderService] Creating order');
 
       if (!accessToken) {
         throw new Error('AUTH_TOKEN_MISSING');
@@ -220,7 +214,6 @@ export const orderService = {
 
       // If session ID is invalid, try to initialize payment session
       if (!isValidSessionId(cleanedSessionId)) {
-        console.log('[OrderService] Session ID invalid, attempting to initialize payment session');
         try {
           const sessionData = await orderService.initializePaymentSession(
             orderId,
@@ -228,7 +221,6 @@ export const orderService = {
             accessToken
           );
           cleanedSessionId = sessionData.paymentSessionId;
-          console.log('[OrderService] Payment session initialized successfully');
         } catch (sessionError) {
           console.warn('[OrderService] Payment session initialization failed:', sessionError.message);
           // Continue with original session ID - it might still work
@@ -239,7 +231,6 @@ export const orderService = {
         throw new Error('INVALID_SESSION_ID - Could not obtain valid payment session');
       }
 
-      console.log('[OrderService] Order created successfully');
 
       return {
         orderId,
@@ -264,7 +255,6 @@ export const orderService = {
    */
   initializePaymentSession: async (orderId, amount, accessToken) => {
     try {
-      console.log('[OrderService] Initializing payment session for order:', orderId);
 
       if (!accessToken) {
         throw new Error('AUTH_TOKEN_MISSING');
@@ -289,12 +279,10 @@ export const orderService = {
         if (response1.ok && data1?.data?.paymentSessionId) {
           const sessionId = cleanSessionId(data1.data.paymentSessionId);
           if (isValidSessionId(sessionId)) {
-            console.log('[OrderService] Payment session obtained from endpoint 1');
             return { paymentSessionId: sessionId };
           }
         }
       } catch (e) {
-        console.log('[OrderService] Endpoint 1 failed:', e.message);
       }
 
       // Try endpoint 2: /api/order/{orderId}/initiate-payment
@@ -316,12 +304,10 @@ export const orderService = {
         if (response2.ok && data2?.data?.paymentSessionId) {
           const sessionId = cleanSessionId(data2.data.paymentSessionId);
           if (isValidSessionId(sessionId)) {
-            console.log('[OrderService] Payment session obtained from endpoint 2');
             return { paymentSessionId: sessionId };
           }
         }
       } catch (e) {
-        console.log('[OrderService] Endpoint 2 failed:', e.message);
       }
 
       throw new Error('Could not initialize payment session from any endpoint');
@@ -339,7 +325,6 @@ export const orderService = {
    */
   confirmOrder: async (orderId, accessToken) => {
     try {
-      console.log('[OrderService] Confirming order');
 
       if (!accessToken) {
         throw new Error('AUTH_TOKEN_MISSING');
@@ -366,7 +351,6 @@ export const orderService = {
         throw new Error(data?.message || 'Failed to confirm order');
       }
 
-      console.log('[OrderService] Order confirmed successfully');
       return data || { success: true };
     } catch (error) {
       console.error('[OrderService] Confirm order error:', error.message);

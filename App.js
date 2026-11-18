@@ -27,7 +27,6 @@ const AppWithHydration = () => {
     // Register the global session-expired handler.
     // When refresh token fails anywhere in the app, this resets the stack to Login.
     const handleSessionExpired = () => {
-      console.log("[App] Session expired handler called, resetting to PgHome");
       navRef.current?.reset({ index: 0, routes: [{ name: "PgHome" }] });
       Alert.alert(
         "Session Expired",
@@ -41,12 +40,6 @@ const AppWithHydration = () => {
     (async () => {
       const tokens = await loadPersistedTokens();
       if (tokens?.accessToken) {
-        console.log(
-          "[App] Hydrating Redux with persisted token: present (***" +
-            tokens.accessToken.slice(-6) +
-            ")",
-        );
-        console.log("[App] Persisted userId:", tokens.userId);
         // `tokens.expiresIn` is relative to when it was originally issued
         // (login/refresh), not to this cold start — recompute the absolute
         // expiry from the persisted `storedAt` timestamp instead of letting
@@ -57,7 +50,6 @@ const AppWithHydration = () => {
             : null;
         dispatch(setTokens({ ...tokens, tokenExpiresAt }));
       } else {
-        console.log("[App] No persisted tokens found in AsyncStorage");
       }
       setReady(true);
     })();

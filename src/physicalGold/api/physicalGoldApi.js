@@ -436,7 +436,6 @@ export const getCart = async (userId, addressId) => {
     };
   } catch (error) {
     if (error.status === 404) {
-      console.log('[PhysicalGoldApi] Cart not found (404), returning empty cart');
       return {
         itemsInCart: [], totalCartValue: 0, totalGstCharges: 0, totalMakingCharges: 0,
         totalPayableAmount: 0, totalItemsInCart: 0, deliveryFee: 0, deliveryDistanceKm: null, ratePerKm: null,
@@ -474,28 +473,16 @@ export const addToCart = async (userId, productId, productVariantId, quantity = 
     
     const url = `${PHYSICAL_GOLD_BASE_URL}/cart/AddItemToCart`;
     
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] addToCart REQUEST');
-    console.log('[PhysicalGoldApi] URL:', url);
-    console.log('[PhysicalGoldApi] Payload:', JSON.stringify(payload, null, 2));
-    console.log('========================================');
     
     // POST /api/oxygold-api/cart/AddItemToCart
     const response = await apiPost(url, payload);
     
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] addToCart RESPONSE');
-    console.log('[PhysicalGoldApi] Response:', JSON.stringify(response, null, 2));
-    console.log('========================================');
     
     return extractData(response);
   } catch (error) {
-    console.log('========================================');
     console.error('[PhysicalGoldApi] addToCart ERROR');
     console.error('[PhysicalGoldApi] Error Message:', error.message);
     console.error('[PhysicalGoldApi] Error Status:', error.status);
-    console.error('[PhysicalGoldApi] Error Data:', JSON.stringify(error.data, null, 2));
-    console.log('========================================');
     throw error;
   }
 };
@@ -631,7 +618,6 @@ export const getUserOrders = async (userId) => {
     return Array.isArray(data) ? data : data?.items || [];
   } catch (error) {
     if (error.status === 404) {
-      console.log('[PhysicalGoldApi] No orders found');
       return [];
     }
     console.error('[PhysicalGoldApi] getUserOrders failed:', error.message);
@@ -721,13 +707,10 @@ export const createOrder = async (orderData) => {
   }
 
   try {
-    console.log('[PhysicalGoldApi] createOrder URL:', `${PHYSICAL_GOLD_BASE_URL}/order/createOrder`);
-    console.log('[PhysicalGoldApi] createOrder payload:', JSON.stringify(orderData, null, 2));
     
     // ✅ CORRECT: POST /api/oxygold-api/order/createOrder
     // Backend automatically fetches cart items for the user
     const response = await apiPost(`${PHYSICAL_GOLD_BASE_URL}/order/createOrder`, orderData);
-    console.log('[PhysicalGoldApi] createOrder raw response:', response);
     return extractData(response);
   } catch (error) {
     console.error('[PhysicalGoldApi] createOrder failed:', error.message);
@@ -765,14 +748,12 @@ export const confirmOrder = async (orderId, paymentData = {}) => {
 export const paymentWebhook = async (orderIdOrTxnId) => {
   if (!orderIdOrTxnId) throw new Error('Order ID or Transaction ID is required');
   try {
-    console.log('[PhysicalGoldApi] paymentWebhook order_id:', orderIdOrTxnId);
     // ✅ CORRECT: POST /api/oxygold-api/digital-gold/payments/webhook?order_id={txnId}
     const response = await apiPost(
       `${PHYSICAL_GOLD_BASE_URL}/digital-gold/payments/webhook`,
       {},
       { params: { order_id: orderIdOrTxnId } }
     );
-    console.log('[PhysicalGoldApi] paymentWebhook response:', response);
     return extractData(response);
   } catch (error) {
     console.error('[PhysicalGoldApi] paymentWebhook failed:', error);
@@ -834,28 +815,15 @@ export const generateInvoice = async (orderId) => {
 
   try {
     const url = `${PHYSICAL_GOLD_BASE_URL}/invoices/generate-from-order/${orderId}`;
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] generateInvoice API CALL');
-    console.log('[PhysicalGoldApi] Method: POST');
-    console.log('[PhysicalGoldApi] URL:', url);
-    console.log('[PhysicalGoldApi] orderId:', orderId);
-    console.log('[PhysicalGoldApi] Request Body: {}');
-    console.log('========================================');
     
     // ✅ CORRECT: POST /api/oxygold-api/invoices/generate-from-order/{orderId}
     const response = await apiPost(url, {});
     
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] generateInvoice API RESPONSE');
-    console.log('[PhysicalGoldApi] Raw Response:', JSON.stringify(response, null, 2));
-    console.log('========================================');
     
     const data = extractData(response);
-    console.log('[PhysicalGoldApi] Extracted Data:', JSON.stringify(data, null, 2));
     
     // If backend returns empty response, treat as success
     if (!data || (data.success && !data.invoiceNumber)) {
-      console.log('[PhysicalGoldApi] Invoice generated successfully (empty response)');
       return { 
         success: true, 
         message: 'Invoice generated',
@@ -865,12 +833,9 @@ export const generateInvoice = async (orderId) => {
     
     return data;
   } catch (error) {
-    console.log('========================================');
     console.error('[PhysicalGoldApi] generateInvoice API ERROR');
     console.error('[PhysicalGoldApi] Error Message:', error.message);
     console.error('[PhysicalGoldApi] Error Status:', error.status);
-    console.error('[PhysicalGoldApi] Error Details:', JSON.stringify(error, null, 2));
-    console.log('========================================');
     throw error;
   }
 };
@@ -883,7 +848,6 @@ export const generateInvoice = async (orderId) => {
 export const getInvoicePreviewUrl = (orderNumber) => {
   if (!orderNumber) throw new Error('Order number is required');
   const url = `${PHYSICAL_GOLD_BASE_URL}/invoices/${orderNumber}/pdf/preview`;
-  console.log('[PhysicalGoldApi] getInvoicePreviewUrl:', url);
   return url;
 };
 
@@ -895,7 +859,6 @@ export const getInvoicePreviewUrl = (orderNumber) => {
 export const getInvoicePdfUrl = (orderNumber) => {
   if (!orderNumber) throw new Error('Order number is required');
   const url = `${PHYSICAL_GOLD_BASE_URL}/invoices/${orderNumber}/pdf`;
-  console.log('[PhysicalGoldApi] getInvoicePdfUrl:', url);
   return url;
 };
 
@@ -1051,17 +1014,13 @@ export const getWalletBalance = async (userId) => {
 
   try {
     const url = `${PHYSICAL_GOLD_BASE_URL}/wallet/getWallet/${userId}`;
-    console.log('[PhysicalGoldApi] getWalletBalance URL:', url);
-    console.log('[PhysicalGoldApi] getWalletBalance userId:', userId);
     
     // ✅ CORRECT: Use PHYSICAL_GOLD_BASE_URL + path parameter
     const response = await apiGet(url);
-    console.log('[PhysicalGoldApi] getWalletBalance response:', response);
     return extractData(response);
   } catch (error) {
     // 404 = wallet not created yet, return 0 balance instead of crashing
     if (error.status === 404) {
-      console.log('[PhysicalGoldApi] Wallet not found (404), returning 0 balance');
       return { balance: 0 };
     }
     console.error('[PhysicalGoldApi] getWalletBalance failed:', error.message);
@@ -1140,41 +1099,22 @@ export const getWishlist = async (userId) => {
 
   try {
     const url = `${PHYSICAL_GOLD_BASE_URL}/cart/wishlistByUserId/${userId}`;
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] getWishlist REQUEST');
-    console.log('[PhysicalGoldApi] URL:', url);
-    console.log('[PhysicalGoldApi] userId:', userId);
-    console.log('========================================');
     
     // ✅ CORRECT: GET /api/oxygold-api/cart/wishlistByUserId/{userId}
     const response = await apiGet(url);
     
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] getWishlist RESPONSE');
-    console.log('[PhysicalGoldApi] Raw Response:', JSON.stringify(response, null, 2));
-    console.log('========================================');
     
     const data = extractData(response);
     
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] getWishlist EXTRACTED DATA');
-    console.log('[PhysicalGoldApi] Extracted Data:', JSON.stringify(data, null, 2));
-    console.log('[PhysicalGoldApi] Data Type:', typeof data);
-    console.log('[PhysicalGoldApi] Is Array:', Array.isArray(data));
-    console.log('[PhysicalGoldApi] Data Length:', Array.isArray(data) ? data.length : 'N/A');
-    console.log('========================================');
     
     const result = Array.isArray(data) ? data : data?.items || [];
-    console.log('[PhysicalGoldApi] Final Result:', JSON.stringify(result, null, 2));
     return result;
   } catch (error) {
     if (error.status === 404) {
-      console.log('[PhysicalGoldApi] Wishlist not found (404), returning empty list');
       return [];
     }
     console.error('[PhysicalGoldApi] getWishlist failed:', error.message);
     console.error('[PhysicalGoldApi] Error Status:', error.status);
-    console.error('[PhysicalGoldApi] Error Data:', JSON.stringify(error.data, null, 2));
     throw error;
   }
 };
@@ -1189,30 +1129,17 @@ export const removeFromWishlist = async (wishlistId) => {
 
   try {
     const url = `${PHYSICAL_GOLD_BASE_URL}/cart/removeToWishlist/${wishlistId}`;
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] removeFromWishlist REQUEST');
-    console.log('[PhysicalGoldApi] URL:', url);
-    console.log('[PhysicalGoldApi] Method: POST (not DELETE)');
-    console.log('[PhysicalGoldApi] wishlistId:', wishlistId);
-    console.log('========================================');
     
     // ✅ CORRECT: POST /api/oxygold-api/cart/removeToWishlist/{wishlistId}
     // Backend doesn't support DELETE, uses POST instead
     const response = await apiPost(url, {});
     
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] removeFromWishlist RESPONSE');
-    console.log('[PhysicalGoldApi] Response:', JSON.stringify(response, null, 2));
-    console.log('========================================');
     
     return extractData(response);
   } catch (error) {
-    console.log('========================================');
     console.error('[PhysicalGoldApi] removeFromWishlist ERROR');
     console.error('[PhysicalGoldApi] Error Message:', error.message);
     console.error('[PhysicalGoldApi] Error Status:', error.status);
-    console.error('[PhysicalGoldApi] Error Data:', JSON.stringify(error.data, null, 2));
-    console.log('========================================');
     throw error;
   }
 };
@@ -1246,14 +1173,11 @@ export const generateModelImage = async (imageUrl, imageType = 'MODEL') => {
     const encodedImageUrl = encodeURIComponent(imageUrl);
     const endpoint = `${PHYSICAL_GOLD_BASE_URL}/auth/generate-modelImage?imageUrl=${encodedImageUrl}&imageType=${imageType}`;
     
-    console.log('[generateModelImage] Request:', { imageUrl, imageType, endpoint });
 
     const response = await apiPost(endpoint, {});
 
-    console.log('[generateModelImage] Response:', response);
 
     const data = extractData(response);
-    console.log('[generateModelImage] Generated URL:', data);
 
     // API returns direct URL string
     return data;
@@ -1305,11 +1229,6 @@ export const searchAllProducts = async (searchParams) => {
     if (searchParams.inStock !== undefined) params.inStock = searchParams.inStock;
     if (searchParams.sortBy) params.sortBy = searchParams.sortBy;
 
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] searchAllProducts REQUEST');
-    console.log('[PhysicalGoldApi] URL:', `${PHYSICAL_GOLD_BASE_URL}/search/products`);
-    console.log('[PhysicalGoldApi] Params:', JSON.stringify(params, null, 2));
-    console.log('========================================');
 
     // Confirmed via direct testing against the real server: this route is
     // under /api/oxygold-api/search/products. The old ${BASE_URL} version
@@ -1317,10 +1236,6 @@ export const searchAllProducts = async (searchParams) => {
     // never had a working source because of this.
     const response = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/search/products`, { params });
 
-    console.log('========================================');
-    console.log('[PhysicalGoldApi] searchAllProducts RESPONSE');
-    console.log('[PhysicalGoldApi] Response:', JSON.stringify(response, null, 2));
-    console.log('========================================');
 
     const data = extractData(response);
 

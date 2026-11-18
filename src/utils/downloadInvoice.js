@@ -43,9 +43,6 @@ export const downloadInvoicePDF = async (orderNumber, accessToken, onProgress) =
   const fileName = `Invoice_${orderNumber}_${Date.now()}.pdf`;
   const fileUri = `${FileSystem.documentDirectory}${fileName}`;
 
-  console.log('[Invoice Download] Starting download');
-  console.log('[Invoice Download] URL:', invoiceUrl);
-  console.log('[Invoice Download] File URI:', fileUri);
 
   try {
     const downloadResult = await FileSystem.downloadAsync(
@@ -59,7 +56,6 @@ export const downloadInvoicePDF = async (orderNumber, accessToken, onProgress) =
       }
     );
 
-    console.log('[Invoice Download] Download result:', downloadResult);
 
     if (downloadResult.status !== 200) {
       throw new InvoiceDownloadError(
@@ -74,8 +70,6 @@ export const downloadInvoicePDF = async (orderNumber, accessToken, onProgress) =
       throw new InvoiceDownloadError('Downloaded file not found', 'FILE_NOT_FOUND', null);
     }
 
-    console.log('[Invoice Download] File downloaded successfully');
-    console.log('[Invoice Download] File size:', fileInfo.size, 'bytes');
 
     if (onProgress) onProgress(100);
 
@@ -138,9 +132,6 @@ export const downloadSellInvoicePDF = async (transactionId, accessToken) => {
   const fileName = `Sell_Invoice_${transactionId}_${Date.now()}.pdf`;
   const fileUri = `${FileSystem.documentDirectory}${fileName}`;
 
-  console.log('[Sell Invoice Download] Starting download');
-  console.log('[Sell Invoice Download] URL:', invoiceUrl);
-  console.log('[Sell Invoice Download] File URI:', fileUri);
 
   try {
     const downloadResult = await FileSystem.downloadAsync(
@@ -154,7 +145,6 @@ export const downloadSellInvoicePDF = async (transactionId, accessToken) => {
       }
     );
 
-    console.log('[Sell Invoice Download] Download result:', downloadResult);
 
     if (downloadResult.status !== 200) {
       throw new InvoiceDownloadError(
@@ -169,8 +159,6 @@ export const downloadSellInvoicePDF = async (transactionId, accessToken) => {
       throw new InvoiceDownloadError('Downloaded file not found', 'FILE_NOT_FOUND', null);
     }
 
-    console.log('[Sell Invoice Download] File downloaded successfully');
-    console.log('[Sell Invoice Download] File size:', fileInfo.size, 'bytes');
 
     return fileUri;
   } catch (error) {
@@ -218,7 +206,6 @@ export const downloadSellInvoicePDF = async (transactionId, accessToken) => {
  */
 export const openInvoicePDF = async (fileUri) => {
   try {
-    console.log('[Invoice Open] Opening PDF:', fileUri);
 
     if (Platform.OS === 'ios') {
       await Sharing.shareAsync(fileUri, {
@@ -227,7 +214,6 @@ export const openInvoicePDF = async (fileUri) => {
     } else {
       // Android: Convert file URI to content URI
       const contentUri = await FileSystem.getContentUriAsync(fileUri);
-      console.log('[Invoice Open] Content URI:', contentUri);
 
       await IntentLauncher.startActivityAsync(
         'android.intent.action.VIEW',
@@ -239,7 +225,6 @@ export const openInvoicePDF = async (fileUri) => {
       );
     }
 
-    console.log('[Invoice Open] PDF opened successfully');
   } catch (error) {
     console.error('[Invoice Open Error]', error.message);
     throw new InvoiceDownloadError(
@@ -256,7 +241,6 @@ export const openInvoicePDF = async (fileUri) => {
  */
 export const shareInvoicePDF = async (fileUri) => {
   try {
-    console.log('[Invoice Share] Sharing PDF:', fileUri);
 
     const canShare = await Sharing.isAvailableAsync();
     if (!canShare) {
@@ -272,7 +256,6 @@ export const shareInvoicePDF = async (fileUri) => {
       dialogTitle: 'Share Invoice',
     });
 
-    console.log('[Invoice Share] PDF shared successfully');
   } catch (error) {
     console.error('[Invoice Share Error]', error.message);
     throw new InvoiceDownloadError(
@@ -289,12 +272,10 @@ export const shareInvoicePDF = async (fileUri) => {
  */
 export const deleteInvoicePDF = async (fileUri) => {
   try {
-    console.log('[Invoice Delete] Deleting PDF:', fileUri);
 
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     if (fileInfo.exists) {
       await FileSystem.deleteAsync(fileUri);
-      console.log('[Invoice Delete] PDF deleted successfully');
     }
   } catch (error) {
     console.error('[Invoice Delete Error]', error.message);

@@ -54,7 +54,6 @@ const cleanSessionId = (sessionId) => {
     cleaned = cleaned.replace(/payment$/i, '').trim();
   }
   
-  console.log('[PaymentService] Session ID cleaned');
   return cleaned;
 };
 
@@ -78,8 +77,6 @@ export const paymentService = {
     const { paymentSessionId, orderId, txnId, accessToken, onSuccess, onError } = config;
 
     try {
-      console.log('[PaymentService] ========== CASHFREE PAYMENT START ==========');
-      console.log('[PaymentService] Order ID:', orderId);
 
       // Validate inputs
       if (!paymentSessionId) {
@@ -102,7 +99,6 @@ export const paymentService = {
         throw new Error(`INVALID_SESSION_ID - Invalid format: ${cleanedSessionId.substring(0, 20)}...`);
       }
 
-      console.log('[PaymentService] Session ID validation passed');
 
       // Create CFSession
       const session = new CFSession(
@@ -111,21 +107,15 @@ export const paymentService = {
         CFEnvironment.PRODUCTION
       );
 
-      console.log('[PaymentService] CFSession created successfully');
 
       // Set callbacks
       const callbacks = {
         onVerify: async (orderID) => {
-          console.log('[PaymentService] ========== onVerify CALLBACK ==========');
-          console.log('[PaymentService] Verifying order');
           try {
             const verified = await paymentService.verifyPayment(orderID, accessToken);
-            console.log('[PaymentService] Payment verified');
             if (verified) {
-              console.log('[PaymentService] Calling onSuccess');
               onSuccess({ orderId: orderID, status: 'SUCCESS' });
             } else {
-              console.log('[PaymentService] Verification returned false');
               onError(new Error('Payment verification failed'));
             }
           } catch (error) {
@@ -134,19 +124,15 @@ export const paymentService = {
           }
         },
         onError: (error, orderID) => {
-          console.log('[PaymentService] ========== onError CALLBACK ==========');
           const errorMsg = error?.getMessage?.() || error?.message || 'Payment failed';
           console.error('[PaymentService] Payment error:', errorMsg);
           onError(error || new Error(errorMsg));
         },
       };
 
-      console.log('[PaymentService] Setting Cashfree callbacks');
       CFPaymentGatewayService.setCallback(callbacks);
       
-      console.log('[PaymentService] Calling CFPaymentGatewayService.doWebPayment');
       CFPaymentGatewayService.doWebPayment(session);
-      console.log('[PaymentService] doWebPayment called successfully');
     } catch (error) {
       console.error('[PaymentService] ========== CASHFREE ERROR ==========');
       console.error('[PaymentService] Error:', error.message);
@@ -163,7 +149,6 @@ export const paymentService = {
     const { orderId, txnId, onSuccess } = config;
 
     try {
-      console.log('[PaymentService] Processing wallet payment');
 
       if (!orderId) {
         throw new Error('ORDER_ID_MISSING');
@@ -187,7 +172,6 @@ export const paymentService = {
    */
   verifyPayment: async (orderId, accessToken) => {
     try {
-      console.log('[PaymentService] Verifying payment');
 
       if (!orderId) {
         throw new Error('ORDER_ID_MISSING');
@@ -215,7 +199,6 @@ export const paymentService = {
       }
 
       const paymentStatus = data?.data?.paymentStatus || data?.paymentStatus;
-      console.log('[PaymentService] Payment status:', paymentStatus);
       
       return paymentStatus === 'SUCCESS' || paymentStatus === 'COMPLETED';
     } catch (error) {

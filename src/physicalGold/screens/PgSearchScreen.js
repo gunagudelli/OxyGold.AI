@@ -115,7 +115,6 @@ const PgSearchScreen = ({ navigation }) => {
         await addToCart(userId, product.id, variantId, 1);
         await refreshCart(); // card turns into the − qty + stepper
       } catch (e) {
-        console.log("[PgSearchScreen] Add to cart failed:", e?.message);
         showCartActionError(e, navigation);
       } finally {
         setCartLoadingId(null);

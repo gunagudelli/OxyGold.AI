@@ -14,6 +14,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   selectUserId,
   selectUserEmail,
@@ -145,36 +146,14 @@ const PgProfileScreen = ({ navigation, route }) => {
     try {
       setLoading(true);
 
-      console.log('========================================');
-      console.log('[Profile] FETCHING PROFILE DATA');
-      console.log('[Profile] userId:', userId);
-      console.log('========================================');
 
       const data = await apiGet(`${PHYSICAL_GOLD_BASE_URL}/auth/getUserBasedOnUserId`, {
         params: { userId },
       });
 
-      console.log('========================================');
-      console.log('[Profile] GET PROFILE API RAW RESPONSE');
-      console.log(JSON.stringify(data, null, 2));
-      console.log('========================================');
 
       const profileData = data?.data?.body || data?.data || data || {};
 
-      console.log('========================================');
-      console.log('[Profile] EXTRACTED PROFILE DATA');
-      console.log(JSON.stringify(profileData, null, 2));
-      console.log('========================================');
-      console.log('[Profile] Field Check:');
-      console.log('  - firstName:', profileData.firstName);
-      console.log('  - lastName:', profileData.lastName);
-      console.log('  - email:', profileData.email);
-      console.log('  - mobileNumber:', profileData.mobileNumber);
-      console.log('  - whatsappNumber:', profileData.whatsappNumber);
-      console.log('  - whatsAppNumber:', profileData.whatsAppNumber);
-      console.log('  - alternativeNumber:', profileData.alternativeNumber);
-      console.log('  - alterMobileNumber:', profileData.alterMobileNumber);
-      console.log('========================================');
 
       setProfile(profileData);
       const formFields = {
@@ -189,10 +168,6 @@ const PgProfileScreen = ({ navigation, route }) => {
         panNumber: profileData.panNumber || profileData.pan || "",
       };
 
-      console.log('========================================');
-      console.log('[Profile] FORM FIELDS SET');
-      console.log(JSON.stringify(formFields, null, 2));
-      console.log('========================================');
 
       setFormData(formFields);
 
@@ -353,23 +328,14 @@ const PgProfileScreen = ({ navigation, route }) => {
         panNumber,
       };
 
-      console.log('========================================');
-      console.log('[Profile] SAVE PROFILE API CALL');
-      console.log('[Profile] Payload:', JSON.stringify(payload, null, 2));
-      console.log('========================================');
 
       const responseData = await apiPost(
         `${PHYSICAL_GOLD_BASE_URL}/auth/saveUserProfile`,
         payload,
       );
 
-      console.log('========================================');
-      console.log('[Profile] SAVE PROFILE API RESPONSE');
-      console.log(JSON.stringify(responseData, null, 2));
-      console.log('========================================');
 
       // Refresh profile data from API after save
-      console.log('[Profile] Refreshing profile data after save...');
       await fetchProfileData();
 
       setEditing(false);
@@ -382,11 +348,9 @@ const PgProfileScreen = ({ navigation, route }) => {
         }, 500);
       }
     } catch (e) {
-      console.log('========================================');
       console.error('[Profile] SAVE PROFILE ERROR');
       console.error('[Profile] Error:', e);
       console.error('[Profile] Error Message:', e?.message);
-      console.log('========================================');
       Alert.alert("Error", e?.message || "Failed to update profile");
     } finally {
       setSaving(false);
@@ -450,7 +414,6 @@ const PgProfileScreen = ({ navigation, route }) => {
               store,
               navigationRef,
               onSuccess: () => {
-                console.log("[Profile] Logout successful");
               },
               onError: (error) => {
                 Alert.alert(
@@ -534,7 +497,12 @@ const PgProfileScreen = ({ navigation, route }) => {
       <View style={{ flex: 1 }}>
       {/* ── Profile Hero — fixed at the top, doesn't scroll away ── */}
       <FadeSlideIn delay={0}>
-        <View style={styles.heroFixed}>
+        <LinearGradient
+          colors={["#4B3888", "#6B52B5"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroFixed}
+        >
           <View style={styles.avatar}>
             <Image source={require("../../../assets/profieicon.png")} style={styles.avatarImg} resizeMode="cover" />
           </View>
@@ -560,7 +528,7 @@ const PgProfileScreen = ({ navigation, route }) => {
             />
             <Text style={styles.heroEditBtnText}>{editing ? "Cancel" : "Edit"}</Text>
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       </FadeSlideIn>
 
       <ScrollView
@@ -591,8 +559,11 @@ const PgProfileScreen = ({ navigation, route }) => {
             onPress={() => navigation.navigate("PgOrders", { userId })}
             activeOpacity={0.7}
           >
+            <View style={styles.statIconBox}>
+              <Ionicons name="receipt-outline" size={16} color={T.gold} />
+            </View>
             <Text style={styles.statValue} numberOfLines={1}>{ordersCount}</Text>
-            <Text style={styles.statLabel} numberOfLines={1}>Orders</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>My Orders</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -600,12 +571,16 @@ const PgProfileScreen = ({ navigation, route }) => {
             onPress={() => navigation.navigate("PgAddress", { userId })}
             activeOpacity={0.7}
           >
+            <View style={styles.statIconBox}>
+              <Ionicons name="location-outline" size={16} color={T.gold} />
+            </View>
             <Text style={styles.statValue} numberOfLines={1}>{addressesCount}</Text>
             <Text style={styles.statLabel} numberOfLines={1}>Addresses</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.hairline} />
+        </View>
+        <View style={styles.panel}>
 
         {/* ── Personal Information — plain white ── */}
         <View style={styles.section}>
@@ -718,7 +693,8 @@ const PgProfileScreen = ({ navigation, route }) => {
           )}
         </View>
 
-        <View style={styles.hairline} />
+        </View>
+        <View style={styles.panel}>
 
         {/* ── Quick Actions ── */}
         <View style={[styles.section, { marginBottom: 0 }]}>
@@ -794,7 +770,10 @@ const PgProfileScreen = ({ navigation, route }) => {
           {logoutLoading ? (
             <ActivityIndicator size="small" color={T.danger} />
           ) : (
-            <Text style={styles.logoutBtnText}>Logout</Text>
+            <>
+              <Ionicons name="log-out-outline" size={17} color={T.danger} />
+              <Text style={styles.logoutBtnText}>Logout</Text>
+            </>
           )}
         </TouchableOpacity>
         <TouchableOpacity
@@ -815,18 +794,20 @@ const PgProfileScreen = ({ navigation, route }) => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 48, backgroundColor: T.bg },
+  scroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 48, backgroundColor: "#F4F3F8" },
 
   // ── The one cohesive surface — Summary through Quick Actions live here ──
   panel: {
     backgroundColor: T.surface,
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 16,
+    padding: 16,
     marginTop: 12,
-    shadowColor: "rgba(28,28,30,0.06)",
+    borderWidth: 1,
+    borderColor: "#ECE8F3",
+    shadowColor: "#2E1E62",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 1,
   },
 
@@ -844,7 +825,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
     padding: 18,
     paddingHorizontal: 16 + 18,
-    backgroundColor: "#503189",
+    paddingBottom: 22,
   },
 
   // ── Guest state — not logged in ──
@@ -889,7 +870,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     letterSpacing: -0.2,
   },
-  heroEmail: { fontSize: 12, fontWeight: "400", color: "#E0D2C8" },
+  heroEmail: { fontSize: 12, fontWeight: "400", color: "#DCD3F0" },
   idBadge: {
     alignSelf: "flex-start",
     backgroundColor: "rgba(255,255,255,0.16)",
@@ -913,11 +894,7 @@ const styles = StyleSheet.create({
 
   // ── Account summary — three plain columns, small icon chips ──
   statsRow: { flexDirection: "row" },
-  statsRowTinted: {
-    backgroundColor: "rgba(80,49,137,0.16)",
-    borderRadius: 14,
-    paddingVertical: 6,
-  },
+  statsRowTinted: { paddingVertical: 2 },
   statCol: {
     flex: 1,
     alignItems: "center",
@@ -927,10 +904,10 @@ const styles = StyleSheet.create({
   },
   statColDivider: { borderRightWidth: 1, borderRightColor: T.divider },
   statIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: T.goldTint,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#F4F0FA",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 2,
@@ -940,13 +917,13 @@ const styles = StyleSheet.create({
   statIconBoxWallet:    { backgroundColor: "rgba(150,140,210,0.16)" },
   statIconBoxOrders:    { backgroundColor: "rgba(140,47,59,0.14)" },
   statIconBoxAddresses: { backgroundColor: "rgba(106,44,110,0.14)" },
-  statLabel: { fontSize: 11, fontWeight: "400", color: T.subtle },
-  statValue: { fontSize: 14, fontWeight: "600", color: T.ink },
+  statLabel: { fontSize: 11.5, fontWeight: "500", color: T.subtle },
+  statValue: { fontSize: 18, fontWeight: "700", color: T.ink, marginTop: -2 },
 
   // ── Section — no extra card, lives inside the shared panel ──
   section: { marginBottom: 4 },
   sectionHead: { marginBottom: 14 },
-  sectionTitle: { fontSize: 14, fontWeight: "600", color: T.ink },
+  sectionTitle: { fontSize: 15, fontWeight: "700", color: T.ink },
   sectionSubtitle: { fontSize: 11, fontWeight: "400", color: T.subtle, marginTop: 2 },
 
   // ── Info list — one row per field ──
@@ -1045,10 +1022,10 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   linkIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: T.goldTint,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F4F0FA",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1056,18 +1033,20 @@ const styles = StyleSheet.create({
 
   // ── Logout — clean outlined secondary button, not visually dominant ──
   logoutBtn: {
+    flexDirection: "row",
+    gap: 6,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: T.divider,
-    backgroundColor: T.surface,
+    borderColor: "#F5C2C0",
+    backgroundColor: "#FFF5F5",
     paddingVertical: 14,
     marginTop: 16,
     marginBottom: 8,
   },
   logoutBtnDisabled: { opacity: 0.6 },
-  logoutBtnText: { fontSize: 13, fontWeight: "500", color: T.danger },
+  logoutBtnText: { fontSize: 14, fontWeight: "600", color: T.danger },
   deleteAccountBtn: {
     flexDirection: "row",
     alignItems: "center",

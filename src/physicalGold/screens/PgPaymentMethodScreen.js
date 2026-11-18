@@ -48,8 +48,6 @@ const PgPaymentMethodScreen = ({ navigation, route }) => {
 
     setLoading(true);
     try {
-      console.log('[PaymentMethod] Selected method:', selectedMethod);
-      console.log('[PaymentMethod] Proceeding to checkout');
 
       // Navigate to checkout with selected payment method
       navigation.navigate('PgCheckout', {

@@ -130,15 +130,9 @@ const CartItemRow = ({ item, busy, imageUrl, onRemove, onIncrement, onDecrement,
 
       {/* Name + Delete btn */}
       <View style={styles.nameRow}>
-        <Text style={styles.itemName} numberOfLines={2}>{item.productName}</Text>
-        <TouchableOpacity
-          style={styles.deleteBtn}
-          onPress={onRemove}
-          disabled={busy}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="trash-outline" size={14} color={C.red} />
-        </TouchableOpacity>
+        <Text style={styles.itemName} numberOfLines={2}>{String(item.productName || "").trim()}</Text>
+        {/* Remove = the stepper's left (trash) button at qty 1 — no second
+            delete button here. */}
       </View>
 
       {/* Attribute subtitle */}
@@ -366,7 +360,7 @@ const PgCartScreen = ({ navigation }) => {
 
   const handleCheckout = () => {
     if (!userId) {
-      Alert.alert("Session Expired", "Please login again", [{ text: "OK", onPress: () => navigation.replace("Login") }]);
+      Alert.alert("Session Expired", "Please login again", [{ text: "OK", onPress: () => navigation.reset({ index: 0, routes: [{ name: "PgHome" }] }) }]);
       return;
     }
     navigation.navigate("PgCheckout", { cartTotal: totalPayableAmount, cartItems });
@@ -375,7 +369,7 @@ const PgCartScreen = ({ navigation }) => {
   // ── Guest — needs login ──
   if (!userId) {
     return (
-      <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()}>
+      <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()} hideCart>
         <PgGuestPrompt
           icon="cart-outline"
           title="Login to see your cart"
@@ -388,7 +382,7 @@ const PgCartScreen = ({ navigation }) => {
   // ── Loading ──
   if (loading) {
     return (
-      <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()}>
+      <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()} hideCart>
         <PgLoader label="Loading cart..." />
       </PgLayout>
     );
@@ -397,7 +391,7 @@ const PgCartScreen = ({ navigation }) => {
   // ── Empty state ──
   if (cartItems.length === 0) {
     return (
-      <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()}>
+      <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()} hideCart>
         <View style={styles.emptyState}>
           <View style={styles.emptyIconBox}>
             <Ionicons name="cart-outline" size={32} color={C.gold} />
@@ -421,7 +415,7 @@ const PgCartScreen = ({ navigation }) => {
   );
 
   return (
-    <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()}>
+    <PgLayout title="My Cart" showBack onBack={() => navigation.goBack()} hideCart>
       <View style={styles.root}>
         <ScrollView
           showsVerticalScrollIndicator={false}

@@ -35,20 +35,16 @@ export const performLogout = async ({
         await apiPost(`${BASE_URL}/auth/logout`, {
           refreshToken,
         });
-        console.log('[logout] API call successful');
       } catch (apiError) {
         // API failed but we still logout locally (safety fallback)
-        console.log('[logout] API call failed, proceeding with local logout:', apiError?.message);
       }
     }
 
     // Step 2: Clear Redux state
     store?.dispatch(clearTokens());
-    console.log('[logout] Redux state cleared');
 
     // Step 3: Clear AsyncStorage
     await AsyncStorage.multiRemove(['auth_tokens', 'user']);
-    console.log('[logout] AsyncStorage cleared');
 
     // Step 4: Reset navigation stack
     if (navigationRef?.isReady?.()) {
@@ -56,12 +52,10 @@ export const performLogout = async ({
         index: 0,
         routes: [{ name: 'PgHome' }],
       });
-      console.log('[logout] Navigation reset to PgHome');
     }
 
     return { success: true };
   } catch (error) {
-    console.log('[logout] Unexpected error:', error?.message);
     
     // Even if something fails, try to clear local state and navigate
     try {
@@ -74,7 +68,6 @@ export const performLogout = async ({
         });
       }
     } catch (fallbackError) {
-      console.log('[logout] Fallback cleanup failed:', fallbackError?.message);
     }
 
     return {
@@ -108,7 +101,6 @@ export const handleLogout = async ({
   // refreshToken still present (e.g. a corrupted stored session) must still be
   // logoutable — this used to block that, trapping the user in that state.
   if (!userId && !refreshToken) {
-    console.log('[logout] No user logged in');
     onError?.('No user session found');
     return;
   }

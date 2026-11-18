@@ -52,12 +52,13 @@ const resolveItem = (raw) => ({
   wishlistId: raw.id || raw.wishlistId,
   productId:  raw.productId  || raw.product?.id,
   variantId:  raw.productVariantId || raw.productVariant?.id || raw.variantId,
-  name:
+  name: String(
     raw.product?.name ||
     raw.product?.productName ||
     raw.productName ||
     raw.name ||
-    "Gold Product",
+    "Gold Product"
+  ).trim(),
   price: raw.productVariant?.price || raw.product?.price || raw.price || 0,
   weight: raw.productVariant?.weight || raw.product?.weight || raw.weight || null,
   purity: raw.productVariant?.purity || raw.product?.purity || raw.purity || null,
@@ -430,14 +431,22 @@ const s = StyleSheet.create({
   card: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#EEE8E0",
+    shadowColor: "#2A1F4A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
   // ── Image — white square, "contain" so every product sits the same size ──
   imageWrap: {
     width: "100%",
     aspectRatio: 1,
-    backgroundColor: "#F7F7F9",
-    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
     position: "relative",
     overflow: "hidden",
     padding: 12,
@@ -479,7 +488,7 @@ const s = StyleSheet.create({
   },
 
   // ── Info ─────────────────────────────────────────────────────────────────────
-  info: { flex: 1, paddingHorizontal: 2, paddingTop: 10, paddingBottom: 10, backgroundColor: "#FFFFFF" },
+  info: { flex: 1, paddingHorizontal: 10, paddingTop: 10, paddingBottom: 10, backgroundColor: "#FFFFFF" },
   name: { fontSize: 13, fontWeight: "500", color: C.textPrimary, lineHeight: 18, minHeight: 36 },
   metaRow: { flexDirection: "row", marginTop: 6 },
   metaBadge: { backgroundColor: "#F7F1E6", borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },

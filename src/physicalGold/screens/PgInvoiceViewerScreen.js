@@ -43,9 +43,6 @@ const PgInvoiceViewerScreen = ({ navigation, route }) => {
       Alert.alert('Error', 'Order number is required');
       navigation.goBack();
     }
-    console.log('[Invoice Viewer] Order:', orderNumber);
-    console.log('[Invoice Viewer] URL:', invoiceUrl);
-    console.log('[Invoice Viewer] Token:', accessToken ? 'present' : 'missing');
   }, [orderNumber]);
 
   const handleDownload = async () => {
@@ -56,7 +53,6 @@ const PgInvoiceViewerScreen = ({ navigation, route }) => {
 
     setDownloading(true);
     try {
-      console.log('[Invoice Viewer] Starting download for order:', orderNumber);
       const fileUri = await downloadInvoicePDF(orderNumber, accessToken);
       
       Alert.alert('Success', 'Invoice downloaded successfully', [

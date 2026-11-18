@@ -16,6 +16,7 @@ import {
   FlatList,
   Linking,
   Alert,
+  AppState,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
@@ -71,10 +72,15 @@ const SHOW_DIWALI = false;
 let diwaliGreetingShown = false;
 // Promotional banners — add more images here and the carousel pages through
 // them (auto-advance + dots); with one it shows as a single banner.
-const HOME_BANNERS = [{ id: "pure-gold-silver", source: require("../../../assets/banner.png") }];
+// "brand" = violet banner drawn in code (gold & silver pop on violet);
+// the old cream picture banner is kept below — swap the order to use it.
+const HOME_BANNERS = [{ id: "brand-violet", type: "brand" }];
+// const HOME_BANNERS = [{ id: "pure-gold-silver", source: require("../../../assets/banner.png") }];
 const BANNER_HEIGHT = BANNER_WIDTH * (929 / 1693) * 0.72;
 
-// Quick actions under the price dashboard.
+// Quick actions under the price dashboard — turned off (user asked to remove
+// Buy Gold / Buy Silver / My Orders / Track Delivery from Home).
+const SHOW_QUICK_ACTIONS = false;
 const QUICK_ACTIONS = [
   { key: "gold", label: "Buy Gold", icon: "diamond-outline" },
   { key: "silver", label: "Buy Silver", icon: "sparkles-outline" },
@@ -83,6 +89,44 @@ const QUICK_ACTIONS = [
 ];
 
 // ─── Banner carousel — paging, auto-advance every 4s when there are 2+ ─────
+// Violet brand banner — headline + Shop Now on the left, the gold & silver
+// bars on the right. Violet (not cream) so the metals stand out and the
+// screen isn't all gold/silver.
+const BrandBanner = memo(({ onPress }) => (
+  <TouchableOpacity activeOpacity={0.92} onPress={onPress} style={styles.brandBanner}>
+    <LinearGradient
+      colors={["#2E1E62", "#4B3888", "#6B52B5"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={StyleSheet.absoluteFill}
+    />
+    {/* soft glow circles behind the metals */}
+    <View style={[styles.brandGlow, { width: 190, height: 190, right: -40, top: -40 }]} />
+    <View style={[styles.brandGlow, { width: 120, height: 120, right: 70, bottom: -60 }]} />
+
+    <View style={styles.brandText}>
+      <Text style={styles.brandEyebrow}>24K GOLD · 999 SILVER</Text>
+      <Text style={styles.brandTitle}>Pure Gold &amp; Silver</Text>
+      <Text style={styles.brandSub}>Delivered home · fully insured</Text>
+      <View style={styles.brandBtn}>
+        <Text style={styles.brandBtnText}>Shop Now</Text>
+        <Ionicons name="arrow-forward" size={13} color="#4B3888" />
+      </View>
+    </View>
+
+    <Image
+      source={require("../../../assets/silverrate.png")}
+      style={styles.brandSilver}
+      resizeMode="contain"
+    />
+    <Image
+      source={require("../../../assets/Goldrateicon.png")}
+      style={styles.brandGold}
+      resizeMode="contain"
+    />
+  </TouchableOpacity>
+));
+
 const BannerCarousel = memo(({ banners, onPress }) => {
   const listRef = useRef(null);
   const [index, setIndex] = useState(0);
@@ -113,11 +157,15 @@ const BannerCarousel = memo(({ banners, onPress }) => {
         onMomentumScrollEnd={(e) =>
           setIndex(Math.round(e.nativeEvent.contentOffset.x / (BANNER_WIDTH + 12)))
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity activeOpacity={0.92} onPress={onPress} style={styles.bannerSlide}>
-            <Image source={item.source} style={styles.bannerImage} resizeMode="cover" />
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }) =>
+          item.type === "brand" ? (
+            <BrandBanner onPress={onPress} />
+          ) : (
+            <TouchableOpacity activeOpacity={0.92} onPress={onPress} style={styles.bannerSlide}>
+              <Image source={item.source} style={styles.bannerImage} resizeMode="cover" />
+            </TouchableOpacity>
+          )
+        }
       />
       {banners.length > 1 && (
         <View style={styles.bannerDots}>
@@ -158,7 +206,7 @@ const C = {
 };
 
 // Deep aubergine keeps the footer premium and aligned with the purple brand.
-const FOOTER_BG = "#4B3888"; // same softer violet as the header
+const FOOTER_BG = "#3A2873"; // fallback under the banner-violet gradient
 const FOOTER_ACCENT = "#D6C7F2";
 // Deliver-to, search and the banner share one flat band (the header
 // above is the app-wide purple gradient from PgLayout).
@@ -174,24 +222,28 @@ const SILVER_LABEL = "#6B7785";
 
 const WHY_SHOP = [
   {
+    icon: "shield-checkmark",
     image: require("../../../assets/Bishallmark.png"),
     title: "BIS Hallmarked",
-    subtitle: "Certified purity you can trust always.",
+    subtitle: "Certified purity you can trust.",
   },
   {
+    icon: "car",
     image: require("../../../assets/securedelivery.png"),
     title: "Secure Delivery",
     subtitle: "Safe delivery in 2–3 days.",
   },
   {
+    icon: "lock-closed",
     image: require("../../../assets/securepaymntes.png"),
     title: "Secure Payments",
-    subtitle: "100% safe & encrypted transactions.",
+    subtitle: "100% safe & encrypted.",
   },
   {
+    icon: "headset",
     image: require("../../../assets/Contact Support.png"),
     title: "Dedicated Support",
-    subtitle: "We're here to help you, anytime.",
+    subtitle: "We're here to help, anytime.",
   },
 ];
 
@@ -359,8 +411,31 @@ const LiveBlinkDot = memo(({ color }) => {
   );
 });
 
+// ─── Blinking metal dot — gold / silver "live" light next to each rate ──
+const BlinkDot = memo(({ color }) => {
+  const a = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(a, { toValue: 0.25, duration: 700, useNativeDriver: true }),
+        Animated.timing(a, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [a]);
+  return (
+    <Animated.View
+      style={[
+        styles.rateDot,
+        { backgroundColor: color, opacity: a, transform: [{ scale: a.interpolate({ inputRange: [0.25, 1], outputRange: [0.8, 1.15] }) }] },
+      ]}
+    />
+  );
+});
+
 // ─── Rate column — one karat/metal cell inside the live-rates card ────────────
-const RateColumn = memo(({ icon, label, rate, decimals, labelColor }) => {
+const RateColumn = memo(({ icon, label, rate, decimals, labelColor, dotColor }) => {
   // Re-render every 30s purely so "X mins ago" keeps advancing even when no
   // new price has come in — otherwise it'd freeze at whatever it read on
   // the render that set it.
@@ -402,49 +477,45 @@ const RateColumn = memo(({ icon, label, rate, decimals, labelColor }) => {
 
   return (
     <Animated.View style={[styles.rateBlock, { backgroundColor: flashBg }]}>
-      <Image source={icon} style={styles.rateIconImg} resizeMode="contain" />
-      <View style={{ flex: 1, minWidth: 0 }}>
+      {/* No picture — a small metal-coloured dot + label, so the price reads first. */}
+      <View style={styles.rateLabelRow}>
+        <BlinkDot color={dotColor || labelColor || C.textMuted} />
         <Text style={[styles.rateLabel, labelColor && { color: labelColor }]} numberOfLines={1}>
           {label}
         </Text>
-        <Text
-          style={styles.rateValue}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.8}
-        >
-          ₹
-          {Number(rate.price || 0).toLocaleString("en-IN", {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals,
-          })}
-          <Text style={styles.rateUnit}> /gm</Text>
-        </Text>
-        {rate.direction && (
-          <View style={styles.rateChangeRow}>
-            <Ionicons
-              name={rate.direction === "up" ? "trending-up" : "trending-down"}
-              size={11}
-              color={rate.direction === "up" ? C.green : C.red}
-            />
-            <Text
-              style={[
-                styles.rateChangeText,
-                { color: rate.direction === "up" ? C.green : C.red },
-              ]}
-            >
-              {rate.direction === "up" ? "+" : ""}
-              {rate.changePct.toFixed(2)}%
-            </Text>
-          </View>
-        )}
-        {rate.changeAmount != null && rate.changedAt != null && (
-          <Text style={styles.rateChangeMeta} numberOfLines={1}>
-            {rate.direction === "up" ? "+" : "-"}₹
-            {rate.changeAmount.toLocaleString("en-IN")} · {formatTimeAgo(rate.changedAt)}
-          </Text>
-        )}
       </View>
+      <Text style={styles.rateValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+        ₹
+        {Number(rate.price || 0).toLocaleString("en-IN", {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        })}
+        <Text style={styles.rateUnit}>/gm</Text>
+      </Text>
+      {rate.direction ? (
+        <View
+          style={[
+            styles.rateChangeRow,
+            { backgroundColor: rate.direction === "up" ? "#EAF8F1" : "#FDECEA" },
+          ]}
+        >
+          <Ionicons
+            name={rate.direction === "up" ? "trending-up" : "trending-down"}
+            size={11}
+            color={rate.direction === "up" ? C.green : C.red}
+          />
+          <Text style={[styles.rateChangeText, { color: rate.direction === "up" ? C.green : C.red }]}>
+            {rate.direction === "up" ? "+" : ""}
+            {rate.changePct.toFixed(2)}%
+          </Text>
+        </View>
+      ) : null}
+      {rate.changeAmount != null && rate.changedAt != null && (
+        <Text style={styles.rateChangeMeta} numberOfLines={1}>
+          {rate.direction === "up" ? "+" : "-"}₹{rate.changeAmount.toLocaleString("en-IN")} ·{" "}
+          {formatTimeAgo(rate.changedAt)}
+        </Text>
+      )}
     </Animated.View>
   );
 });
@@ -640,8 +711,13 @@ const PgHomeScreen = ({ navigation, route }) => {
       .then(([goldRes, silverRes]) => {
         if (!alive) return;
         // ₹0 / unpriced products are hidden everywhere on Home.
-        setGoldProducts(goldRes.status === "fulfilled" ? withPrice(goldRes.value).slice(0, 6) : []);
-        setSilverProducts(silverRes.status === "fulfilled" ? withPrice(silverRes.value).slice(0, 6) : []);
+        // Even count (2 per row) so no row ends with an empty gap; up to 6.
+        const fullRows = (list) => {
+          const top = list.slice(0, 6);
+          return top.length > 1 ? top.slice(0, top.length - (top.length % 2)) : top;
+        };
+        setGoldProducts(goldRes.status === "fulfilled" ? fullRows(withPrice(goldRes.value)) : []);
+        setSilverProducts(silverRes.status === "fulfilled" ? fullRows(withPrice(silverRes.value)) : []);
       })
       .finally(() => { if (alive) setMetalProductsLoading(false); });
     return () => { alive = false; };
@@ -668,8 +744,11 @@ const PgHomeScreen = ({ navigation, route }) => {
       // brings back the same price again, we keep showing how much it last
       // moved and how long ago, instead of the badge just disappearing.
       const storageKey = `pg_rate_${kind}`;
-      const storedRaw = await AsyncStorage.getItem(storageKey).catch(() => null);
-      const stored = storedRaw ? JSON.parse(storedRaw) : null;
+      let stored = null;
+      try {
+        const raw = await AsyncStorage.getItem(storageKey);
+        stored = raw ? JSON.parse(raw) : null;
+      } catch {}
       if (!alive) return;
 
       let direction = stored?.direction ?? null;
@@ -685,11 +764,10 @@ const PgHomeScreen = ({ navigation, route }) => {
       }
 
       SETTERS[kind]({ price, changePct, direction, changeAmount, changedAt });
-      await AsyncStorage.setItem(
+      AsyncStorage.setItem(
         storageKey,
         JSON.stringify({ price, changePct, direction, changeAmount, changedAt }),
       ).catch(() => {});
-
     };
 
     const loadRates = async () => {
@@ -702,13 +780,32 @@ const PgHomeScreen = ({ navigation, route }) => {
     };
 
     loadRatesRef.current = loadRates;
-    loadRates();
-    const t = setInterval(loadRates, 60000);
     return () => {
       alive = false;
-      clearInterval(t);
     };
   }, []);
+
+  // Refresh right away whenever Home is shown or the app comes back to the
+  // foreground, then every 30s — only while Home is on screen and the app is
+  // open (no polling in the background).
+  useFocusEffect(
+    useCallback(() => {
+      if (isCategoryScreen) return undefined;
+      let timer = null;
+      const start = () => {
+        loadRatesRef.current();
+        clearInterval(timer);
+        timer = setInterval(() => loadRatesRef.current(), 30000);
+      };
+      const stop = () => clearInterval(timer);
+      if (AppState.currentState === "active") start();
+      const sub = AppState.addEventListener("change", (s) => (s === "active" ? start() : stop()));
+      return () => {
+        stop();
+        sub.remove();
+      };
+    }, [isCategoryScreen]),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -781,7 +878,6 @@ const PgHomeScreen = ({ navigation, route }) => {
         await addToCart(userId, product.id, variantId, 1);
         await refreshCart(); // card turns into the − qty + stepper
       } catch (e) {
-        console.log("[PgHomeScreen] Add to cart failed:", e?.message);
         showCartActionError(e, navigation);
       } finally {
         setCartLoadingId(null);
@@ -1724,8 +1820,8 @@ const PgHomeScreen = ({ navigation, route }) => {
       }
       showBack={isCategoryScreen || isSearchActive || viewMode === "products"}
       onBack={isSearchActive ? clearSearch : handleBackToCategories}
-      contentBg="#5A44A0"
-      headerGradient={["#4B3888", "#5A44A0"]}
+      contentBg="#4B3888"
+      headerGradient={["#2E1E62", "#4B3888"]}
       hideCart
     >
       {/* ── Delivery location + Search — pinned above the scroll, same cue
@@ -1854,41 +1950,30 @@ const PgHomeScreen = ({ navigation, route }) => {
                         <Ionicons name="chevron-forward" size={14} color={C.textMuted} />
                       </View>
                     </View>
-                    <View style={styles.dashCols}>
+                    <View style={styles.ratesRow}>
                       {[
-                        { label: "Gold 24K", rate: goldRate, decimals: 0, dot: "#C8962E" },
-                        { label: "Gold 22K", rate: gold22kRate, decimals: 0, dot: "#C8962E" },
-                        { label: "Silver", rate: silverRate, decimals: 2, dot: "#A3AAB4" },
+                        { label: "Gold 24K", rate: goldRate, decimals: 0, icon: require("../../../assets/Goldrateicon.png"), color: GOLD_LABEL, dot: "#F2B300" },
+                        { label: "Gold 22K", rate: gold22kRate, decimals: 0, icon: require("../../../assets/Goldrateicon.png"), color: GOLD_LABEL, dot: "#F2B300" },
+                        { label: "Silver", rate: silverRate, decimals: 2, icon: require("../../../assets/silverrate.png"), color: SILVER_LABEL, dot: "#A9B1BC" },
                       ].map((t, i) => (
-                        <View key={t.label} style={[styles.dashCol, i > 0 && styles.dashColSplit]}>
-                          <View style={styles.dashLabelRow}>
-                            <View style={[styles.dashDot, { backgroundColor: t.dot }]} />
-                            <Text style={styles.dashLabel}>{t.label}</Text>
-                          </View>
+                        <React.Fragment key={t.label}>
+                          {i > 0 && <View style={styles.rateDivider} />}
                           {t.rate.price ? (
-                            <Text style={styles.dashPrice} numberOfLines={1} adjustsFontSizeToFit>
-                              ₹
-                              {Number(t.rate.price).toLocaleString("en-IN", {
-                                minimumFractionDigits: t.decimals,
-                                maximumFractionDigits: t.decimals,
-                              })}
-                              <Text style={styles.dashUnit}>/g</Text>
-                            </Text>
+                            <RateColumn
+                              icon={t.icon}
+                              label={t.label}
+                              rate={t.rate}
+                              decimals={t.decimals}
+                              labelColor={t.color}
+                              dotColor={t.dot}
+                            />
                           ) : (
-                            <ShimmerBox width="80%" height={18} borderRadius={4} style={{ marginVertical: 2 }} />
+                            <View style={{ flex: 1, gap: 6, alignItems: "center", paddingVertical: 6 }}>
+                              <ShimmerBox width="60%" height={10} borderRadius={4} />
+                              <ShimmerBox width="80%" height={16} borderRadius={4} />
+                            </View>
                           )}
-                          {!!t.rate.direction && (
-                            <Text
-                              style={[
-                                styles.dashChange,
-                                { color: t.rate.direction === "up" ? "#1F8A4C" : "#E53935" },
-                              ]}
-                            >
-                              {t.rate.direction === "up" ? "▲" : "▼"}{" "}
-                              {Math.abs(Number(t.rate.changePct || 0)).toFixed(2)}%
-                            </Text>
-                          )}
-                        </View>
+                        </React.Fragment>
                       ))}
                     </View>
                   </TouchableOpacity>
@@ -1907,8 +1992,8 @@ const PgHomeScreen = ({ navigation, route }) => {
                     the gold-tinted hero above. */}
                 <View style={[styles.ratesAndCategoriesSection, styles.ratesTint]}>
 
-                  {/* ── Quick actions ── */}
-                  <View style={styles.quickRow}>
+                  {/* ── Quick actions (hidden — SHOW_QUICK_ACTIONS) ── */}
+                  {SHOW_QUICK_ACTIONS && <View style={styles.quickRow}>
                     {QUICK_ACTIONS.map((q, qi) => (
                       <ScrollReveal key={q.key} style={styles.quickItem} delay={qi * 70} distance={18}>
                       <TouchableOpacity
@@ -1925,7 +2010,7 @@ const PgHomeScreen = ({ navigation, route }) => {
                       </TouchableOpacity>
                       </ScrollReveal>
                     ))}
-                  </View>
+                  </View>}
 
                   <SectionHeader title="Shop by Category" />
                   {renderCategoriesGrid()}
@@ -2006,21 +2091,22 @@ const PgHomeScreen = ({ navigation, route }) => {
                   </>
                 )}
 
-                {/* Why Shop With Us — compact 2×2 list: gold icon on a soft
-                    circle at left, title + one line at right. */}
+                {/* Why Choose OxyGold — lavender band, centred heading, 2×2
+                    white cards with the gold picture icons. */}
                 <View style={styles.whyShopSection}>
-                  <Text style={styles.whyShopTitle}>Why Choose OXYGOLD</Text>
+                  <Text style={styles.whyShopEyebrow}>THE OXYGOLD PROMISE</Text>
+                  <Text style={styles.whyShopTitle}>Why Choose OxyGold</Text>
                   <View style={styles.whyShopRow}>
                     {WHY_SHOP.map((w, i) => (
                       <ScrollReveal key={i} style={styles.whyShopCell} delay={i * 80} distance={20}>
-                        <View style={styles.whyShopIconWrap}>
-                          <Image
-                            source={w.image}
-                            style={styles.whyShopIconImg}
-                            resizeMode="contain"
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
+                        <View style={styles.whyShopCard}>
+                          <View style={styles.whyShopIconWrap}>
+                            <Image
+                              source={w.image}
+                              style={styles.whyShopIconImg}
+                              resizeMode="contain"
+                            />
+                          </View>
                           <Text style={styles.whyShopItemTitle}>{w.title}</Text>
                           <Text style={styles.whyShopItemSub} numberOfLines={2}>
                             {w.subtitle}
@@ -2092,6 +2178,13 @@ const PgHomeScreen = ({ navigation, route }) => {
 
         {/* ── Footer ── */}
         <View style={styles.footer}>
+          {/* Same violet gradient as the Home banner */}
+          <LinearGradient
+            colors={["#2E1E62", "#4B3888", "#6B52B5"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <View style={styles.footerTopRow}>
             <Image
               source={require("../../../assets/logo-header.png")}
@@ -2215,7 +2308,7 @@ const PgHomeScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   // Violet behind the scroll so no light seam shows where the pinned top bar
   // meets the dashboard band (the content itself stays white).
-  scrollFlex: { flex: 1, backgroundColor: "#5A44A0" },
+  scrollFlex: { flex: 1, backgroundColor: "#4B3888" },
   scrollContent: { paddingBottom: 16, backgroundColor: "#FFFFFF" },
 
   // Deliver-to + search share one soft lavender band with the rate card
@@ -2223,7 +2316,7 @@ const styles = StyleSheet.create({
   combinedTopBar: {
     paddingTop: 4,
     paddingBottom: 3,
-    backgroundColor: "#5A44A0",
+    backgroundColor: "#4B3888",
     // Reach 1px into the scroll area (drawn on top) so no white hairline
     // shows where the pinned bar meets the violet dashboard band.
     marginBottom: -1,
@@ -2395,38 +2488,36 @@ const styles = StyleSheet.create({
   ratesRow: { flexDirection: "row", alignItems: "center" },
   rateBlock: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
-    gap: 6,
     borderRadius: 8,
-    padding: 4,
-    margin: -4,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
   },
   rateDivider: {
     width: 1,
     alignSelf: "stretch",
-    backgroundColor: C.border,
-    marginHorizontal: 8,
+    backgroundColor: "#F0EDF5",
+    marginVertical: 4,
   },
-  rateIconImg: { width: 32, height: 32 },
-  rateLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: C.textSecondary,
-    marginBottom: 2,
-  },
+  rateIconImg: { width: 30, height: 30, marginBottom: 4 },
+  rateLabelRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  rateDot: { width: 7, height: 7, borderRadius: 4 },
+  rateLabel: { fontSize: 11, fontWeight: "700", color: C.textSecondary, letterSpacing: 0.2 },
   // Bigger/bolder than the original 12.5/700 so it reads clearly; shrinks to
   // fit rather than cutting off with "…".
-  rateValue: { fontSize: 16, fontWeight: "600", color: C.textPrimary },
-  rateUnit: { fontSize: 10, fontWeight: "500", color: C.textSecondary },
+  rateValue: { fontSize: 16, fontWeight: "700", color: C.textPrimary, marginTop: 3 },
+  rateUnit: { fontSize: 10, fontWeight: "500", color: C.textMuted },
   rateChangeRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
-    marginTop: 2,
+    gap: 3,
+    marginTop: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
   },
-  rateChangeText: { fontSize: 11, fontWeight: "600" },
-  rateChangeMeta: { fontSize: 9, color: C.textMuted, marginTop: 1 },
+  rateChangeText: { fontSize: 10.5, fontWeight: "700" },
+  rateChangeMeta: { fontSize: 9, color: C.textMuted, marginTop: 2 },
   ratesLinkRow: {
     borderTopWidth: 1,
     borderTopColor: C.divider,
@@ -2453,52 +2544,103 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  // ── Violet brand banner ──
+  brandBanner: {
+    width: BANNER_WIDTH,
+    height: Math.max(BANNER_HEIGHT, 150),
+    borderRadius: 16,
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  brandGlow: {
+    position: "absolute",
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.07)",
+  },
+  brandText: { width: "60%", paddingLeft: 16, paddingVertical: 14, zIndex: 2 },
+  brandEyebrow: { fontSize: 10, fontWeight: "700", letterSpacing: 1.2, color: "#FFD27A" },
+  brandTitle: { fontSize: 20, fontWeight: "700", color: "#FFFFFF", marginTop: 4 },
+  brandSub: { fontSize: 11, color: "#DCD3F0", marginTop: 4, lineHeight: 15 },
+  brandBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    marginTop: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  brandBtnText: { fontSize: 12, fontWeight: "700", color: "#4B3888" },
+  brandSilver: { position: "absolute", right: 4, top: 8, width: 92, height: 92 },
+  brandGold: { position: "absolute", right: 52, bottom: 6, width: 104, height: 94 },
   // ── Why Shop With Us — LinearGradient handles the fade, no flat color here ──
   // Warm cream → champagne gradient (set in JSX) — complements the gold
   // icons and their glow; split from the products above by a grey band.
   whyShopSection: {
-    paddingHorizontal: 16,
-    paddingTop: 22,
-    paddingBottom: 22,
-    borderTopWidth: 8,
-    borderTopColor: "#F6F4F9",
+    paddingHorizontal: 12,
+    paddingTop: 26,
+    paddingBottom: 24,
+    backgroundColor: "#F4F0FA",
+  },
+  whyShopEyebrow: {
+    fontSize: 10.5,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+    color: "#8A73B8",
+    textAlign: "center",
   },
   whyShopTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 19,
+    fontWeight: "700",
     color: C.textPrimary,
-    marginBottom: 14,
+    textAlign: "center",
+    marginTop: 4,
+    marginBottom: 16,
   },
-  whyShopRow: { flexDirection: "row", flexWrap: "wrap", rowGap: 16 },
-  whyShopCell: {
-    width: "50%",
-    flexDirection: "row",
+  whyShopRow: { flexDirection: "row", flexWrap: "wrap" },
+  whyShopCell: { width: "50%", padding: 5 },
+  whyShopCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
     alignItems: "center",
-    gap: 10,
-    paddingRight: 8,
+    borderWidth: 1,
+    borderColor: "#E9E2F5",
+    shadowColor: "#2E1E62",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
   },
-  whyShopCard: {},
   whyShopIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: "#FFF6E6",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    marginBottom: 10,
   },
-  whyShopIconImg: { width: 40, height: 40 },
+  whyShopIconImg: { width: 52, height: 52 },
   whyShopItemTitle: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 13.5,
+    fontWeight: "700",
     color: C.textPrimary,
+    textAlign: "center",
   },
   whyShopItemSub: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: C.textSecondary,
-    lineHeight: 15,
-    marginTop: 2,
+    lineHeight: 16,
+    marginTop: 3,
+    textAlign: "center",
   },
+
 
   // ── Footer — deep evergreen with soft neutral text and muted gold accents. ──
   footer: {
@@ -2722,7 +2864,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     marginBottom: 12,
   },
-  gridItem: { width: "50%", padding: 5 },
+  gridItem: { width: "50%", padding: 6 },
   // Home collections — 3 smaller cards per row.
   homeGridItem: { width: "33.333%", padding: 4 },
   gridFlat: { paddingHorizontal: 12 },
@@ -2737,13 +2879,14 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     height: 52,
-    backgroundColor: "#5A44A0",
+    backgroundColor: "#4B3888",
   },
   dashCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
     borderWidth: 1,
     borderColor: "#EEEAF5",
     shadowColor: "#2A1F4A",
@@ -2751,12 +2894,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
-    gap: 10,
+    gap: 6,
   },
   dashHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   dashTitleRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-  dashTitle: { fontSize: 14, fontWeight: "600", color: C.textPrimary },
+  dashTitle: { fontSize: 14, fontWeight: "700", color: C.textPrimary },
   dashUpdated: { fontSize: 11, color: C.textMuted },
+  dashDivider: { height: 1, backgroundColor: "#F0EDF5", marginHorizontal: -14 },
+  dashFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    paddingTop: 10,
+    marginHorizontal: -14,
+    borderTopWidth: 1,
+    borderTopColor: "#F0EDF5",
+  },
+  dashFooterText: { fontSize: 12.5, fontWeight: "600", color: "#503189" },
   dashCols: { flexDirection: "row" },
   dashCol: { flex: 1, gap: 3 },
   dashColSplit: { borderLeftWidth: 1, borderLeftColor: "#F0EDF5", paddingLeft: 12 },
