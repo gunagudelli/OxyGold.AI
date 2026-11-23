@@ -92,8 +92,8 @@ const LivePulse = () => {
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0.5, duration: 700, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 700, useNativeDriver: true, isInteraction: false }),
+        Animated.timing(anim, { toValue: 0.5, duration: 700, useNativeDriver: true, isInteraction: false }),
       ])
     );
     loop.start();

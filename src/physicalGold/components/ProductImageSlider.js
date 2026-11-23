@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
+  Text,
   FlatList,
   Image,
   StyleSheet,

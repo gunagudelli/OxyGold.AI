@@ -473,7 +473,9 @@ const PgCartScreen = ({ navigation }) => {
           <View style={styles.footerInner}>
             <View style={styles.footerLeft}>
               <Text style={styles.footerLabel}>Payable Amount</Text>
-              <Text style={styles.footerAmount}>₹{grand.toLocaleString("en-IN")}</Text>
+              <Text style={styles.footerAmount}>
+                ₹{Number(grand || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
               <Text style={styles.footerSub}>{cartItems.length} item{cartItems.length > 1 ? "s" : ""}</Text>
             </View>
             <TouchableOpacity
@@ -494,6 +496,7 @@ const PgCartScreen = ({ navigation }) => {
           gstPercentage={totalDiscountPercentage}
           gstAmount={gst}
           waiverAmount={totalDiscountAmount}
+          makingCharges={totalMakingCharges}
         />
 
         {/* ── Image Modal ── */}

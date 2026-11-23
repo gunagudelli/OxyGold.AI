@@ -77,7 +77,7 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
         toValue: 1,
         duration: 1200,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: true, isInteraction: false,
       }),
     ).start();
     Animated.loop(
@@ -85,12 +85,12 @@ const PgPaymentHandlerScreen = ({ navigation, route }) => {
         Animated.timing(pulseAnim, {
           toValue: 1.12,
           duration: 700,
-          useNativeDriver: true,
+          useNativeDriver: true, isInteraction: false,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 700,
-          useNativeDriver: true,
+          useNativeDriver: true, isInteraction: false,
         }),
       ]),
     ).start();

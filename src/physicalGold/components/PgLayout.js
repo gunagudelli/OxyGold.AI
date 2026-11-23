@@ -34,7 +34,7 @@ const HEADER_COLORS = {
 // Every screen gets the deep-purple gradient header (PG_HEADER_GRADIENT) with
 // light icons/title. A screen can still pass `headerBg` for a flat colour
 // instead, and `headerDark={false}` for dark icons on a light one.
-const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, onCartPress, headerBg, headerDark = true, headerGradient = headerBg ? undefined : PG_HEADER_GRADIENT }) => {
+const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, onCartPress, headerBg, headerDark = true, headerGradient = headerBg ? undefined : PG_HEADER_GRADIENT, compactHeader }) => {
   const insets = useSafeAreaInsets();
   const bg = headerGradient?.[0] || headerBg || HEADER_COLORS.primary;
   const fg = headerDark ? "#FFFFFF" : HEADER_COLORS.text;
@@ -55,6 +55,7 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
       <View
         style={[
           h.header,
+          compactHeader && h.compactHeader,
           {
             paddingTop: insets.top,
             backgroundColor: headerGradient ? "transparent" : bg,
@@ -65,7 +66,7 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
           },
         ]}
       >
-        <View style={h.inner}>
+        <View style={[h.inner, compactHeader && h.compactInner]}>
           {/* LEFT — logo sits here now, not centered, when there's no back
               button. A left-aligned logo next to the actions on the right
               is the standard, professional header layout. */}
@@ -94,7 +95,7 @@ const PgHeader = ({ title, showBack, onBack, hideLogo, hideCart, cartCount = 0, 
               hidden on purely informational pages (Legal, Terms, etc.) via
               hideCart, where it's just noise, not a real action. */}
           {hideCart ? (
-            <View style={h.iconBtn} />
+            !compactHeader && <View style={h.iconBtn} />
           ) : (
             <TouchableOpacity style={h.iconBtn} onPress={onCartPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <View>
@@ -214,7 +215,7 @@ const PgBottomBarConnected = () => {
 };
 
 // ─── HEADER, CONNECTED ────────────────────────────────
-const PgHeaderConnected = ({ title, showBack, onBack, hideLogo, hideCart, headerBg, headerDark, headerGradient }) => {
+const PgHeaderConnected = ({ title, showBack, onBack, hideLogo, hideCart, headerBg, headerDark, headerGradient, compactHeader }) => {
   const navigation = useNavigation();
   const cartCount = useSelector(selectCartCount);
 
@@ -230,6 +231,7 @@ const PgHeaderConnected = ({ title, showBack, onBack, hideLogo, hideCart, header
       headerBg={headerBg}
       headerDark={headerDark}
       headerGradient={headerGradient}
+      compactHeader={compactHeader}
     />
   );
 };
@@ -246,6 +248,7 @@ const PgLayout = ({
   headerBg,
   headerDark,
   headerGradient,
+  compactHeader = false,
   contentBg, // optional: colour behind the screen content (Home uses violet)
 }) => {
   return (
@@ -259,6 +262,7 @@ const PgLayout = ({
         headerBg={headerBg}
         headerDark={headerDark}
         headerGradient={headerGradient}
+        compactHeader={compactHeader}
       />
 
       <View style={[l.content, contentBg && { backgroundColor: contentBg }]}>{children}</View>
@@ -285,6 +289,8 @@ const h = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 8,
   },
+  compactHeader: { paddingBottom: 0 },
+  compactInner: { paddingHorizontal: 16, paddingTop: 4, minHeight: 30 },
   iconBtn: {
     width: 40,
     height: 40,

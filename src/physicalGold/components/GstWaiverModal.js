@@ -14,7 +14,8 @@ const THEMES = {
   silver: { header: ["#503189", "#6D28D9"], accent: "#503189", soft: "#F4F0FA" },
 };
 const GREEN = "#15803D";
-const fmt2 = (n) => Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+const fmt2 = (n) =>
+  Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // ─── Confetti burst ──────────────────────────────────────────────────────────
 // Coloured paper pieces pop out of the gift icon, fly up and outward, then
@@ -94,7 +95,7 @@ const ConfettiBurst = ({ play }) => {
   );
 };
 
-const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, waiverAmount }) => {
+const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, waiverAmount, makingCharges }) => {
   const t = isSilver ? THEMES.silver : THEMES.gold;
   const metalName = isSilver ? "Silver" : "Gold";
   // GST on bullion is a flat 3%; fall back to it when the caller doesn't
@@ -102,6 +103,13 @@ const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, 
   const gstPct = Number(gstPercentage) > 0 ? Number(gstPercentage) : 3;
   const gst = gstAmount || waiverAmount;
   const saved = waiverAmount || gstAmount;
+  // Display only — figures come from the cart's own totals. A mixed cart
+  // (gold + silver) gets the waiver on the silver part only, so GST left to
+  // pay is what the waiver doesn't cover, and making charges are whatever the
+  // cart actually has (gold items carry them).
+  const making = Math.max(0, Number(makingCharges) || 0);
+  const gstToPay = Math.max(0, Math.round((Number(gst || 0) - Number(saved || 0)) * 100) / 100);
+  const fullyCovered = gstToPay === 0 && making === 0;
 
   const enter = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -144,7 +152,12 @@ const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, 
           <View style={s.body}>
             <Text style={s.title}>Congratulations! 🎉</Text>
             <Text style={s.saved}>You saved ₹{fmt2(saved)} on GST</Text>
-            {isSilver ? (
+            {isSilver && !fullyCovered ? (
+              <Text style={s.message}>
+                OXYGOLD.AI covers GST on the{" "}
+                <Text style={[s.metal, { color: t.accent }]}>{metalName} items</Text> in your order
+              </Text>
+            ) : isSilver ? (
               <Text style={s.message}>
                 <Text style={[s.metal, { color: t.accent }]}>Zero Making Charges + 100% GST</Text>
                 {" "}Covered by OXYGOLD.AI on your{" "}
@@ -162,7 +175,11 @@ const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, 
                 <>
                   <View style={s.row}>
                     <Text style={s.rowLabel}>Making Charges</Text>
-                    <Text style={s.waiverLabel}>₹0 (FREE)</Text>
+                    {making > 0 ? (
+                      <Text style={s.rowValue}>₹{fmt2(making)}</Text>
+                    ) : (
+                      <Text style={s.waiverLabel}>₹0 (FREE)</Text>
+                    )}
                   </View>
                   <View style={s.divider} />
                 </>
@@ -178,7 +195,7 @@ const GstWaiverModal = ({ visible, onClose, isSilver, gstPercentage, gstAmount, 
               <View style={s.divider} />
               <View style={s.row}>
                 <Text style={s.payLabel}>GST You Pay</Text>
-                <Text style={s.payValue}>₹0</Text>
+                <Text style={s.payValue}>₹{gstToPay > 0 ? fmt2(gstToPay) : "0"}</Text>
               </View>
             </View>
 

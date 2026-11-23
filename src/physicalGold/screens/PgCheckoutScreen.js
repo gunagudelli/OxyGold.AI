@@ -593,7 +593,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
     }
     Alert.alert(
       "Confirm Order",
-      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(payableAmount).toLocaleString("en-IN")}${appliedCoupon ? `\nCoupon: ${appliedCoupon.couponCode} (-₹${couponDiscount.toLocaleString("en-IN")})` : ""}\nPayment: ${paymentMode === "COD" ? "Cash on Delivery" : "Online Payment"}`,
+      `Are you sure you want to place this order?\n\nTotal Amount: ₹${Number(payableAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${appliedCoupon ? `\nCoupon: ${appliedCoupon.couponCode} (-₹${couponDiscount.toLocaleString("en-IN")})` : ""}\nPayment: ${paymentMode === "COD" ? "Cash on Delivery" : "Online Payment"}`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Confirm Order", onPress: () => processOrder() },
@@ -1046,7 +1046,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
             <View style={{ flex: 1 }}>
               <Text style={styles.footerPriceLabel}>Total Amount</Text>
               <Text style={styles.footerPriceValue}>
-                ₹{Number(payableAmount).toLocaleString("en-IN")}
+                ₹{Number(payableAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Text>
               {couponDiscount > 0 && (
                 <Text style={styles.footerPriceSub}>Coupon {appliedCoupon?.couponCode} applied</Text>
@@ -1097,6 +1097,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
         gstPercentage={cartDiscountPct}
         gstAmount={cartGst}
         waiverAmount={cartDiscount}
+        makingCharges={cartMaking}
       />
     </PgLayout>
   );

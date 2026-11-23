@@ -16,6 +16,9 @@ const C = {
 };
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+// Grand total always shows paise (₹1,26,562.20) — display only.
+const inr2 = (n) =>
+  `₹${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const BillRow = ({ icon, label, sub, value, free, onPress }) => {
   const Wrap = onPress ? TouchableOpacity : View;
@@ -90,7 +93,7 @@ const BillDetailsCard = ({
       <View style={s.divider} />
       <View style={s.totalRow}>
         <Text style={s.totalLabel}>Grand total</Text>
-        <Text style={s.totalValue}>{inr(total)}</Text>
+        <Text style={s.totalValue}>{inr2(total)}</Text>
       </View>
 
       {savings > 0 && (

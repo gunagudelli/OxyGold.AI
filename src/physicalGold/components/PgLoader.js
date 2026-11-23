@@ -21,7 +21,7 @@ const PgLoader = ({ label = "Loading...", fullscreen = true }) => {
         toValue: 1,
         duration: 1100,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: true, isInteraction: false,
       }),
     );
     loop.start();

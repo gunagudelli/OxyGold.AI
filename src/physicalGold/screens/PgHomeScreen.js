@@ -8,15 +8,14 @@ import {
   ActivityIndicator,
   Image,
   Animated,
-  Dimensions,
   Platform,
   TextInput,
   BackHandler,
   RefreshControl,
-  FlatList,
   Linking,
   Alert,
   AppState,
+  useWindowDimensions,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,14 +30,13 @@ import {
 import ProductCard from "../components/ProductCard";
 import PgLayout from "../components/PgLayout";
 import FadeSlideIn from "../components/FadeSlideIn";
-import DiwaliBlast, { DiwaliGreeting } from "../components/DiwaliBlast";
 import ScrollReveal, {
   createRevealHub,
   ScrollRevealProvider,
 } from "../components/ScrollReveal";
 import GuestLoginSheet from "../components/GuestLoginSheet";
 import ProductQuickViewSheet from "../components/ProductQuickViewSheet";
-import { PG_HOME_THEME } from "../constants/physicalGoldColors";
+import { IbjaPartnerCard, LeadershipTeam, GroupCompanies } from "../components/HomeTrustSections";
 import { showCartActionError } from "../utils/cartErrors";
 import useCartQuantities from "../hooks/useCartQuantities";
 import { resolveImageUrl } from "../utils/resolveImageUrl";
@@ -62,119 +60,35 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { performanceMonitor } from "../../utils/performanceMonitor";
 import { keyExtractor } from "../../utils/flatListOptimizations";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BANNER_WIDTH = SCREEN_WIDTH - 32;
-// Home banner on/off.
-const SHOW_HOME_BANNER = true;
-// Diwali greeting + firework blast on Home — set false after the festival.
-const SHOW_DIWALI = false;
-// The "Happy Diwali" pop-up shows once per app launch (first time Home opens).
-let diwaliGreetingShown = false;
-// Promotional banners — add more images here and the carousel pages through
-// them (auto-advance + dots); with one it shows as a single banner.
-// "brand" = violet banner drawn in code (gold & silver pop on violet);
-// the old cream picture banner is kept below — swap the order to use it.
-const HOME_BANNERS = [{ id: "brand-violet", type: "brand" }];
-// const HOME_BANNERS = [{ id: "pure-gold-silver", source: require("../../../assets/banner.png") }];
-const BANNER_HEIGHT = BANNER_WIDTH * (929 / 1693) * 0.72;
+const BrandBanner = memo(({ onPress }) => {
+  const { width } = useWindowDimensions();
+  const portraitWidth = Math.min(220, (width - 32) * 0.45);
 
-// Quick actions under the price dashboard — turned off (user asked to remove
-// Buy Gold / Buy Silver / My Orders / Track Delivery from Home).
-const SHOW_QUICK_ACTIONS = false;
-const QUICK_ACTIONS = [
-  { key: "gold", label: "Buy Gold", icon: "diamond-outline" },
-  { key: "silver", label: "Buy Silver", icon: "sparkles-outline" },
-  { key: "orders", label: "My Orders", icon: "receipt-outline" },
-  { key: "track", label: "Track Delivery", icon: "navigate-outline" },
-];
-
-// ─── Banner carousel — paging, auto-advance every 4s when there are 2+ ─────
-// Violet brand banner — headline + Shop Now on the left, the gold & silver
-// bars on the right. Violet (not cream) so the metals stand out and the
-// screen isn't all gold/silver.
-const BrandBanner = memo(({ onPress }) => (
-  <TouchableOpacity activeOpacity={0.92} onPress={onPress} style={styles.brandBanner}>
-    <LinearGradient
-      colors={["#2E1E62", "#4B3888", "#6B52B5"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={StyleSheet.absoluteFill}
-    />
-    {/* soft glow circles behind the metals */}
-    <View style={[styles.brandGlow, { width: 190, height: 190, right: -40, top: -40 }]} />
-    <View style={[styles.brandGlow, { width: 120, height: 120, right: 70, bottom: -60 }]} />
-
-    <View style={styles.brandText}>
-      <Text style={styles.brandEyebrow}>24K GOLD · 999 SILVER</Text>
-      <Text style={styles.brandTitle}>Pure Gold &amp; Silver</Text>
-      <Text style={styles.brandSub}>Delivered home · fully insured</Text>
-      <View style={styles.brandBtn}>
-        <Text style={styles.brandBtnText}>Shop Now</Text>
-        <Ionicons name="arrow-forward" size={13} color="#4B3888" />
-      </View>
-    </View>
-
-    <Image
-      source={require("../../../assets/silverrate.png")}
-      style={styles.brandSilver}
-      resizeMode="contain"
-    />
-    <Image
-      source={require("../../../assets/Goldrateicon.png")}
-      style={styles.brandGold}
-      resizeMode="contain"
-    />
-  </TouchableOpacity>
-));
-
-const BannerCarousel = memo(({ banners, onPress }) => {
-  const listRef = useRef(null);
-  const [index, setIndex] = useState(0);
-  useEffect(() => {
-    if (banners.length < 2) return undefined;
-    const t = setInterval(() => {
-      setIndex((i) => {
-        const next = (i + 1) % banners.length;
-        listRef.current?.scrollToOffset({ offset: next * (BANNER_WIDTH + 12), animated: true });
-        return next;
-      });
-    }, 4000);
-    return () => clearInterval(t);
-  }, [banners.length]);
   return (
-    <View style={styles.bannerSection}>
-      <FlatList
-        ref={listRef}
-        data={banners}
-        keyExtractor={(b) => b.id}
-        horizontal
-        pagingEnabled={false}
-        snapToInterval={BANNER_WIDTH + 12}
-        decelerationRate="fast"
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-        scrollEnabled={banners.length > 1}
-        onMomentumScrollEnd={(e) =>
-          setIndex(Math.round(e.nativeEvent.contentOffset.x / (BANNER_WIDTH + 12)))
-        }
-        renderItem={({ item }) =>
-          item.type === "brand" ? (
-            <BrandBanner onPress={onPress} />
-          ) : (
-            <TouchableOpacity activeOpacity={0.92} onPress={onPress} style={styles.bannerSlide}>
-              <Image source={item.source} style={styles.bannerImage} resizeMode="cover" />
-            </TouchableOpacity>
-          )
-        }
+    <TouchableOpacity accessibilityRole="button" activeOpacity={0.92} onPress={onPress} style={styles.brandBanner}>
+      <LinearGradient
+        colors={["#2E1E62", "#4B3888", "#6B52B5"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
       />
-      {banners.length > 1 && (
-        <View style={styles.bannerDots}>
-          {banners.map((b, i) => (
-            <View key={b.id} style={[styles.bannerDot, i === index && styles.bannerDotActive]} />
-          ))}
+      <View style={styles.brandText}>
+        <Text style={styles.brandEyebrow}>24K GOLD · 999 SILVER</Text>
+        <Text style={styles.brandTitle}>Pure Gold &amp; Silver</Text>
+        <Text style={styles.brandSub}>Delivered home · fully insured</Text>
+        <View style={styles.brandBtn}>
+          <Text style={styles.brandBtnText}>Shop Now</Text>
+          <Ionicons name="arrow-forward" size={13} color="#4B3888" />
         </View>
-      )}
-    </View>
+      </View>
+
+      <Image
+        source={require("../../../assets/founders-hero.png")}
+        style={[styles.brandPortrait, { width: portraitWidth, height: portraitWidth * (426 / 521) }]}
+        resizeMode="contain"
+        fadeDuration={0}
+      />
+    </TouchableOpacity>
   );
 });
 
@@ -208,45 +122,27 @@ const C = {
 // Deep aubergine keeps the footer premium and aligned with the purple brand.
 const FOOTER_BG = "#3A2873"; // fallback under the banner-violet gradient
 const FOOTER_ACCENT = "#D6C7F2";
-// Deliver-to, search and the banner share one flat band (the header
-// above is the app-wide purple gradient from PgLayout).
-// Bright champagne sampled from the light top of the banner image's
-// background, so the banner blends into the band.
-const HOME_BAND = "#FBF3E9";
-// Green for the "Deliver to" row and the "Our Price Today" title.
-const DELIVER_GREEN = "#1F8A4C";
-const PRICE_TITLE = DELIVER_GREEN;
 // Metal names in the "Our Price Today" rates — gold for gold, silver for silver.
 const GOLD_LABEL = "#B8860B";
 const SILVER_LABEL = "#6B7785";
 
 const WHY_SHOP = [
-  {
-    icon: "shield-checkmark",
-    image: require("../../../assets/Bishallmark.png"),
-    title: "BIS Hallmarked",
-    subtitle: "Certified purity you can trust.",
-  },
-  {
-    icon: "car",
-    image: require("../../../assets/securedelivery.png"),
-    title: "Secure Delivery",
-    subtitle: "Safe delivery in 2–3 days.",
-  },
-  {
-    icon: "lock-closed",
-    image: require("../../../assets/securepaymntes.png"),
-    title: "Secure Payments",
-    subtitle: "100% safe & encrypted.",
-  },
-  {
-    icon: "headset",
-    image: require("../../../assets/Contact Support.png"),
-    title: "Dedicated Support",
-    subtitle: "We're here to help, anytime.",
-  },
+  { icon: "shield-checkmark-outline", title: "BIS Hallmarked", subtitle: "Certified purity" },
+  { icon: "car-outline", title: "Secure Delivery", subtitle: "Delivered in 2–3 days" },
+  { icon: "lock-closed-outline", title: "Secure Payments", subtitle: "Encrypted transactions" },
+  { icon: "headset-outline", title: "Dedicated Support", subtitle: "Help when you need it" },
 ];
 
+const FOOTER_POLICIES = [
+  { label: "Privacy Policy", route: "PgPrivacyPolicy" },
+  { label: "Terms & Conditions", route: "PgTerms" },
+  { label: "Cookie Policy", route: "PgCookiePolicy" },
+  { label: "Cancellation Policy", route: "PgCancellationPolicy" },
+];
+
+const Placeholder = ({ width, height, borderRadius = 8, style }) => (
+  <View style={[{ width, height, borderRadius, backgroundColor: C.shimmer }, style]} />
+);
 
 // ─── Global image cache (persists across renders) ─────────────────────────────
 const IMAGE_CACHE = {};
@@ -264,12 +160,12 @@ const ShimmerBox = memo(({ width, height, borderRadius = 8, style }) => {
         Animated.timing(anim, {
           toValue: 1,
           duration: 900,
-          useNativeDriver: true,
+          useNativeDriver: true, isInteraction: false,
         }),
         Animated.timing(anim, {
           toValue: 0,
           duration: 900,
-          useNativeDriver: true,
+          useNativeDriver: true, isInteraction: false,
         }),
       ]),
     );
@@ -301,7 +197,7 @@ const LazyImage = memo(
       Animated.timing(fade, {
         toValue: 1,
         duration: 150,
-        useNativeDriver: true,
+        useNativeDriver: true, isInteraction: false,
       }).start();
     }, [fade]);
 
@@ -391,51 +287,8 @@ const formatTimeAgo = (ts) => {
   return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
 };
 
-// ─── Blinking "live" sparkle — green, the usual "live" cue ──
-const LiveBlinkDot = memo(({ color }) => {
-  const blink = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(blink, { toValue: 0.25, duration: 650, useNativeDriver: true }),
-        Animated.timing(blink, { toValue: 1, duration: 650, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [blink]);
-  return (
-    <Animated.View style={{ opacity: blink }}>
-      <Ionicons name="sparkles" size={13} color={color || "#1F8A4C"} />
-    </Animated.View>
-  );
-});
-
-// ─── Blinking metal dot — gold / silver "live" light next to each rate ──
-const BlinkDot = memo(({ color }) => {
-  const a = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(a, { toValue: 0.25, duration: 700, useNativeDriver: true }),
-        Animated.timing(a, { toValue: 1, duration: 700, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [a]);
-  return (
-    <Animated.View
-      style={[
-        styles.rateDot,
-        { backgroundColor: color, opacity: a, transform: [{ scale: a.interpolate({ inputRange: [0.25, 1], outputRange: [0.8, 1.15] }) }] },
-      ]}
-    />
-  );
-});
-
 // ─── Rate column — one karat/metal cell inside the live-rates card ────────────
-const RateColumn = memo(({ icon, label, rate, decimals, labelColor, dotColor }) => {
+const RateColumn = memo(({ label, rate, decimals, labelColor, dotColor }) => {
   // Re-render every 30s purely so "X mins ago" keeps advancing even when no
   // new price has come in — otherwise it'd freeze at whatever it read on
   // the render that set it.
@@ -445,41 +298,10 @@ const RateColumn = memo(({ icon, label, rate, decimals, labelColor, dotColor }) 
     return () => clearInterval(t);
   }, []);
 
-  // Flash the block green/red for a moment whenever the price actually
-  // changes between polls, instead of only relying on the static up/down
-  // badge — that badge doesn't draw the eye to a value that just moved.
-  const flashAnim = useRef(new Animated.Value(0)).current;
-  const prevPriceRef = useRef(rate.price);
-  const [flashDir, setFlashDir] = useState(null); // 'up' | 'down' | null
-
-  useEffect(() => {
-    const prev = prevPriceRef.current;
-    if (prev != null && rate.price != null && rate.price !== prev) {
-      const dir = rate.price > prev ? "up" : "down";
-      setFlashDir(dir);
-      flashAnim.setValue(1);
-      Animated.timing(flashAnim, {
-        toValue: 0,
-        duration: 1500,
-        useNativeDriver: false,
-      }).start(() => setFlashDir(null));
-    }
-    prevPriceRef.current = rate.price;
-  }, [rate.price]);
-
-  const flashBg = flashAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [
-      "rgba(0,0,0,0)",
-      flashDir === "down" ? "rgba(200,90,84,0.20)" : "rgba(46,204,113,0.20)",
-    ],
-  });
-
   return (
-    <Animated.View style={[styles.rateBlock, { backgroundColor: flashBg }]}>
-      {/* No picture — a small metal-coloured dot + label, so the price reads first. */}
+    <View style={styles.rateBlock}>
       <View style={styles.rateLabelRow}>
-        <BlinkDot color={dotColor || labelColor || C.textMuted} />
+        <View style={[styles.rateDot, { backgroundColor: dotColor }]} />
         <Text style={[styles.rateLabel, labelColor && { color: labelColor }]} numberOfLines={1}>
           {label}
         </Text>
@@ -516,7 +338,59 @@ const RateColumn = memo(({ icon, label, rate, decimals, labelColor, dotColor }) 
           {formatTimeAgo(rate.changedAt)}
         </Text>
       )}
-    </Animated.View>
+    </View>
+  );
+});
+
+const CATEGORY_THEMES = {
+  gold: {
+    backgroundColor: "#FBF4E6",
+    borderColor: "#EDDDB8",
+    ink: "#704C15",
+    image: require("../../../assets/Goldrateicon.png"),
+  },
+  silver: {
+    backgroundColor: "#F1F3F7",
+    borderColor: "#DFE3EB",
+    ink: "#42546B",
+    image: require("../../../assets/silverrate.png"),
+  },
+  other: { backgroundColor: "#F5F1FA", borderColor: "#E8DFF1", ink: "#503189" },
+};
+
+const CategoryTile = memo(({ name, metal, uri, onPress }) => {
+  const { backgroundColor, borderColor, ink, image } = CATEGORY_THEMES[metal || "other"];
+  const [failedUri, setFailedUri] = useState(null);
+  const remoteImage = uri && uri !== failedUri;
+  const source = remoteImage ? { uri, cache: "force-cache" } : image;
+  return (
+    <TouchableOpacity
+      style={[styles.categoryTile, { backgroundColor, borderColor }]}
+      accessibilityRole="button"
+      accessibilityLabel={"Explore " + name}
+      activeOpacity={0.82}
+      onPress={onPress}
+    >
+      <View style={styles.categoryTileCopy}>
+        <Text style={styles.categoryTileName}>{name}</Text>
+        <Text style={styles.categoryTileDescription}>{metal ? "Coins & bars" : "Browse the range"}</Text>
+        <View style={styles.categoryTileAction}>
+          <Text style={[styles.categoryTileActionText, { color: ink }]}>Explore</Text>
+          <Ionicons name="arrow-forward" size={12} color={ink} />
+        </View>
+      </View>
+      {source ? (
+        <Image
+          source={source}
+          style={styles.categoryTileImage}
+          resizeMode="contain"
+          fadeDuration={0}
+          onError={remoteImage ? () => setFailedUri(uri) : undefined}
+        />
+      ) : (
+        <Ionicons name="diamond-outline" size={26} color={ink} />
+      )}
+    </TouchableOpacity>
   );
 });
 
@@ -550,11 +424,6 @@ const PgHomeScreen = ({ navigation, route }) => {
 
   // ── Image maps — keyed by id → url ────────────────────────────────────────
   const [categoryImages, setCategoryImages] = useState({});
-  // Shop by Category tiles — the Gold / Silver sub-categories from the API
-  // (e.g. Coins, Bars); falls back to the main categories when there are none.
-  const [shopCategories, setShopCategories] = useState([]);
-  const [shopCatImages, setShopCatImages] = useState({});
-  const [shopCatLoading, setShopCatLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState(false);
 
   // We track which IDs are currently being fetched so we don't double-fetch
@@ -571,7 +440,6 @@ const PgHomeScreen = ({ navigation, route }) => {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [allProductsCache, setAllProductsCache] = useState([]);
   const searchInputRef = useRef(null);
-  const searchBarAnim = useRef(new Animated.Value(0)).current;
 
   // Wishlist
   const [wishlistMap, setWishlistMap] = useState({});
@@ -637,38 +505,24 @@ const PgHomeScreen = ({ navigation, route }) => {
   const [deliveryAddress, setDeliveryAddress] = useState(null);
   const [addressLoading, setAddressLoading] = useState(true);
 
-  const heroAnim = useRef(new Animated.Value(0)).current;
-  const fadeInAnim = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef(null);
+  const categoryOffset = useRef(0);
   // True once the banner band has scrolled up under the search bar — the bar
   // then lifts off the content with a soft shadow.
   const [topBarRaised, setTopBarRaised] = useState(false);
-  // Diwali: fireworks keep bursting (a new set every 2s) while Home is in
-  // focus — paused when you leave — and a "Happy Diwali" pop-up shows for
-  // ~3s once per app launch.
-  const [blastKey, setBlastKey] = useState(0);
-  const [greetKey, setGreetKey] = useState(0);
-  useFocusEffect(
-    useCallback(() => {
-      if (!SHOW_DIWALI || isCategoryScreen) return undefined;
-      if (!diwaliGreetingShown) {
-        diwaliGreetingShown = true;
-        setGreetKey((k) => k + 1);
-      }
-      setBlastKey((k) => k + 1);
-      const t = setInterval(() => setBlastKey((k) => k + 1), 2000);
-      return () => clearInterval(t);
-    }, [isCategoryScreen]),
-  );
-
-  // Scroll animations: items fade/rise in as they scroll into view.
-  const revealHub = useRef(createRevealHub()).current;
+  const topBarRaisedRef = useRef(false);
+  const [revealHub] = useState(createRevealHub);
 
   const handleScroll = useCallback((e) => {
+    // Coalesced to one pass per frame; on Home it lets the leadership and
+    // company carousels know when they're on screen (auto-slide only then).
     revealHub.notify();
     const raised = e.nativeEvent.contentOffset.y > 4;
-    setTopBarRaised((prev) => (prev === raised ? prev : raised));
-  }, []);
+    if (raised !== topBarRaisedRef.current) {
+      topBarRaisedRef.current = raised;
+      setTopBarRaised(raised);
+    }
+  }, [revealHub, viewMode]);
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const showToast = useCallback((text, added) => {
@@ -724,8 +578,7 @@ const PgHomeScreen = ({ navigation, route }) => {
   }, [categories]);
 
   // ── Live gold / silver rates — direction is vs. the last rate we saw ───────
-  // loadRates is exposed via ref so pull-to-refresh can trigger the same fetch
-  // the background 60s interval uses, without duplicating the direction logic.
+  // Pull-to-refresh uses the same fetch as the 30-second polling interval.
   const loadRatesRef = useRef(async () => {});
 
   useEffect(() => {
@@ -1183,29 +1036,11 @@ const PgHomeScreen = ({ navigation, route }) => {
     loadCrossSell(routeCategory);
   }, [categories]);
 
-  // Gold / Silver main categories — quick actions and "View all" links.
-  // (Defined here, after detectMetal, so it's initialised before use.)
+  // Main categories back the Home collection links.
   const goldCategory = categories.find((c) => detectMetal(c?.name) === "gold");
   const silverCategory = categories.find((c) => detectMetal(c?.name) === "silver");
 
-  // Shop by Category: the main categories (Gold, Silver). The API's
-  // Gold/Silver "sub-categories" are individual products (e.g.
-  // "OXYGOLD.AI Gold Coin – 5 Grams"), so they aren't used as tiles.
-  useEffect(() => {
-    if (isCategoryScreen) return;
-    const list = categories.filter((c) => c?.id);
-    setShopCategories(list);
-    loadImagesForList(list, setShopCatImages);
-  }, [categories]);
-
-  const handleQuickAction = (key) => {
-    if (key === "gold" && goldCategory) return handleCategoryPress(goldCategory);
-    if (key === "silver" && silverCategory) return handleCategoryPress(silverCategory);
-    if (key === "orders" || key === "track") {
-      if (!userId) return requireAuth("orders");
-      return navigation.navigate("PgOrders");
-    }
-  };
+  const shopCategories = categories.filter((category) => category?.id);
 
   // ── Hardware back ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1222,23 +1057,6 @@ const PgHomeScreen = ({ navigation, route }) => {
     });
     return () => h.remove();
   }, [viewMode, isSearchActive]);
-
-  // ── Animations — a single, subtle entrance fade/slide (no looping motion) ──
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(heroAnim, {
-        toValue: 1,
-        duration: 380,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeInAnim, {
-        toValue: 1,
-        duration: 420,
-        delay: 120,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
 
   // ── OPTIMIZED image loading ────────────────────────────────────────────────
   // Strategy:
@@ -1314,11 +1132,6 @@ const PgHomeScreen = ({ navigation, route }) => {
     loadImagesForList(categories, setCategoryImages);
   }, [categories]);
 
-  const heroTranslate = heroAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [30, 0],
-  });
-
   // ── Search ─────────────────────────────────────────────────────────────────
   // The text itself updates immediately (so typing feels responsive), but
   // the actual filtering — two .filter() passes over allProductsCache, which
@@ -1349,35 +1162,12 @@ const PgHomeScreen = ({ navigation, route }) => {
     }, 220);
   };
 
-  const handleSearchFocus = () => {
-    setSearchFocused(true);
-    Animated.timing(searchBarAnim, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const handleSearchBlur = () => {
-    setSearchFocused(false);
-    Animated.timing(searchBarAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  };
-
   const clearSearch = () => {
     setSearchQuery("");
     setIsSearchActive(false);
     setSearchResults({ categories: [], products: [] });
     searchInputRef.current?.blur();
   };
-
-  const searchBorderColor = searchBarAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [C.border, C.goldBright],
-  });
 
   // ── Wishlist ───────────────────────────────────────────────────────────────
   const handleWishlistToggle = useCallback(
@@ -1567,44 +1357,13 @@ const PgHomeScreen = ({ navigation, route }) => {
     );
   };
 
-  // ── Category card — extracted so memo works ────────────────────────────────
-  const CategoryCard = useCallback(
-    ({ item, imageUrl, onPress }) => (
-      <TouchableOpacity
-        style={styles.categoryGridItem}
-        onPress={() => onPress(item)}
-        activeOpacity={0.75}
-      >
-        <View style={styles.categoryCard}>
-          <View style={styles.categoryCardImgWrap}>
-            <LazyImage
-              uri={imageUrl}
-              style={styles.categoryCardImg}
-              resizeMode="cover"
-              fallbackText={item.name}
-            />
-          </View>
-          <Text style={styles.categoryCardLabel} numberOfLines={2}>
-            {item.name}
-          </Text>
-          <View style={styles.categoryCardExploreRow}>
-            <Text style={styles.categoryCardExploreText}>Explore collection</Text>
-            <Ionicons name="arrow-forward" size={12} color="#8B5A2B" />
-          </View>
-        </View>
-      </TouchableOpacity>
-    ),
-    [],
-  );
-
   const renderCategoriesGrid = () => {
-    // Skeleton while categories / sub-categories load.
-    if (loading.categories || (shopCatLoading && !shopCategories.length)) {
+    if (loading.categories) {
       return (
-        <View style={styles.catGrid}>
-          {[1, 2, 3, 4].map((i) => (
-            <View key={i} style={[styles.catTileWrap, { width: "50%" }]}>
-              <ShimmerBox width="100%" height={110} borderRadius={14} />
+        <View style={styles.categoryTiles}>
+          {[1, 2].map((key) => (
+            <View key={key} style={styles.categoryTileCell}>
+              <Placeholder width="100%" height={100} borderRadius={14} />
             </View>
           ))}
         </View>
@@ -1628,40 +1387,17 @@ const PgHomeScreen = ({ navigation, route }) => {
         </View>
       );
     }
-    // 2 per row (wider than tall); a single tile spans the row.
-    const tileShape = { aspectRatio: shopCategories.length === 1 ? 2.4 : 1.5 };
     return (
-      <View style={styles.catGrid}>
-        {shopCategories.map((cat, ci) => (
-          <ScrollReveal
-            key={cat.id}
-            style={[styles.catTileWrap, { width: shopCategories.length === 1 ? "100%" : "50%" }]}
-            delay={(ci % 2) * 90}
-          >
-          <TouchableOpacity
-            onPress={() => handleCategoryPress(cat)}
-            activeOpacity={0.88}
-          >
-            <View style={[styles.catTile, tileShape]}>
-              <LazyImage
-                uri={shopCatImages[cat.id] || categoryImages[cat.id]}
-                style={styles.catTileImg}
-                resizeMode="cover"
-                fallbackText={cat.name}
-              />
-              <LinearGradient
-                colors={["rgba(20,12,40,0)", "rgba(20,12,40,0.70)"]}
-                style={styles.catTileFade}
-                pointerEvents="none"
-              />
-              <View style={styles.catTileText} pointerEvents="none">
-                <Text style={styles.catTileName} numberOfLines={1}>
-                  {cat.name}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-          </ScrollReveal>
+      <View style={styles.categoryTiles}>
+        {shopCategories.map((cat) => (
+          <View key={cat.id} style={styles.categoryTileCell}>
+            <CategoryTile
+              name={cat.name}
+              metal={detectMetal(cat.name)}
+              uri={categoryImages[cat.id]}
+              onPress={() => handleCategoryPress(cat)}
+            />
+          </View>
         ))}
       </View>
     );
@@ -1669,16 +1405,16 @@ const PgHomeScreen = ({ navigation, route }) => {
 
   // Product skeleton for the collections while they load.
   const renderProductsSkeleton = () => (
-    <View style={styles.exploreSection}>
+    <View style={styles.homeSection}>
       <View style={{ marginHorizontal: 16, marginBottom: 14 }}>
-        <ShimmerBox width={150} height={18} borderRadius={4} />
+        <Placeholder width={150} height={18} borderRadius={4} />
       </View>
       <View style={styles.grid}>
         {[1, 2, 3, 4].map((i) => (
           <View key={i} style={styles.gridItem}>
-            <ShimmerBox width="100%" height={140} borderRadius={12} />
-            <ShimmerBox width="85%" height={11} borderRadius={4} style={{ marginTop: 10 }} />
-            <ShimmerBox width="45%" height={13} borderRadius={4} style={{ marginTop: 8 }} />
+            <Placeholder width="100%" height={140} borderRadius={12} />
+            <Placeholder width="85%" height={11} borderRadius={4} style={{ marginTop: 10 }} />
+            <Placeholder width="45%" height={13} borderRadius={4} style={{ marginTop: 8 }} />
           </View>
         ))}
       </View>
@@ -1747,6 +1483,8 @@ const PgHomeScreen = ({ navigation, route }) => {
               key={keyExtractor(item)}
               style={styles.gridItem}
               delay={(pi % 2) * 90}
+              from={pi % 2 ? "right" : "left"}
+              distance={60}
             >
               <ProductCard
                 product={item}
@@ -1805,6 +1543,31 @@ const PgHomeScreen = ({ navigation, route }) => {
   // real Home screen straight away; login is only asked for at the point
   // a cart/wishlist/checkout action needs it (see requireAuth above).
 
+  const showHome = !isCategoryScreen && !isSearchActive && viewMode === "categories";
+  const addressType = deliveryAddress?.type || "Home";
+  const pinCode = deliveryAddress?.pincode || deliveryAddress?.pinCode;
+  // Short locality for the one-line header: area → city → landmark → last
+  // part of the street address (e.g. "Kukatpally").
+  const shortAddress = String(
+    deliveryAddress?.area ||
+      deliveryAddress?.city ||
+      deliveryAddress?.landMark ||
+      String(deliveryAddress?.address || "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .pop() ||
+      "",
+  ).trim();
+  const fullAddress = [
+    addressType,
+    deliveryAddress?.flatNo,
+    deliveryAddress?.address,
+    deliveryAddress?.area,
+    deliveryAddress?.city,
+    pinCode,
+  ].filter(Boolean).join(", ");
+
   return (
     <>
     {/* Inside a category's products (or search) the header shows a real back
@@ -1823,6 +1586,7 @@ const PgHomeScreen = ({ navigation, route }) => {
       contentBg="#4B3888"
       headerGradient={["#2E1E62", "#4B3888"]}
       hideCart
+      compactHeader={showHome}
     >
       {/* ── Delivery location + Search — pinned above the scroll, same cue
           shoppers already read on Amazon/Swiggy/Flipkart, now one combined
@@ -1832,6 +1596,7 @@ const PgHomeScreen = ({ navigation, route }) => {
       <View
         style={[
           styles.combinedTopBar,
+          showHome && styles.homeTopBar,
           // Clean straight edge + soft shadow whenever content sits right
           // under the bar (product list, search, or Home scrolled down).
           (topBarRaised || isSearchActive || viewMode !== "categories") &&
@@ -1839,37 +1604,48 @@ const PgHomeScreen = ({ navigation, route }) => {
         ]}
       >
         <TouchableOpacity
-          style={styles.locationBar}
+          style={[styles.locationBar, showHome && styles.homeLocationBar]}
+          accessibilityRole="button"
+          accessibilityLabel={showHome && deliveryAddress ? `Deliver to ${fullAddress}` : undefined}
           activeOpacity={0.7}
           onPress={() => navigation.navigate("PgAddress")}
         >
           <Ionicons name="location" size={16} color="#FFD166" />
-          <Text style={styles.locationLine} numberOfLines={1}>
-            <Text style={styles.locationLabel}>Deliver to </Text>
-            <Text style={styles.locationValue}>
-              {addressLoading
-                ? "Loading address..."
-                : deliveryAddress
-                  ? `${deliveryAddress.type || "Home"} · ${
-                      [
-                        deliveryAddress.flatNo,
-                        deliveryAddress.address || deliveryAddress.area,
-                      ]
-                        .filter(Boolean)
-                        .join(", ")
-                    }${
-                      deliveryAddress.pincode || deliveryAddress.pinCode
-                        ? ` - ${deliveryAddress.pincode || deliveryAddress.pinCode}`
-                        : ""
-                    }`
-                  : "Add a delivery address"}
+          {showHome ? (
+            <Text style={styles.homeLocationLine} numberOfLines={1}>
+              <Text style={styles.locationLabel}>Deliver to </Text>
+              <Text style={styles.locationValue}>
+                {deliveryAddress
+                  ? `${addressType}${shortAddress || pinCode ? " · " : ""}${[shortAddress, pinCode].filter(Boolean).join(", ")}`
+                  : addressLoading
+                    ? "Loading address…"
+                    : "Add a delivery address"}
+              </Text>
             </Text>
-          </Text>
+          ) : (
+            <Text style={styles.locationLine} numberOfLines={1}>
+              <Text style={styles.locationLabel}>Deliver to </Text>
+              <Text style={styles.locationValue}>
+                {addressLoading
+                  ? "Loading address..."
+                  : deliveryAddress
+                    ? `${addressType} · ${[deliveryAddress.flatNo, deliveryAddress.address || deliveryAddress.area]
+                        .filter(Boolean)
+                        .join(", ")}${pinCode ? ` - ${pinCode}` : ""}`
+                    : "Add a delivery address"}
+              </Text>
+            </Text>
+          )}
           <Ionicons name="chevron-down" size={15} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <Animated.View
-          style={[styles.searchBarWrap, styles.searchBarWrapFixed]}
+        <View
+          style={[
+            styles.searchBarWrap,
+            styles.searchBarWrapFixed,
+            showHome && styles.homeSearchBar,
+            showHome && searchFocused && styles.homeSearchFocused,
+          ]}
         >
           <Ionicons name="search" size={17} color={C.gold} />
           <TextInput
@@ -1879,8 +1655,8 @@ const PgHomeScreen = ({ navigation, route }) => {
             placeholderTextColor={C.textMuted}
             value={searchQuery}
             onChangeText={handleSearchChange}
-            onFocus={handleSearchFocus}
-            onBlur={handleSearchBlur}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             returnKeyType="search"
             autoCorrect={false}
             autoCapitalize="none"
@@ -1894,16 +1670,16 @@ const PgHomeScreen = ({ navigation, route }) => {
               <Ionicons name="close-circle" size={17} color={C.textMuted} />
             </TouchableOpacity>
           )}
-        </Animated.View>
+        </View>
       </View>
 
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollFlex}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, showHome && styles.homeScrollContent]}
         onScroll={handleScroll}
-        scrollEventThrottle={32}
+        scrollEventThrottle={16}
         overScrollMode="never"
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -1922,7 +1698,7 @@ const PgHomeScreen = ({ navigation, route }) => {
           <>
             {/* ── CATEGORIES VIEW ── */}
             {viewMode === "categories" && (
-              <FadeSlideIn key="categories">
+              <View>
                 {/* ── Live price dashboard — white card lifted off the violet
                     header band: 24K / 22K / Silver, % change, last updated. ── */}
                 <View style={styles.dashWrap}>
@@ -1935,7 +1711,7 @@ const PgHomeScreen = ({ navigation, route }) => {
                   >
                     <View style={styles.dashHead}>
                       <View style={styles.dashTitleRow}>
-                        <LiveBlinkDot color="#1F8A4C" />
+                        <Ionicons name="sparkles" size={13} color="#1F8A4C" />
                         <Text style={styles.dashTitle}>Live Prices</Text>
                       </View>
                       <View style={styles.dashTitleRow}>
@@ -1952,15 +1728,14 @@ const PgHomeScreen = ({ navigation, route }) => {
                     </View>
                     <View style={styles.ratesRow}>
                       {[
-                        { label: "Gold 24K", rate: goldRate, decimals: 0, icon: require("../../../assets/Goldrateicon.png"), color: GOLD_LABEL, dot: "#F2B300" },
-                        { label: "Gold 22K", rate: gold22kRate, decimals: 0, icon: require("../../../assets/Goldrateicon.png"), color: GOLD_LABEL, dot: "#F2B300" },
-                        { label: "Silver", rate: silverRate, decimals: 2, icon: require("../../../assets/silverrate.png"), color: SILVER_LABEL, dot: "#A9B1BC" },
+                        { label: "Gold 24K", rate: goldRate, decimals: 0, color: GOLD_LABEL, dot: "#F2B300" },
+                        { label: "Gold 22K", rate: gold22kRate, decimals: 0, color: GOLD_LABEL, dot: "#F2B300" },
+                        { label: "Silver", rate: silverRate, decimals: 2, color: SILVER_LABEL, dot: "#A9B1BC" },
                       ].map((t, i) => (
                         <React.Fragment key={t.label}>
                           {i > 0 && <View style={styles.rateDivider} />}
                           {t.rate.price ? (
                             <RateColumn
-                              icon={t.icon}
                               label={t.label}
                               rate={t.rate}
                               decimals={t.decimals}
@@ -1969,8 +1744,8 @@ const PgHomeScreen = ({ navigation, route }) => {
                             />
                           ) : (
                             <View style={{ flex: 1, gap: 6, alignItems: "center", paddingVertical: 6 }}>
-                              <ShimmerBox width="60%" height={10} borderRadius={4} />
-                              <ShimmerBox width="80%" height={16} borderRadius={4} />
+                              <Placeholder width="60%" height={10} borderRadius={4} />
+                              <Placeholder width="80%" height={16} borderRadius={4} />
                             </View>
                           )}
                         </React.Fragment>
@@ -1979,41 +1754,18 @@ const PgHomeScreen = ({ navigation, route }) => {
                   </TouchableOpacity>
                 </View>
 
-                {/* ── Promotional banner carousel ── */}
-                {SHOW_HOME_BANNER && HOME_BANNERS.length > 0 && (
-                  <BannerCarousel
-                    banners={HOME_BANNERS}
-                    onPress={() => scrollViewRef.current?.scrollTo({ y: 420, animated: true })}
-                  />
-                )}
+                <BrandBanner
+                  onPress={() => scrollViewRef.current?.scrollTo({ y: categoryOffset.current, animated: true })}
+                />
 
-                {/* Live Gold / Silver Rates + Categories — a flat cool tint
-                    so this block reads as its own section, distinct from
-                    the gold-tinted hero above. */}
-                <View style={[styles.ratesAndCategoriesSection, styles.ratesTint]}>
-
-                  {/* ── Quick actions (hidden — SHOW_QUICK_ACTIONS) ── */}
-                  {SHOW_QUICK_ACTIONS && <View style={styles.quickRow}>
-                    {QUICK_ACTIONS.map((q, qi) => (
-                      <ScrollReveal key={q.key} style={styles.quickItem} delay={qi * 70} distance={18}>
-                      <TouchableOpacity
-                        style={{ alignItems: "center", gap: 6 }}
-                        onPress={() => handleQuickAction(q.key)}
-                        activeOpacity={0.75}
-                      >
-                        <View style={styles.quickIcon}>
-                          <Ionicons name={q.icon} size={20} color={C.gold} />
-                        </View>
-                        <Text style={styles.quickLabel} numberOfLines={1}>
-                          {q.label}
-                        </Text>
-                      </TouchableOpacity>
-                      </ScrollReveal>
-                    ))}
-                  </View>}
-
-                  <SectionHeader title="Shop by Category" />
-                  {renderCategoriesGrid()}
+                <View
+                  style={styles.homeSection}
+                  onLayout={(event) => { categoryOffset.current = event.nativeEvent.layout.y; }}
+                >
+                  <ScrollReveal>
+                    <SectionHeader title="Shop by Category" />
+                    {renderCategoriesGrid()}
+                  </ScrollReveal>
                 </View>
 
                 {/* Gold Products / Silver Products — direct Buy Now on Home,
@@ -2032,15 +1784,15 @@ const PgHomeScreen = ({ navigation, route }) => {
                 {!metalProductsLoading && (
                   <>
                     {goldProducts.length > 0 && (
-                      <View style={styles.exploreSection}>
+                      <ScrollReveal style={styles.homeSection}>
                         <SectionHeader
                           eyebrow="24K & 22K · BIS HALLMARKED"
                           title="Gold Collection"
                           onViewAll={goldCategory ? () => handleCategoryPress(goldCategory) : undefined}
                         />
-                        <View style={styles.grid}>
-                          {goldProducts.map((item, pi) => (
-                            <ScrollReveal key={item?.id} style={styles.gridItem} delay={(pi % 2) * 90}>
+                        <View style={[styles.grid, styles.homeCollectionGrid]}>
+                          {goldProducts.map((item) => (
+                            <View key={item?.id} style={styles.gridItem}>
                               <ProductCard
                                 product={item}
                                 isInWishlist={!!wishlistMap[String(item?.id)]}
@@ -2054,22 +1806,22 @@ const PgHomeScreen = ({ navigation, route }) => {
                                 onPress={openQuickView}
                                 imageAspectRatio={1.2}
                               />
-                            </ScrollReveal>
+                            </View>
                           ))}
                         </View>
-                      </View>
+                      </ScrollReveal>
                     )}
 
                     {silverProducts.length > 0 && (
-                      <View style={styles.exploreSection}>
+                      <ScrollReveal style={styles.homeSection}>
                         <SectionHeader
                           eyebrow="999 PURE SILVER"
                           title="Silver Collection"
                           onViewAll={silverCategory ? () => handleCategoryPress(silverCategory) : undefined}
                         />
-                        <View style={styles.grid}>
-                          {silverProducts.map((item, pi) => (
-                            <ScrollReveal key={item?.id} style={styles.gridItem} delay={(pi % 2) * 90}>
+                        <View style={[styles.grid, styles.homeCollectionGrid]}>
+                          {silverProducts.map((item) => (
+                            <View key={item?.id} style={styles.gridItem}>
                               <ProductCard
                                 product={item}
                                 isInWishlist={!!wishlistMap[String(item?.id)]}
@@ -2083,41 +1835,43 @@ const PgHomeScreen = ({ navigation, route }) => {
                                 onPress={openQuickView}
                                 imageAspectRatio={1.2}
                               />
-                            </ScrollReveal>
+                            </View>
                           ))}
                         </View>
-                      </View>
+                      </ScrollReveal>
                     )}
                   </>
                 )}
 
-                {/* Why Choose OxyGold — lavender band, centred heading, 2×2
-                    white cards with the gold picture icons. */}
-                <View style={styles.whyShopSection}>
-                  <Text style={styles.whyShopEyebrow}>THE OXYGOLD PROMISE</Text>
-                  <Text style={styles.whyShopTitle}>Why Choose OxyGold</Text>
-                  <View style={styles.whyShopRow}>
-                    {WHY_SHOP.map((w, i) => (
-                      <ScrollReveal key={i} style={styles.whyShopCell} delay={i * 80} distance={20}>
-                        <View style={styles.whyShopCard}>
-                          <View style={styles.whyShopIconWrap}>
-                            <Image
-                              source={w.image}
-                              style={styles.whyShopIconImg}
-                              resizeMode="contain"
-                            />
+                <ScrollReveal style={styles.whyBand}>
+                  <SectionHeader eyebrow="THE OXYGOLD PROMISE" title="Why Choose OXYGOLD" />
+                  <View style={styles.whyShopPanel}>
+                    {WHY_SHOP.map(({ icon, title, subtitle }) => (
+                      <View key={title} style={styles.whyShopCell}>
+                        <View style={styles.whyShopItem}>
+                          <View style={styles.whyShopIcon}>
+                            <Ionicons name={icon} size={18} color={C.gold} />
                           </View>
-                          <Text style={styles.whyShopItemTitle}>{w.title}</Text>
-                          <Text style={styles.whyShopItemSub} numberOfLines={2}>
-                            {w.subtitle}
-                          </Text>
+                          <View style={styles.whyShopCopy}>
+                            <Text style={styles.whyShopItemTitle}>{title}</Text>
+                            <Text style={styles.whyShopItemSub}>{subtitle}</Text>
+                          </View>
                         </View>
-                      </ScrollReveal>
+                      </View>
                     ))}
                   </View>
-                </View>
+                </ScrollReveal>
 
-              </FadeSlideIn>
+                <ScrollReveal>
+                  <IbjaPartnerCard />
+                </ScrollReveal>
+                <ScrollReveal>
+                  <LeadershipTeam />
+                </ScrollReveal>
+                <ScrollReveal>
+                  <GroupCompanies />
+                </ScrollReveal>
+              </View>
             )}
 
             {/* ── PRODUCTS VIEW ── */}
@@ -2177,7 +1931,7 @@ const PgHomeScreen = ({ navigation, route }) => {
         )}
 
         {/* ── Footer ── */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, showHome && styles.homeFooter]}>
           {/* Same violet gradient as the Home banner */}
           <LinearGradient
             colors={["#2E1E62", "#4B3888", "#6B52B5"]}
@@ -2185,78 +1939,76 @@ const PgHomeScreen = ({ navigation, route }) => {
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <View style={styles.footerTopRow}>
+          <View style={[styles.footerTopRow, showHome && styles.homeFooterTop]}>
             <Image
               source={require("../../../assets/logo-header.png")}
-              style={styles.footerLogoImg}
+              style={[styles.footerLogoImg, showHome && styles.homeFooterLogo]}
               resizeMode="contain"
             />
-            <Text style={styles.footerTagline}>
+            <Text style={[styles.footerTagline, showHome && styles.homeFooterTagline]}>
               Your trusted destination for authentic 22K hallmarked gold
               jewellery. Crafted with precision, delivered with care.
             </Text>
           </View>
 
-          <View style={styles.footerDivider} />
+          <View style={[styles.footerDivider, showHome && styles.homeFooterDivider]} />
 
           {/* Contact Us */}
           <View style={styles.footerBlock}>
             <Text style={styles.footerHeading}>CONTACT US</Text>
 
-            <View style={styles.footerContactRow}>
+            <View style={[styles.footerContactRow, showHome && styles.homeFooterContactRow]}>
               <Ionicons name="location-outline" size={15} color={FOOTER_ACCENT} style={styles.footerContactIcon} />
               <Text style={styles.footerContactText}>
-                OXYIDEAS PARTNERS LLP, CC-03, Indu Fortune Fields, KPHB,
-                Hyderabad, Telangana - 500085
+                <Text style={showHome && styles.homeFooterAddressName}>OXYIDEAS PARTNERS LLP</Text>
+                {showHome ? "\n" : ", "}CC-03, Indu Fortune Fields, KPHB, Hyderabad, Telangana - 500085
               </Text>
             </View>
 
-            <View style={styles.footerContactRow}>
+            <View style={[styles.footerContactRow, showHome && styles.homeFooterContactRow]}>
               <Ionicons name="location-outline" size={15} color={FOOTER_ACCENT} style={styles.footerContactIcon} />
               <Text style={styles.footerContactText}>
-                AI Research Center, Entrance D, SE02 Concourse, Miyapur Metro
-                Station, Hyderabad, Telangana 500049
+                <Text style={showHome && styles.homeFooterAddressName}>AI Research Center</Text>
+                {showHome ? "\n" : ", "}Entrance D, SE02 Concourse, Miyapur Metro Station, Hyderabad, Telangana 500049
               </Text>
             </View>
 
-            <TouchableOpacity style={styles.footerContactRow} onPress={() => Linking.openURL("tel:+918143271103")}>
+            <TouchableOpacity style={[styles.footerContactRow, showHome && styles.homeFooterContactRow]} onPress={() => Linking.openURL("tel:+918143271103")}>
               <Ionicons name="call-outline" size={15} color={FOOTER_ACCENT} style={styles.footerContactIcon} />
               <Text style={styles.footerContactText}>+91 81432 71103</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.footerContactRow} onPress={() => Linking.openURL("mailto:support@oxygold.ai")}>
+            <TouchableOpacity style={[styles.footerContactRow, showHome && styles.homeFooterContactRow]} onPress={() => Linking.openURL("mailto:support@oxygold.ai")}>
               <Ionicons name="mail-outline" size={15} color={FOOTER_ACCENT} style={styles.footerContactIcon} />
               <Text style={styles.footerContactText}>support@oxygold.ai</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.footerContactRow} onPress={() => navigation.navigate("PgSupport")}>
+            <TouchableOpacity style={[styles.footerContactRow, showHome && styles.homeFooterContactRow]} onPress={() => navigation.navigate("PgSupport")}>
               <Ionicons name="chatbubble-ellipses-outline" size={15} color={FOOTER_ACCENT} style={styles.footerContactIcon} />
               <Text style={styles.footerContactText}>Contact Support</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.footerDivider} />
+          <View style={[styles.footerDivider, showHome && styles.homeFooterDivider]} />
 
-          <Text style={styles.footerCopyright}>
+          <Text style={[styles.footerCopyright, showHome && styles.homeFooterCopyright]}>
             © 2026 OxyGold by OXYIDEAS PARTNERS LLP. All rights reserved.
           </Text>
 
-          <View style={styles.footerLinksRow}>
-            <TouchableOpacity onPress={() => navigation.navigate("PgPrivacyPolicy")} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
-              <Text style={styles.footerLink}>Privacy Policy</Text>
-            </TouchableOpacity>
-            <Text style={styles.footerLinkDot}>·</Text>
-            <TouchableOpacity onPress={() => navigation.navigate("PgTerms")} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
-              <Text style={styles.footerLink}>Terms & Conditions</Text>
-            </TouchableOpacity>
-            <Text style={styles.footerLinkDot}>·</Text>
-            <TouchableOpacity onPress={() => navigation.navigate("PgCookiePolicy")} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
-              <Text style={styles.footerLink}>Cookie Policy</Text>
-            </TouchableOpacity>
-            <Text style={styles.footerLinkDot}>·</Text>
-            <TouchableOpacity onPress={() => navigation.navigate("PgCancellationPolicy")} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
-              <Text style={styles.footerLink}>Cancellation Policy</Text>
-            </TouchableOpacity>
+          <View style={[styles.footerLinksRow, showHome && styles.homeFooterLinks]}>
+            {FOOTER_POLICIES.map(({ label, route }, index) => (
+              <React.Fragment key={route}>
+                {!showHome && index > 0 && <Text style={styles.footerLinkDot}>·</Text>}
+                <TouchableOpacity
+                  accessibilityRole="link"
+                  onPress={() => navigation.navigate(route)}
+                  style={showHome && styles.homeFooterLink}
+                  hitSlop={showHome ? undefined : { top: 8, bottom: 8, left: 6, right: 6 }}
+                >
+                  <Text style={styles.footerLink}>{label}</Text>
+                </TouchableOpacity>
+              </React.Fragment>
+            ))}
           </View>
         </View>
         </ScrollRevealProvider>
@@ -2281,8 +2033,6 @@ const PgHomeScreen = ({ navigation, route }) => {
         </Animated.View>
       )}
     </PgLayout>
-    {SHOW_DIWALI && !isCategoryScreen && <DiwaliBlast playKey={blastKey} />}
-    {SHOW_DIWALI && !isCategoryScreen && <DiwaliGreeting showKey={greetKey} />}
 
     <ProductQuickViewSheet
       visible={!!quickViewProduct}
@@ -2310,6 +2060,7 @@ const styles = StyleSheet.create({
   // meets the dashboard band (the content itself stays white).
   scrollFlex: { flex: 1, backgroundColor: "#4B3888" },
   scrollContent: { paddingBottom: 16, backgroundColor: "#FFFFFF" },
+  homeScrollContent: { paddingBottom: 0 },
 
   // Deliver-to + search share one soft lavender band with the rate card
   // below them, so the top of Home reads as one block.
@@ -2322,8 +2073,7 @@ const styles = StyleSheet.create({
     marginBottom: -1,
     zIndex: 2,
   },
-  // Flat cream behind Deliver-to, search and the banner.
-  goldFlatTint: { backgroundColor: HOME_BAND },
+  homeTopBar: { paddingTop: 0, paddingBottom: 0 },
   combinedTopBarRaised: {
     zIndex: 2,
     shadowColor: "#2A1F4A",
@@ -2332,11 +2082,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  // Soft lavender — the brand purple's tint.
-  greenFlatTint: { backgroundColor: PG_HOME_THEME.tint },
-  // Gold Rates + Categories — a different, cooler flat tint so this block
-  // reads as its own section instead of blending into the hero above.
-  ratesTint: { backgroundColor: "#FFFFFF" },
   locationBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -2345,7 +2090,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 6,
   },
-  locationTextWrap: { flex: 1 },
+  homeLocationBar: { minHeight: 34, paddingHorizontal: 0, paddingVertical: 4 },
+  locationTextWrap: { flex: 1, minWidth: 0 },
+  homeLocationLine: { flex: 1, fontSize: 13, lineHeight: 18 },
+  locationSummary: { fontSize: 12, lineHeight: 16, color: "#E9E0F8" },
   locationLine: { flex: 1, fontSize: 13 },
   locationLabel: {
     fontSize: 12,
@@ -2379,6 +2127,17 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   searchBarWrapFixed: { marginTop: 2, marginBottom: 8 },
+  homeSearchBar: {
+    minHeight: 42,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "transparent",
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  homeSearchFocused: { borderColor: "#D8C4FF" },
   searchIcon: { fontSize: 16 },
   searchInput: {
     flex: 1,
@@ -2450,41 +2209,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  bannerSection: { paddingTop: 16, paddingBottom: 4 },
-  bannerCarouselWrap: {
-    marginHorizontal: 16,
-    borderRadius: 16,
-    overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E6E1EC",
-  },
+  homeSection: { marginTop: 24 },
+  homeCollectionGrid: { marginBottom: 0, paddingHorizontal: 10 },
 
-  // ── Live gold / silver rates ──
-  ratesAndCategoriesSection: { paddingTop: 20, paddingBottom: 16, borderBottomWidth: 8, borderBottomColor: "#F6F4F9" },
-  categoriesSpacer: { height: 30 },
-  // Thin light border instead of a shadow — cleaner, matches Cart/Checkout.
-  // Thin light border instead of a shadow — cleaner, matches Cart/Checkout.
-  ratesCard: {
-    marginHorizontal: 16,
-    backgroundColor: C.bgCard,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#EEEEF3",
-  },
-  ratesTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 10,
-  },
-  ratesTitleText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: PRICE_TITLE,
-    letterSpacing: 0.2,
-  },
-  ratesUpdatedText: { marginLeft: "auto", fontSize: 11, color: C.textMuted },
   ratesRow: { flexDirection: "row", alignItems: "center" },
   rateBlock: {
     flex: 1,
@@ -2499,7 +2226,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#F0EDF5",
     marginVertical: 4,
   },
-  rateIconImg: { width: 30, height: 30, marginBottom: 4 },
   rateLabelRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   rateDot: { width: 7, height: 7, borderRadius: 4 },
   rateLabel: { fontSize: 11, fontWeight: "700", color: C.textSecondary, letterSpacing: 0.2 },
@@ -2531,116 +2257,59 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   ratesLinkText: { fontSize: 13, fontWeight: "500", color: C.gold },
-  bannerSlide: {
-    width: BANNER_WIDTH,
-    // Shorter than the artwork (~72%); "cover" trims top/bottom only, so the
-    // headline, SHOP NOW and the bars (all mid-height) stay visible.
-    height: BANNER_HEIGHT,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#333333",
-  },
-  bannerImage: {
-    width: "100%",
-    height: "100%",
-  },
-  // ── Violet brand banner ──
   brandBanner: {
-    width: BANNER_WIDTH,
-    height: Math.max(BANNER_HEIGHT, 150),
-    borderRadius: 16,
+    marginHorizontal: 16,
+    marginTop: 24,
+    minHeight: 152,
+    borderRadius: 14,
     overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
   },
-  brandGlow: {
-    position: "absolute",
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.07)",
-  },
-  brandText: { width: "60%", paddingLeft: 16, paddingVertical: 14, zIndex: 2 },
-  brandEyebrow: { fontSize: 10, fontWeight: "700", letterSpacing: 1.2, color: "#FFD27A" },
-  brandTitle: { fontSize: 20, fontWeight: "700", color: "#FFFFFF", marginTop: 4 },
-  brandSub: { fontSize: 11, color: "#DCD3F0", marginTop: 4, lineHeight: 15 },
+  brandText: { flex: 1, paddingStart: 14, paddingVertical: 12 },
+  brandEyebrow: { fontSize: 10, fontWeight: "700", letterSpacing: 0.55, color: "#FFD27A" },
+  brandTitle: { fontSize: 23, lineHeight: 27, fontWeight: "700", color: "#FFFFFF", marginTop: 4 },
+  brandSub: { fontSize: 12, lineHeight: 16, color: "#E9E0F8", marginTop: 4 },
   brandBtn: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    gap: 4,
+    gap: 5,
     marginTop: 10,
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    paddingHorizontal: 12,
+    borderRadius: 8,
+    paddingHorizontal: 10,
     paddingVertical: 6,
   },
   brandBtnText: { fontSize: 12, fontWeight: "700", color: "#4B3888" },
-  brandSilver: { position: "absolute", right: 4, top: 8, width: 92, height: 92 },
-  brandGold: { position: "absolute", right: 52, bottom: 6, width: 104, height: 94 },
-  // ── Why Shop With Us — LinearGradient handles the fade, no flat color here ──
-  // Warm cream → champagne gradient (set in JSX) — complements the gold
-  // icons and their glow; split from the products above by a grey band.
-  whyShopSection: {
-    paddingHorizontal: 12,
-    paddingTop: 26,
-    paddingBottom: 24,
-    backgroundColor: "#F4F0FA",
-  },
-  whyShopEyebrow: {
-    fontSize: 10.5,
-    fontWeight: "700",
-    letterSpacing: 1.4,
-    color: "#8A73B8",
-    textAlign: "center",
-  },
-  whyShopTitle: {
-    fontSize: 19,
-    fontWeight: "700",
-    color: C.textPrimary,
-    textAlign: "center",
-    marginTop: 4,
-    marginBottom: 16,
-  },
-  whyShopRow: { flexDirection: "row", flexWrap: "wrap" },
+  brandPortrait: { alignSelf: "flex-end", marginEnd: 4 },
+
+  // Why Choose — its own light band so the section stands apart
+  whyBand: { marginTop: 24, paddingTop: 20, paddingBottom: 18, backgroundColor: "#F7F5FB" },
+  whyShopPanel: { marginHorizontal: 11, flexDirection: "row", flexWrap: "wrap" },
   whyShopCell: { width: "50%", padding: 5 },
-  whyShopCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+  whyShopItem: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E9E2F5",
-    shadowColor: "#2E1E62",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 1,
+    borderColor: "#ECE6F4",
   },
-  whyShopIconWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#FFF6E6",
+  whyShopIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F4F0FA",
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
-    marginBottom: 10,
   },
-  whyShopIconImg: { width: 52, height: 52 },
-  whyShopItemTitle: {
-    fontSize: 13.5,
-    fontWeight: "700",
-    color: C.textPrimary,
-    textAlign: "center",
-  },
-  whyShopItemSub: {
-    fontSize: 11.5,
-    color: C.textSecondary,
-    lineHeight: 16,
-    marginTop: 3,
-    textAlign: "center",
-  },
-
+  whyShopCopy: { flex: 1 },
+  whyShopItemTitle: { fontSize: 12.5, fontWeight: "700", lineHeight: 16, color: C.textPrimary },
+  whyShopItemSub: { fontSize: 11, lineHeight: 15, color: "#625C6B", marginTop: 2 },
 
   // ── Footer — deep evergreen with soft neutral text and muted gold accents. ──
   footer: {
@@ -2650,6 +2319,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     backgroundColor: FOOTER_BG,
   },
+  homeFooter: {
+    alignItems: "stretch",
+    marginTop: 24,
+    paddingTop: 16,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    overflow: "hidden",
+  },
+  homeFooterTop: { flexDirection: "column", alignItems: "flex-start", gap: 6 },
+  homeFooterLogo: { width: 132, height: 22, marginRight: 0 },
+  homeFooterTagline: { flex: 0 },
+  homeFooterDivider: { marginVertical: 10 },
+  homeFooterAddressName: { fontWeight: "700", color: "#FFFFFF" },
+  homeFooterContactRow: { marginBottom: 7 },
+  homeFooterLinks: { justifyContent: "flex-start", marginTop: 4 },
+  homeFooterLink: { width: "50%", justifyContent: "center", minHeight: 32, paddingEnd: 8 },
+  homeFooterCopyright: { textAlign: "left", color: FOOTER_ACCENT },
   footerTopRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -2922,58 +2608,6 @@ const styles = StyleSheet.create({
   dashUnit: { fontSize: 10, fontWeight: "400", color: C.textMuted },
   dashChange: { fontSize: 11, fontWeight: "500" },
 
-  // ── Happy Diwali greeting ──
-  diwaliWrap: { paddingHorizontal: 16, paddingTop: 16 },
-  diwaliCard: {
-    flexDirection: "row",
-    gap: 12,
-    borderRadius: 16,
-    padding: 14,
-    overflow: "hidden",
-  },
-  diwaliIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "rgba(255,209,102,0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  diwaliTitle: { fontSize: 17, fontWeight: "700", color: "#FFD166" },
-  diwaliText: { fontSize: 12.5, color: "#F3E8FF", lineHeight: 18, marginTop: 3 },
-  diwaliBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 4,
-    marginTop: 10,
-    backgroundColor: "#FFD166",
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  diwaliBtnText: { fontSize: 12, fontWeight: "700", color: "#4A2A7A" },
-  diwaliSpark: { position: "absolute", top: 10, right: 12 },
-
-  // ── Quick actions ──
-  quickRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  quickItem: { width: "24%", alignItems: "center", gap: 6 },
-  quickIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#F4F0FA",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickLabel: { fontSize: 11.5, fontWeight: "500", color: C.textPrimary },
-
-  // ── Empty / error state ──
   stateBox: { alignItems: "center", paddingVertical: 22, gap: 8 },
   stateText: { fontSize: 13, color: C.textSecondary },
   stateBtn: {
@@ -2986,9 +2620,6 @@ const styles = StyleSheet.create({
   stateBtnText: { fontSize: 12.5, fontWeight: "600", color: C.gold },
 
   // ── Banner carousel ──
-  bannerDots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 8 },
-  bannerDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#DDD6EA" },
-  bannerDotActive: { width: 16, backgroundColor: C.gold },
 
   // ── Live rate hero (previous) ──
   // Same dark violet as the header and top bar — one block, edge to edge.
@@ -3059,6 +2690,27 @@ const styles = StyleSheet.create({
 
   // ── Shop by Category — photo tiles ──
   catGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 11 },
+  // ── Shop by Category — round animated orbs ──
+  categoryTiles: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 11, rowGap: 10 },
+  categoryTileCell: { width: "50%", paddingHorizontal: 5 },
+  categoryTile: {
+    flex: 1,
+    minHeight: 100,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  categoryTileCopy: { flex: 1 },
+  categoryTileName: { color: "#282130", fontWeight: "700", fontSize: 16, lineHeight: 20 },
+  categoryTileDescription: { color: "#58515F", fontSize: 11, lineHeight: 15, marginTop: 2 },
+  categoryTileAction: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 3, marginTop: 6 },
+  categoryTileActionText: { fontSize: 11, fontWeight: "700" },
+  categoryTileImage: { width: "43%", maxWidth: 78, aspectRatio: 1, borderRadius: 7 },
+
   catTileWrap: { width: "33.333%", padding: 5 },
   catTile: {
     width: "100%",
