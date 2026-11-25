@@ -15,16 +15,18 @@ const C = {
   divider: "#EEEEF3",
 };
 
+import { formatPercent } from "../utils/makingCharges";
+
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 // Grand total always shows paise (₹1,26,562.20) — display only.
 const inr2 = (n) =>
   `₹${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const BillRow = ({ icon, label, sub, value, free, onPress }) => {
+// Plain text rows — no leading icons, for a cleaner bill.
+const BillRow = ({ label, sub, value, free, onPress }) => {
   const Wrap = onPress ? TouchableOpacity : View;
   return (
     <Wrap style={s.row} {...(onPress ? { onPress, activeOpacity: 0.7 } : {})}>
-      <Ionicons name={icon} size={15} color={C.muted} style={s.icon} />
       <View style={{ flex: 1 }}>
         <View style={s.labelRow}>
           <Text style={s.label}>{label}</Text>
@@ -41,6 +43,7 @@ const BillDetailsCard = ({
   itemCount = 0,
   subtotal = 0,
   making = 0,
+  makingPercent = null, // e.g. 4 → "Making charges (4%)"
   gst = 0,
   discount = 0, // backend discount (GST waiver when it covers the GST)
   deliveryFee = 0,
@@ -60,7 +63,7 @@ const BillDetailsCard = ({
       <BillRow icon="document-text-outline" label={`Items total (${itemCount})`} value={inr(subtotal)} />
       <BillRow
         icon="hammer-outline"
-        label="Making charges"
+        label={makingPercent ? `Making charges (${formatPercent(makingPercent)})` : "Making charges"}
         value={making > 0 ? inr(making) : "FREE"}
         free={making <= 0}
       />

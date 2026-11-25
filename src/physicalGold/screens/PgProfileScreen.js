@@ -66,6 +66,34 @@ const SectionHead = ({ title, subtitle }) => (
 const InfoRow = React.memo(
   ({ label, required, value, placeholder, editing, editable = true, fieldKey, onFieldChange, last, verified, ...inputProps }) => {
     const [focused, setFocused] = useState(false);
+    // Edit mode: clean stacked field — label on top, full-width input below.
+    if (editing) {
+      return (
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>
+            {label}
+            {required && <Text style={styles.fieldLabelRequired}> *</Text>}
+          </Text>
+          {editable ? (
+            <TextInput
+              style={[styles.fieldInput, focused && styles.fieldInputFocused]}
+              value={value}
+              onChangeText={(text) => onFieldChange(fieldKey, text)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder={placeholder}
+              placeholderTextColor={T.faint}
+              {...inputProps}
+            />
+          ) : (
+            <View style={[styles.fieldInput, styles.fieldInputDisabled]}>
+              <Text style={styles.fieldDisabledText}>{value || "—"}</Text>
+              <Ionicons name="lock-closed-outline" size={14} color={T.faint} />
+            </View>
+          )}
+        </View>
+      );
+    }
     return (
     <View style={[styles.infoRow, !last && styles.infoRowDivider]}>
       <View style={styles.infoRowLeft}>
@@ -163,7 +191,15 @@ const PgProfileScreen = ({ navigation, route }) => {
         mobileNumber: profileData.mobileNumber || profileData.phone || userPhone || "",
         alterMobileNumber:
           profileData.alterMobileNumber || profileData.alternativeNumber || "",
-        whatsappNumber: profileData.whatsappNumber || profileData.whatsAppNumber || "",
+        // WhatsApp is required; most people use their primary mobile, so it's
+        // pre-filled with that when empty (still editable).
+        whatsappNumber:
+          profileData.whatsappNumber ||
+          profileData.whatsAppNumber ||
+          profileData.mobileNumber ||
+          profileData.phone ||
+          userPhone ||
+          "",
         gender: profileData.gender || "",
         panNumber: profileData.panNumber || profileData.pan || "",
       };
@@ -171,13 +207,17 @@ const PgProfileScreen = ({ navigation, route }) => {
 
       setFormData(formFields);
 
-      // Check if important fields are missing
+      // Required: first name, last name, gender, WhatsApp number and email
+      // (mobile is the login number). PAN is optional. WhatsApp is read from
+      // what the server has saved, not the pre-filled form value.
       const hasFirstName = !!formFields.firstName;
       const hasLastName = !!formFields.lastName;
       const hasEmail = !!formFields.email;
+      const hasGender = !!formFields.gender;
+      const hasWhatsapp = !!(profileData.whatsappNumber || profileData.whatsAppNumber);
 
-      // Show message if any important field is missing
-      if (!hasFirstName || !hasLastName || !hasEmail) {
+      // Show message if any required field is missing
+      if (!hasFirstName || !hasLastName || !hasEmail || !hasGender || !hasWhatsapp) {
         setTimeout(() => {
           Alert.alert(
             "Complete Your Profile",
@@ -253,6 +293,17 @@ const PgProfileScreen = ({ navigation, route }) => {
       Alert.alert("Invalid Name", "First name should contain only letters");
       return;
     }
+    // Last name is required by the backend's profile check, and may only
+    // contain letters and spaces.
+    const lastName = (formData.lastName || "").trim();
+    if (!lastName) {
+      Alert.alert("Last Name Required", "Please enter your last name");
+      return;
+    }
+    if (!nameRegex.test(lastName)) {
+      Alert.alert("Invalid Last Name", "Last name can only contain letters and spaces");
+      return;
+    }
 
     // Validate email — required, with domain format checking
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -290,15 +341,17 @@ const PgProfileScreen = ({ navigation, route }) => {
     }
 
 
-    if (formData.whatsappNumber) {
-      if (!/^\d{10}$/.test(formData.whatsappNumber)) {
-        Alert.alert("Invalid Number", "WhatsApp number must be exactly 10 digits");
-        return;
-      }
-      if (!/^[6-9]/.test(formData.whatsappNumber)) {
-        Alert.alert("Invalid Number", "WhatsApp number must start with 6, 7, 8, or 9");
-        return;
-      }
+    if (!formData.whatsappNumber?.trim()) {
+      Alert.alert("WhatsApp Number Required", "Please enter your WhatsApp number");
+      return;
+    }
+    if (!/^\d{10}$/.test(formData.whatsappNumber)) {
+      Alert.alert("Invalid Number", "WhatsApp number must be exactly 10 digits");
+      return;
+    }
+    if (!/^[6-9]/.test(formData.whatsappNumber)) {
+      Alert.alert("Invalid Number", "WhatsApp number must start with 6, 7, 8, or 9");
+      return;
     }
 
     // Gender is required by the backend's saveUserProfile endpoint.
@@ -319,8 +372,8 @@ const PgProfileScreen = ({ navigation, route }) => {
     try {
       const payload = {
         userId: Number(userId),
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        firstName: formData.firstName.trim(),
+        lastName,
         email: formData.email,
         alternativeNumber: formData.alterMobileNumber,
         whatsappNumber: formData.whatsappNumber,
@@ -596,56 +649,70 @@ const PgProfileScreen = ({ navigation, route }) => {
             value={formData.firstName}
             fieldKey="firstName"
             onFieldChange={handleFieldChange}
+            placeholder="Enter first name"
           />
           <InfoRow
             label="Last Name"
+            required
             editing={editing}
             value={formData.lastName}
             fieldKey="lastName"
             onFieldChange={handleFieldChange}
+            placeholder="Enter last name"
           />
 
-          <View style={[styles.infoRow, styles.infoRowDivider]}>
-            <View style={styles.infoRowLeft}>
-              <Text style={styles.infoLabel}>
+          {editing ? (
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>
                 Gender<Text style={styles.fieldLabelRequired}> *</Text>
               </Text>
-            </View>
-            {editing ? (
-              <View style={styles.genderRow}>
-                {["male", "female"].map((g) => (
-                  <TouchableOpacity
-                    key={g}
-                    style={[styles.genderOption, formData.gender === g && styles.genderOptionActive]}
-                    onPress={() => setFormData({ ...formData, gender: g })}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.genderOptionText,
-                        formData.gender === g && styles.genderOptionTextActive,
-                      ]}
+              <View style={styles.genderSeg}>
+                {["male", "female"].map((g) => {
+                  const active = formData.gender === g;
+                  return (
+                    <TouchableOpacity
+                      key={g}
+                      style={[styles.genderSegBtn, active && styles.genderSegBtnActive]}
+                      onPress={() => setFormData({ ...formData, gender: g })}
+                      activeOpacity={0.8}
                     >
-                      {g === "male" ? "Male" : "Female"}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Ionicons
+                        name={g === "male" ? "male-outline" : "female-outline"}
+                        size={16}
+                        color={active ? "#FFFFFF" : T.subtle}
+                      />
+                      <Text style={[styles.genderSegText, active && styles.genderSegTextActive]}>
+                        {g === "male" ? "Male" : "Female"}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            ) : (
+            </View>
+          ) : (
+            <View style={[styles.infoRow, styles.infoRowDivider]}>
+              <View style={styles.infoRowLeft}>
+                <Text style={styles.infoLabel}>
+                  Gender<Text style={styles.fieldLabelRequired}> *</Text>
+                </Text>
+              </View>
               <Text style={[styles.infoValue, !formData.gender && styles.infoValueEmpty]}>
                 {formData.gender ? (formData.gender === "male" ? "Male" : "Female") : "Not provided"}
               </Text>
-            )}
-          </View>
+            </View>
+          )}
 
           <InfoRow label="Primary Mobile" editing={editing} editable={false} value={formData.mobileNumber} />
           <InfoRow
             label="WhatsApp Number"
+            required
             editing={editing}
             value={formData.whatsappNumber}
             fieldKey="whatsappNumber"
             onFieldChange={handleFieldChange}
             keyboardType="phone-pad"
+            maxLength={10}
+            placeholder="10-digit WhatsApp number"
           />
           <InfoRow
             label="Email"
@@ -654,6 +721,10 @@ const PgProfileScreen = ({ navigation, route }) => {
             value={formData.email}
             fieldKey="email"
             onFieldChange={handleFieldChange}
+            placeholder="name@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
           <InfoRow
             label="PAN Number (Optional)"
@@ -972,6 +1043,44 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   genderRow: { flexDirection: "row", gap: 8 },
+  // Edit form — stacked fields
+  field: { marginBottom: 14 },
+  fieldLabel: { fontSize: 12.5, fontWeight: "600", color: T.subtle, marginBottom: 6 },
+  fieldInput: {
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2DDEA",
+    backgroundColor: "#FAF9FC",
+    paddingHorizontal: 12,
+    fontSize: 14.5,
+    fontWeight: "500",
+    color: T.ink,
+  },
+  fieldInputFocused: { borderColor: "#503189", backgroundColor: "#FFFFFF" },
+  fieldInputDisabled: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F2F1F5",
+  },
+  fieldDisabledText: { fontSize: 14.5, fontWeight: "500", color: T.subtle },
+  genderSeg: { flexDirection: "row", gap: 10 },
+  genderSegBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2DDEA",
+    backgroundColor: "#FAF9FC",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  genderSegBtnActive: { backgroundColor: "#503189", borderColor: "#503189" },
+  genderSegText: { fontSize: 14, fontWeight: "600", color: T.subtle },
+  genderSegTextActive: { color: "#FFFFFF" },
   genderOption: {
     backgroundColor: T.bg,
     borderRadius: 10,

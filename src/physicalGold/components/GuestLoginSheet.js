@@ -100,8 +100,12 @@ const GuestLoginSheet = ({ visible, onClose, onSuccess }) => {
       try {
         data = await sendOtpAs("Login");
       } catch (loginError) {
+        // The server answers an unregistered number with messages like
+        // "You are unable to login Please Register" — treat any of these as
+        // "no account yet" and continue as a sign-up (same API the web
+        // Register page uses: userType "Register").
         const accountMissing = loginError?.status === 404 ||
-          /user (is )?(not found|not registered)|user (does not|doesn't) exist|no account|account does not exist/i.test(loginError?.message || "");
+          /user (is )?(not found|not registered)|user (does not|doesn't) exist|no account|account does not exist|please register|unable to login|not registered/i.test(loginError?.message || "");
         if (!accountMissing) throw loginError;
         mode = "Register";
         data = await sendOtpAs("Register");

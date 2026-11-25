@@ -24,6 +24,7 @@ import PgGuestPrompt from "../components/PgGuestPrompt";
 import FadeSlideIn from "../components/FadeSlideIn";
 import GstWaiverModal from "../components/GstWaiverModal";
 import BillDetailsCard from "../components/BillDetailsCard";
+import { makingChargesPercent } from "../utils/makingCharges";
 import PgQtyStepper from "../components/PgQtyStepper";
 import { getProductImages, getUserAddresses } from "../api/physicalGoldApi";
 import { performanceMonitor } from "../../utils/performanceMonitor";
@@ -452,6 +453,7 @@ const PgCartScreen = ({ navigation }) => {
             itemCount={cartItems.length}
             subtotal={subtotal}
             making={making}
+            makingPercent={makingChargesPercent(cartItems, making, getCartItemTotal)}
             gst={gst}
             discount={totalDiscountAmount}
             deliveryFee={deliveryFee}

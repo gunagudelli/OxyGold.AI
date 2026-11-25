@@ -10,7 +10,7 @@ export const showCartActionError = (error, navigation) => {
   if (/complete your profile/i.test(message)) {
     Alert.alert(
       'Complete Your Profile',
-      'Please add your name and email before adding items to cart.',
+      'Please add your first name, last name, gender, WhatsApp number and email before adding items to cart.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Go to Profile', onPress: () => navigation.navigate('PgProfile') },

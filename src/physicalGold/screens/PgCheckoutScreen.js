@@ -39,6 +39,7 @@ import { resolveImageUrl } from "../utils/resolveImageUrl";
 import GstWaiverModal from "../components/GstWaiverModal";
 import CouponsSheet, { estimateCouponSaving } from "../components/CouponsSheet";
 import BillDetailsCard from "../components/BillDetailsCard";
+import { makingChargesPercent } from "../utils/makingCharges";
 import PgQtyStepper from "../components/PgQtyStepper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -387,10 +388,14 @@ const PgCheckoutScreen = ({ navigation, route }) => {
           profileRes.value?.data ||
           profileRes.value;
         
+        // Required: first name, last name, gender, WhatsApp number and email
+        // (mobile is the login number). PAN is optional.
         const hasFirstName = !!p?.firstName;
         const hasLastName = !!p?.lastName;
         const hasEmail = !!p?.email;
-        const isComplete = hasFirstName && hasLastName && hasEmail;
+        const hasGender = !!p?.gender;
+        const hasWhatsapp = !!(p?.whatsappNumber || p?.whatsAppNumber);
+        const isComplete = hasFirstName && hasLastName && hasEmail && hasGender && hasWhatsapp;
         
         setProfileComplete(isComplete);
         
@@ -744,93 +749,63 @@ const PgCheckoutScreen = ({ navigation, route }) => {
                 </Text>
               </TouchableOpacity>
             ) : (
-              <View style={styles.addressList}>
-                {(showAllAddresses ? addresses : addresses.slice(0, 2)).map((addr, index, arr) => {
+              <View>
+                {(showAllAddresses
+                  ? addresses
+                  : addresses.filter((a) => a.id === selectedAddressId).slice(0, 1).concat(
+                      selectedAddressId ? [] : addresses.slice(0, 1),
+                    )
+                ).map((addr) => {
                   const selected = selectedAddressId === addr.id;
+                  const line = [addr.flatNo, addr.address, addr.area, addr.city, addr.state]
+                    .filter(Boolean)
+                    .map((x) => String(x).trim())
+                    .join(", ");
                   return (
-                    <View key={addr.id}>
-                      <TouchableOpacity
-                        style={[
-                          styles.addressCard,
-                          selected && styles.addressCardSelected,
-                        ]}
-                        onPress={() => setSelectedAddressId(addr.id)}
-                        activeOpacity={0.8}
-                      >
-                        {/* Icon */}
-                        <View
-                          style={[
-                            styles.addrIconBox,
-                            selected && styles.addrIconBoxSelected,
-                          ]}
-                        >
-                          <Ionicons
-                            name="location"
-                            size={14}
-                            color={selected ? "#fff" : C.navyLight}
-                          />
-                        </View>
-
-                        {/* Info */}
-                        <View style={{ flex: 1 }}>
-                          <View style={styles.addrTopRow}>
-                            <View style={styles.addrTypeChip}>
-                              <Text
-                                style={[
-                                  styles.addrTypeText,
-                                  selected && { color: C.navy },
-                                ]}
-                              >
-                                {addr.type}
-                              </Text>
-                            </View>
-                            {selected && (
-                              <Ionicons
-                                name="checkmark-circle"
-                                size={14}
-                                color={C.gold}
-                              />
-                            )}
-                          </View>
-                          <Text style={styles.addrMainText} numberOfLines={2}>
-                            {[addr.flatNo, addr.address].filter(Boolean).join(", ")}
-                          </Text>
-                          {addr.landMark ? (
-                            <Text style={styles.addrSubText}>Near {addr.landMark}</Text>
-                          ) : null}
-                          {(addr.area || addr.city) ? (
-                            <Text style={styles.addrSubText}>
-                              {[addr.area, addr.city].filter(Boolean).join(", ")}
-                            </Text>
-                          ) : null}
-                          <Text style={styles.addrPinText}>
-                            {addr.state} — {addr.pinCode}
-                          </Text>
-                        </View>
-                        
-                      </TouchableOpacity>
-                      {index < arr.length - 1 && (
-                        <View style={styles.itemDivider} />
+                    <TouchableOpacity
+                      key={addr.id}
+                      style={[styles.addrRow, showAllAddresses && selected && styles.addrRowSelected]}
+                      onPress={() => {
+                        setSelectedAddressId(addr.id);
+                        setShowAllAddresses(false);
+                      }}
+                      activeOpacity={0.8}
+                      disabled={!showAllAddresses}
+                    >
+                      {showAllAddresses ? (
+                        <Ionicons
+                          name={selected ? "radio-button-on" : "radio-button-off"}
+                          size={18}
+                          color={selected ? C.gold : C.navyLight}
+                          style={{ marginTop: 1 }}
+                        />
+                      ) : (
+                        <Ionicons name="location" size={16} color={C.gold} style={{ marginTop: 1 }} />
                       )}
-                    </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.addrType}>
+                          {[addr.type || "Address", addr.pinCode].filter(Boolean).join(" · ")}
+                        </Text>
+                        <Text style={styles.addrLine} numberOfLines={1}>
+                          {line}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
                   );
                 })}
-                
-                {/* Show More/Less Button */}
-                {addresses.length > 2 && (
+
+                {addresses.length > 1 && (
                   <TouchableOpacity
-                    style={styles.showMoreBtn}
+                    style={styles.changeAddrBtn}
                     onPress={() => setShowAllAddresses(!showAllAddresses)}
-                    activeOpacity={0.8}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
-                    <Text style={styles.showMoreText}>
-                      {showAllAddresses
-                        ? "Show Less"
-                        : `Show ${addresses.length - 2} More Address${addresses.length - 2 > 1 ? "es" : ""}`}
+                    <Text style={styles.changeAddrText}>
+                      {showAllAddresses ? "Done" : `Change address (${addresses.length})`}
                     </Text>
                     <Ionicons
                       name={showAllAddresses ? "chevron-up" : "chevron-down"}
-                      size={16}
+                      size={14}
                       color={C.gold}
                     />
                   </TouchableOpacity>
@@ -906,10 +881,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
               with the full offers list one tap away. ── */}
           <View style={styles.card}>
             <View style={styles.couponHeaderRow}>
-              <View style={styles.couponTitleRow}>
-                <Ionicons name="pricetag-outline" size={16} color={C.gold} />
-                <Text style={styles.couponTitle}>Apply Coupon</Text>
-              </View>
+              <Text style={styles.couponTitle}>Apply Coupon</Text>
               {availableCoupons.length > 0 && (
                 <TouchableOpacity
                   onPress={() => setShowCouponsSheet(true)}
@@ -946,7 +918,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
                 <View style={styles.couponInputRow}>
                   <TextInput
                     style={styles.couponInput}
-                    placeholder="Enter coupon code"
+                    placeholder="Enter code"
                     placeholderTextColor={C.navyLight}
                     value={couponInput}
                     onChangeText={(t) => {
@@ -992,6 +964,7 @@ const PgCheckoutScreen = ({ navigation, route }) => {
               itemCount={cartItems?.length || 0}
               subtotal={cartSubtotal}
               making={cartMaking}
+              makingPercent={makingChargesPercent(cartItems, cartMaking, getCheckoutItemTotal)}
               gst={cartGst}
               discount={cartDiscount}
               deliveryFee={deliveryFee}
@@ -1145,7 +1118,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: C.navyMid,
-    marginBottom: 14,
+    marginBottom: 8,
   },
 
   // ── Warning box ──
@@ -1300,15 +1273,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   couponTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   couponTitle: { fontSize: 14, fontWeight: "600", color: C.navy },
+  // Compact delivery address
+  addrRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingVertical: 2 },
+  addrRowSelected: { backgroundColor: "#F7F4FC", borderRadius: 10, marginHorizontal: -8, paddingHorizontal: 8 },
+  addrType: { fontSize: 13.5, fontWeight: "700", color: "#222222" },
+  addrLine: { fontSize: 13, color: "#3A3A3A", lineHeight: 18, marginTop: 1 },
+  addrPin: { fontSize: 11.5, color: C.navyLight, marginTop: 2 },
+  changeAddrBtn: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 4, marginTop: 6 },
+  changeAddrText: { fontSize: 12.5, fontWeight: "600", color: C.gold },
   couponViewAll: { fontSize: 13, fontWeight: "600", color: C.gold },
   couponInputRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   couponInput: {
     flex: 1,
-    height: 42,
+    height: 40,
     borderWidth: 1,
     borderColor: "#D8D2E6",
     borderRadius: 9,
@@ -1320,7 +1301,7 @@ const styles = StyleSheet.create({
     color: C.navy,
   },
   couponApplyBtn: {
-    height: 42,
+    height: 40,
     minWidth: 76,
     paddingHorizontal: 16,
     borderRadius: 9,
